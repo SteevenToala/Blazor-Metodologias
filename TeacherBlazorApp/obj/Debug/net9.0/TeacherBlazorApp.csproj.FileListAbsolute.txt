@@ -1069,7 +1069,6 @@ C:\metodologias\blazor\TeacherBlazorApp\obj\Debug\net9.0\refint\TeacherBlazorApp
 C:\metodologias\blazor\TeacherBlazorApp\obj\Debug\net9.0\TeacherBlazorApp.pdb
 C:\metodologias\blazor\TeacherBlazorApp\obj\Debug\net9.0\ref\TeacherBlazorApp.dll
 C:\metodologias\blazor\TeacherBlazorApp\obj\Debug\net9.0\compressed\vfcltjg1uu-5ipweew5fc.gz
-C:\metodologias\blazor\TeacherBlazorApp\bin\Debug\net9.0\package.json
 C:\metodologias\blazor\TeacherBlazorApp\obj\Debug\net9.0\compressed\qyd64pes90-5ipweew5fc.gz
 C:\metodologias\blazor\TeacherBlazorApp\obj\Debug\net9.0\compressed\jtchq93t2a-pp79ui05em.gz
 C:\metodologias\blazor\TeacherBlazorApp\bin\Debug\net9.0\wwwroot\_framework\TeacherBlazorApp.f5wgldama3.wasm
