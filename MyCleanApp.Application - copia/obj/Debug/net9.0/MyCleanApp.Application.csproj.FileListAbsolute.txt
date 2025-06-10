@@ -1,0 +1,16 @@
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\bin\Debug\net9.0\MyCleanApp.Application.deps.json
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\bin\Debug\net9.0\MyCleanApp.Application.dll
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\bin\Debug\net9.0\MyCleanApp.Application.pdb
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\bin\Debug\net9.0\MyCleanApp.Domain.dll
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\bin\Debug\net9.0\MyCleanApp.Domain.pdb
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\obj\Debug\net9.0\MyCleanApp.Application.csproj.AssemblyReference.cache
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\obj\Debug\net9.0\MyCleanApp.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\obj\Debug\net9.0\MyCleanApp.Application.AssemblyInfoInputs.cache
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\obj\Debug\net9.0\MyCleanApp.Application.AssemblyInfo.cs
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\obj\Debug\net9.0\MyCleanApp.Application.csproj.CoreCompileInputs.cache
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\obj\Debug\net9.0\MyCleanA.3BB5D9FC.Up2Date
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\obj\Debug\net9.0\MyCleanApp.Application.dll
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\obj\Debug\net9.0\refint\MyCleanApp.Application.dll
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\obj\Debug\net9.0\MyCleanApp.Application.pdb
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\obj\Debug\net9.0\ref\MyCleanApp.Application.dll
+C:\Users\juanp\Documents\agiles\MyCleanApp\MyCleanApp.Application\obj\Debug\net9.0\MyCleanApp.Application.sourcelink.json

@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "MyCleanApp.Application/1.0.0": {
+        "dependencies": {
+          "MyCleanApp.Domain": "1.0.0"
+        },
+        "runtime": {
+          "MyCleanApp.Application.dll": {}
+        }
+      },
+      "MyCleanApp.Domain/1.0.0": {
+        "runtime": {
+          "MyCleanApp.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "MyCleanApp.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MyCleanApp.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
