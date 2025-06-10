@@ -1,6 +1,7 @@
 {
   "format": 1,
   "restore": {
+<<<<<<< HEAD
     "C:\\Users\\juanp\\Documents\\Blazor-Metodologias-main\\Blazor-Metodologias-main\\TeacherBlazorApp\\TeacherBlazorApp.csproj": {}
   },
   "projects": {
@@ -20,12 +21,31 @@
           "C:\\Users\\juanp\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+=======
+    "C:\\metodologias\\blazor\\TeacherBlazorApp\\TeacherBlazorApp.csproj": {}
+  },
+  "projects": {
+    "C:\\metodologias\\blazor\\TeacherBlazorApp\\TeacherBlazorApp.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\metodologias\\blazor\\TeacherBlazorApp\\TeacherBlazorApp.csproj",
+        "projectName": "TeacherBlazorApp",
+        "projectPath": "C:\\metodologias\\blazor\\TeacherBlazorApp\\TeacherBlazorApp.csproj",
+        "packagesPath": "C:\\Users\\steev\\.nuget\\packages\\",
+        "outputPath": "C:\\metodologias\\blazor\\TeacherBlazorApp\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\steev\\AppData\\Roaming\\NuGet\\NuGet.Config"
+>>>>>>> 818c4a542e825624949bec58d8e6801812408c4a
         ],
         "originalTargetFrameworks": [
           "net9.0"
         ],
         "sources": {
+<<<<<<< HEAD
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+=======
+>>>>>>> 818c4a542e825624949bec58d8e6801812408c4a
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -44,7 +64,11 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
+<<<<<<< HEAD
         "SdkAnalysisLevel": "9.0.200"
+=======
+        "SdkAnalysisLevel": "9.0.300"
+>>>>>>> 818c4a542e825624949bec58d8e6801812408c4a
       },
       "frameworks": {
         "net9.0": {
@@ -62,13 +86,21 @@
             "Microsoft.NET.ILLink.Tasks": {
               "suppressParent": "All",
               "target": "Package",
+<<<<<<< HEAD
               "version": "[9.0.4, )",
+=======
+              "version": "[9.0.5, )",
+>>>>>>> 818c4a542e825624949bec58d8e6801812408c4a
               "autoReferenced": true
             },
             "Microsoft.NET.Sdk.WebAssembly.Pack": {
               "suppressParent": "All",
               "target": "Package",
+<<<<<<< HEAD
               "version": "[9.0.4, )",
+=======
+              "version": "[9.0.5, )",
+>>>>>>> 818c4a542e825624949bec58d8e6801812408c4a
               "autoReferenced": true
             }
           },
@@ -86,7 +118,11 @@
           "downloadDependencies": [
             {
               "name": "Microsoft.NETCore.App.Runtime.Mono.browser-wasm",
+<<<<<<< HEAD
               "version": "[9.0.4, 9.0.4]"
+=======
+              "version": "[9.0.5, 9.0.5]"
+>>>>>>> 818c4a542e825624949bec58d8e6801812408c4a
             }
           ],
           "frameworkReferences": {
@@ -94,7 +130,11 @@
               "privateAssets": "all"
             }
           },
+<<<<<<< HEAD
           "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.203/PortableRuntimeIdentifierGraph.json"
+=======
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+>>>>>>> 818c4a542e825624949bec58d8e6801812408c4a
         }
       },
       "runtimes": {

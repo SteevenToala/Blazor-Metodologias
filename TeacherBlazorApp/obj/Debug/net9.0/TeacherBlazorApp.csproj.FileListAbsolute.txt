@@ -1078,6 +1078,7 @@ C:\metodologias\blazor\TeacherBlazorApp\bin\Debug\net9.0\wwwroot\_framework\Teac
 C:\metodologias\blazor\TeacherBlazorApp\obj\Debug\net9.0\compressed\jc3vb2a65r-f5wgldama3.gz
 C:\metodologias\blazor\TeacherBlazorApp\obj\Debug\net9.0\compressed\sa3c63oq9x-bkykcvjs4e.gz
 C:\metodologias\blazor\TeacherBlazorApp\obj\Debug\net9.0\compressed\elp03yk9or-c50eldkvu6.gz
+<<<<<<< HEAD
 C:\Users\juanp\Documents\Blazor-Metodologias-main\Blazor-Metodologias-main\TeacherBlazorApp\bin\Debug\net9.0\wwwroot\_framework\blazor.webassembly.js
 C:\Users\juanp\Documents\Blazor-Metodologias-main\Blazor-Metodologias-main\TeacherBlazorApp\bin\Debug\net9.0\wwwroot\_framework\dotnet.js
 C:\Users\juanp\Documents\Blazor-Metodologias-main\Blazor-Metodologias-main\TeacherBlazorApp\bin\Debug\net9.0\wwwroot\_framework\dotnet.js.map
@@ -2163,3 +2164,5 @@ C:\Users\juanp\Documents\Blazor-Metodologias-main\Blazor-Metodologias-main\Teach
 C:\Users\juanp\Documents\Blazor-Metodologias-main\Blazor-Metodologias-main\TeacherBlazorApp\obj\Debug\net9.0\refint\TeacherBlazorApp.dll
 C:\Users\juanp\Documents\Blazor-Metodologias-main\Blazor-Metodologias-main\TeacherBlazorApp\obj\Debug\net9.0\TeacherBlazorApp.pdb
 C:\Users\juanp\Documents\Blazor-Metodologias-main\Blazor-Metodologias-main\TeacherBlazorApp\obj\Debug\net9.0\ref\TeacherBlazorApp.dll
+=======
+>>>>>>> 818c4a542e825624949bec58d8e6801812408c4a
