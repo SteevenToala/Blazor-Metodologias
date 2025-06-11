@@ -1,33 +1,69 @@
 {
   "Rol": [
-    { "rol": "DOCENTE" },
-    { "rol": "ADMINISTRADOR" }
+    { "id": 1, "rol": "DOCENTE" },
+    { "id": 2, "rol": "ADMINISTRADOR" }
+  ],
+  "Persona": [
+    {
+      "id": 1,
+      "nombres": "María",
+      "apellidos": "López Ramírez",
+      "cedula": "0102030405",
+      "telefono": "0987654321",
+      "direccion": "Av. Simón Bolívar y Loja, Ambato",
+      "fechaNacimiento": "1985-05-15"
+    },
+    {
+      "id": 2,
+      "nombres": "Pedro",
+      "apellidos": "Ruiz Morales",
+      "cedula": "0607080910",
+      "telefono": "0991234567",
+      "direccion": "Av. Cevallos y Espejo, Ambato",
+      "fechaNacimiento": "1980-11-22"
+    }
   ],
   "Usuario": [
     {
       "id": 1,
-      "nombre": "María López",
       "correo": "maria@example.com",
-      "contraseña": "maria123",
-      "rol": "DOCENTE"
+      "passwordHash": "$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS",
+      "rolId": 1,
+      "personaId": 1,
+      "activo": true
     },
     {
       "id": 2,
-      "nombre": "Pedro Ruiz",
       "correo": "pedro@example.com",
-      "contraseña": "pedro123",
-      "rol": "ADMINISTRADOR"
+      "passwordHash": "$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS",
+      "rolId": 2,
+      "personaId": 2,
+      "activo": true
     }
   ],
   "Administrador": [
     {
-      "idAdmin": 1,
+      "id": 1,
       "usuarioId": 2
+    }
+  ],
+  "Docente": [
+    {
+      "id": 1,
+      "usuarioId": 1,
+      "nivelAcademicoId": 1
+    }
+  ],
+  "NivelAcademico": [
+    {
+      "id": 1,
+      "nombre": "DT3",
+      "descripcion": "Docente con experiencia media"
     }
   ],
   "EvaluacionDocente": [
     {
-      "idEvaluacion": 1,
+      "id": 1,
       "periodo": "2024A",
       "puntaje": 8.7,
       "docenteId": 1
@@ -35,44 +71,54 @@
   ],
   "CursoCapacitacion": [
     {
-      "idCurso": 1,
+      "id": 1,
       "nombre": "Innovación educativa",
       "horas": 40,
-      "fecha": "2024-01-10",
+      "fechaInicio": "2024-01-10",
       "fechaFin": "2024-01-20",
       "docenteId": 1
     }
   ],
   "ProyectoInvestigacion": [
     {
-      "idProyecto": 1,
+      "id": 1,
       "titulo": "IA en educación",
       "fechaInicio": "2024-03-01",
       "fechaFin": "2024-06-30",
+      "rolEnProyecto": "Investigador Principal",
       "docenteId": 1
     }
   ],
   "PublicacionAcademica": [
     {
-      "idPublicacion": 1,
+      "id": 1,
       "titulo": "Nuevas metodologías",
       "revista": "Revista EDUCA",
-      "año": 2024,
+      "volumen": "Vol. 12",
+      "anio": 2024,
       "tipo": "Artículo",
       "docenteId": 1
     }
   ],
   "RequisitoPromocion": [
     {
-      "idRequisito": 1,
-      "descripcion": "Participación en proyecto de investigación",
+      "id": 1,
+      "nombre": "Participación en proyecto de investigación",
+      "porcentajeAsignado": 30
+    }
+  ],
+  "CumplimientoRequisito": [
+    {
+      "id": 1,
+      "docenteId": 1,
+      "requisitoId": 1,
       "cumplido": true,
-      "docenteId": 1
+      "fechaCumplimiento": "2024-06-01"
     }
   ],
   "ReporteAvance": [
     {
-      "idReporte": 1,
+      "id": 1,
       "fechaGeneracion": "2024-06-01",
       "docenteId": 1
     }

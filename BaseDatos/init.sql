@@ -84,8 +84,8 @@ INSERT INTO Rol VALUES ('DOCENTE'), ('ADMINISTRADOR');
 
 -- Usuarios
 INSERT INTO Usuario (nombre, correo, contraseña, rol) VALUES
-('María López', 'maria@example.com', 'maria123', 'DOCENTE'),
-('Pedro Ruiz', 'pedro@example.com', 'pedro123', 'ADMINISTRADOR');
+('María López', 'maria@example.com', '$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS', 'DOCENTE'),
+('Pedro Ruiz', 'pedro@example.com', '$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS', 'ADMINISTRADOR');
 
 -- Administrador
 INSERT INTO Administrador (usuarioId) VALUES (2);

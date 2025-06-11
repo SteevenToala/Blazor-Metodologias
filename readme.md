@@ -8,7 +8,7 @@ Aplicación con arquitectura Clean Onion que incluye Backend en .NET 9 y Fronten
 
 ### Construir imagen Docker para la base de datos
 ```
-docker run -d --name sqlserver-container -p 1433:1433 mi-sqlserver-custom .
+docker build -t mi-sqlserver-custom .
 ```
 
 ### Ejecutar imagen Docker (base de datos)
