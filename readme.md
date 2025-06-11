@@ -40,10 +40,9 @@ dotnet run --project MyCleanApp.Client
 
 ## Dependencias necesarias en la infraestructura
 
-Para Entity Framework Core y PostgreSQL:
+Para Entity Framework Core y Microsoft Server:
 ```
 dotnet add package Microsoft.EntityFrameworkCore
-dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL
 ```
 
 ---
