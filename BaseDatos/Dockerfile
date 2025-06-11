@@ -11,7 +11,6 @@ RUN mkdir -p /var/opt/mssql/scripts
 WORKDIR /var/opt/mssql/scripts
 
 # Copiamos los scripts a la imagen
-COPY ./scripts/ ./ 
 COPY init.sql .
 
 # Exponemos el puerto por defecto de SQL Server
