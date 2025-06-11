@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MyCleanApp.Application.Interfaces;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
 
@@ -21,17 +22,27 @@ public class UsuariosController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<Usuario>> Post(Usuario usuario)
+    public async Task<ActionResult> Post([FromBody] CrearUsuarioDto dto, [FromServices] IPasswordHasher passwordHasher)
     {
+        var usuario = new Usuario
+        {
+            Nombre = dto.Nombre,
+            Correo = dto.Correo,
+            Rol = dto.Rol,
+            Contraseña = passwordHasher.Hash(dto.Contraseña)
+        };
+
         _context.Usuario.Add(usuario);
         await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(Get), new { id = usuario.id }, usuario);
+
+        return CreatedAtAction(nameof(Get), new { id = usuario.Id }, new { usuario.Id, usuario.Nombre, usuario.Correo, usuario.Rol });
     }
+
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Put(int id, Usuario usuario)
     {
-        if (id != usuario.id) return BadRequest();
+        if (id != usuario.Id) return BadRequest();
         _context.Entry(usuario).State = EntityState.Modified;
         await _context.SaveChangesAsync();
         return NoContent();
