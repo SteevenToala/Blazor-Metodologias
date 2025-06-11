@@ -1,3 +1,5 @@
+using MyCleanApp.Application.Interfaces;
+using Microsoft.AspNetCore.Identity;
 using MyCleanApp.Infrastructure;
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +10,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
 
 
 var app = builder.Build();
