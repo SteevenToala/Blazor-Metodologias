@@ -5,7 +5,7 @@
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject AuthService AuthService
-
+@inject LocalStorageService LocalStorageService
 @code {
 protected override async Task OnInitializedAsync()
 {
@@ -45,18 +45,18 @@ protected override async Task OnInitializedAsync()
 
         if (result != null)
         {
-            // Aquí podrías guardar el token en el localStorage, navegar, etc.
-            if (result.usuario != null && result.usuario.Role == "admin")
-            {
-                Navigation.NavigateTo("/admin/dashboard");
-            }
-            else if (result.usuario != null)
-            {
-                Navigation.NavigateTo("/teacher/dashboard");
-            }
-            else
-            {
+            if(result.usuario==null){
                 ErrorMsg = "Usuario inválido en la respuesta del servidor.";
+                return;
+            }
+            await LocalStorageService.GuardarObjetoAsync("loginResponse", result);
+            if ( result.usuario.Role == "ADMINISTRADOR")
+            {
+                Navigation.NavigateTo("/admin-dashboard");
+            }
+            else 
+            {
+                Navigation.NavigateTo("/teacher-dashboard");
             }
         }
         else
