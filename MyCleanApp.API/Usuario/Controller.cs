@@ -11,7 +11,13 @@ public class UsuariosController : ControllerBase
     public UsuariosController(AppDbContext context) => _context = context;
 
     [HttpGet]
-    public async Task<IEnumerable<Usuario>> Get() => await _context.Usuario.ToListAsync();
+    public async Task<IEnumerable<Usuario>> Get()
+    {
+        // Solo usuarios autenticados pueden ver la lista
+        if (!User.Identity?.IsAuthenticated ?? true)
+            return Enumerable.Empty<Usuario>();
+        return await _context.Usuario.ToListAsync();
+    }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<Usuario>> Get(int id)

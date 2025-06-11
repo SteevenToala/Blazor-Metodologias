@@ -8,16 +8,12 @@
 @code {
 protected override async Task OnInitializedAsync()
 {
-    try
-    {
-        var response = await Http.GetStringAsync("http://localhost:3000/Usuario");
-        await JS.InvokeVoidAsync("console.log", "Respuesta de /Usuario:", response);
-    }
-    catch (Exception ex)
-    {
-        await JS.InvokeVoidAsync("console.error", "Error al llamar /Usuario:", ex.Message);
-    }
+    // Eliminar cualquier token anterior al cargar la página de login
+    await JS.InvokeVoidAsync("localStorage.removeItem", "jwtToken");
+    await JS.InvokeVoidAsync("localStorage.removeItem", "userRole");
+    await JS.InvokeVoidAsync("localStorage.removeItem", "userName");
 }
+
     public class LoginModel
     {
         public string EmailField { get; set; } = string.Empty;
@@ -30,18 +26,58 @@ protected override async Task OnInitializedAsync()
     public string? RoleParam { get; set; } = "teacher";
 
     private string ErrorMsg { get; set; } = string.Empty;
+    private string JwtToken { get; set; } = string.Empty;
 
-    private void HandleSubmit()
+    private async Task OnLoginSuccess(string userRole, string userName, string token)
     {
-        // Simulación de autenticación
-        if (RoleParam == "admin")
+        await JS.InvokeVoidAsync("localStorage.setItem", "userRole", userRole);
+        await JS.InvokeVoidAsync("localStorage.setItem", "userName", userName);
+        await JS.InvokeVoidAsync("localStorage.setItem", "jwtToken", token);
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        ErrorMsg = string.Empty;
+        try
         {
-            Navigation.NavigateTo("/admin/dashboard");
+            var loginRequest = new { Email = Model.EmailField, Password = Model.PasswordField };
+            var response = await Http.PostAsJsonAsync("http://localhost:5015/api/auth/login", loginRequest);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<LoginResult>();
+                if (result != null)
+                {
+                    await OnLoginSuccess(result.user.rol, result.user.nombre, result.token);
+                    if (result.user.rol == "ADMINISTRADOR")
+                        Navigation.NavigateTo("/admin-dashboard");
+                    else
+                        Navigation.NavigateTo("/teacher-dashboard");
+                }
+            }
+            else
+            {
+                ErrorMsg = "Correo o contraseña incorrectos.";
+            }
         }
-        else
+        catch (Exception ex)
         {
-            Navigation.NavigateTo("/teacher/dashboard");
+            ErrorMsg = $"Error al conectar con el servidor: {ex.Message}";
         }
+    }
+
+    public class Usuario
+    {
+        public int id { get; set; }
+        public string nombre { get; set; } = string.Empty;
+        public string correo { get; set; } = string.Empty;
+        public string contraseña { get; set; } = string.Empty;
+        public string rol { get; set; } = string.Empty;
+    }
+
+    public class LoginResult
+    {
+        public string token { get; set; } = string.Empty;
+        public Usuario user { get; set; } = new();
     }
 }
 
@@ -64,7 +100,7 @@ protected override async Task OnInitializedAsync()
             </div>
             <h2 class="text-2xl text-center font-bold mb-2 text-blue-800">@(RoleParam == "admin" ? "Acceso Administrador" : "Acceso Docente")</h2>
             <p class="text-center text-gray-500 mb-6">Introduce tus credenciales para acceder al sistema</p>
-            <Microsoft.AspNetCore.Components.Forms.EditForm Model="Model" OnValidSubmit="HandleSubmit">
+            <Microsoft.AspNetCore.Components.Forms.EditForm Model="Model" OnValidSubmit="HandleSubmitAsync">
                 <div class="space-y-4">
                     <div class="space-y-2">
                         <label for="email" class="block text-sm font-semibold text-blue-900">Correo electrónico</label>

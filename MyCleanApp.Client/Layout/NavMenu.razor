@@ -24,31 +24,44 @@
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="login">
-                <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Login
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin-dashboard">
-                <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Admin Dashboard
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="teacher-dashboard">
-                <span class="bi bi-mortarboard-fill-nav-menu" aria-hidden="true"></span> Teacher Dashboard
-            </NavLink>
-        </div>
+        @if (!IsLoggedIn)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="login">
+                    <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Login
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="register">
+                    <span class="bi bi-person-plus-fill-nav-menu" aria-hidden="true"></span> Register
+                </NavLink>
+            </div>
+        }
+        @if (IsLoggedIn)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin-dashboard">
+                    <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Admin Dashboard
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="teacher-dashboard">
+                    <span class="bi bi-mortarboard-fill-nav-menu" aria-hidden="true"></span> Teacher Dashboard
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <a class="nav-link" href="/login">Cerrar sesión</a>
+            </div>
+        }
     </nav>
 </div>
 
+@inject NavigationManager Navigation
+
 @code {
     private bool collapseNavMenu = true;
-
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
 
-    private void ToggleNavMenu()
-    {
-        collapseNavMenu = !collapseNavMenu;
-    }
+    private bool IsLoggedIn => Navigation.Uri.Contains("dashboard");
 }
