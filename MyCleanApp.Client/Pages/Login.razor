@@ -7,17 +7,22 @@
 @inject AuthService AuthService
 @inject LocalStorageService LocalStorageService
 @code {
+    private LoginResponse? loginResponse;
 protected override async Task OnInitializedAsync()
 {
-    try
-    {
-        var response = await Http.GetStringAsync("http://localhost:3000/Usuario");
-        await JS.InvokeVoidAsync("console.log", "Respuesta de /Usuario:", response);
-    }
-    catch (Exception ex)
-    {
-        await JS.InvokeVoidAsync("console.error", "Error al llamar /Usuario:", ex.Message);
-    }
+
+    loginResponse = await LocalStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+    if (loginResponse != null && loginResponse.usuario !=null)
+        {
+            Console.WriteLine("Este es"+loginResponse.usuario.Rol);
+            if(loginResponse.usuario.Rol=="ADMINISTRADOR"){
+                Navigation.NavigateTo("/admin-dashboard");
+
+            }else{
+                Navigation.NavigateTo("/teacher-dashboard");
+
+            }
+        }
 }
     public class LoginModel
     {
@@ -50,7 +55,7 @@ protected override async Task OnInitializedAsync()
                 return;
             }
             await LocalStorageService.GuardarObjetoAsync("loginResponse", result);
-            if ( result.usuario.Role == "ADMINISTRADOR")
+            if ( result.usuario.Rol == "ADMINISTRADOR")
             {
                 Navigation.NavigateTo("/admin-dashboard");
             }

@@ -1,5 +1,26 @@
+@inject HttpClient Http
+@inject IJSRuntime JS
+@using System.Text.Json
+
 @page "/admin-dashboard"
 
+@code {
+    private int totalDocentes = 0;  
+    public class TotalDocentesResponse
+    {
+        public int totalDocentes { get; set; }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await Http.GetStringAsync("http://localhost:3000/totalDocentes");
+        var result = JsonSerializer.Deserialize<TotalDocentesResponse>(response);
+
+if (result != null)
+        {
+            totalDocentes = result.totalDocentes;
+        }
+    }
+}
 <div class="container mx-auto px-4 py-8">
     <div class="flex flex-col md:flex-row justify-between items-start gap-4 mb-8">
         <div>
@@ -34,7 +55,7 @@
                 <div class="text-sm font-medium text-gray-600">Total de Docentes</div>
             </div>
             <div class="p-4 pt-0">
-                <div class="text-2xl font-bold">@_teachersData.Count</div>
+                <div class="text-2xl font-bold">@totalDocentes</div>
             </div>
         </div>
         <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
