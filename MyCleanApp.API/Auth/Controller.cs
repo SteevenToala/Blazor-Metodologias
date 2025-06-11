@@ -1,5 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using MyCleanApp.Application.Interfaces;
 using MyCleanApp.Infrastructure.Persistence;
 
@@ -8,7 +12,12 @@ using MyCleanApp.Infrastructure.Persistence;
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
-    public AuthController(AppDbContext context) => _context = context;
+    private readonly IConfiguration _config;
+    public AuthController(AppDbContext context, IConfiguration config)
+    {
+        _context = context;
+        _config = config;
+    }
 
     public class LoginDto
     {
@@ -23,7 +32,40 @@ public class AuthController : ControllerBase
         if (usuario == null || !passwordHasher.Verify(dto.Contraseña, usuario.Contraseña))
             return Unauthorized("Usuario o contraseña incorrectos");
 
-        // Aquí puedes retornar un token o los datos del usuario
-        return Ok(new { usuario.Id, usuario.Nombre, usuario.Correo, usuario.Rol });
+        var token = GenerateJwtToken(usuario);
+
+        return Ok(new
+        {
+            token,
+            usuario = new
+            {
+                usuario.Nombre,
+                usuario.Correo,
+                usuario.Rol
+            }
+        });
+    }
+    private string GenerateJwtToken(MyCleanApp.Domain.Entities.Usuario usuario)
+    {
+        var jwtSettings = _config.GetSection("Jwt");
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, usuario.Correo),
+            new Claim("id", usuario.Id.ToString()),
+            new Claim("rol", usuario.Rol),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: jwtSettings["Issuer"],
+            audience: jwtSettings["Audience"],
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(2),
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

@@ -46,13 +46,17 @@ protected override async Task OnInitializedAsync()
         if (result != null)
         {
             // Aquí podrías guardar el token en el localStorage, navegar, etc.
-            if (result.usuario.Role == "admin")
+            if (result.usuario != null && result.usuario.Role == "admin")
             {
                 Navigation.NavigateTo("/admin/dashboard");
             }
-            else
+            else if (result.usuario != null)
             {
                 Navigation.NavigateTo("/teacher/dashboard");
+            }
+            else
+            {
+                ErrorMsg = "Usuario inválido en la respuesta del servidor.";
             }
         }
         else
