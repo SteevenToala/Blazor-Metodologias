@@ -4,6 +4,7 @@
 @inject NavigationManager Navigation
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject AuthService AuthService
 
 @code {
 protected override async Task OnInitializedAsync()
@@ -31,17 +32,34 @@ protected override async Task OnInitializedAsync()
 
     private string ErrorMsg { get; set; } = string.Empty;
 
-    private void HandleSubmit()
+    private async void HandleSubmit()
     {
-        // Simulación de autenticación
-        if (RoleParam == "admin")
+        var loginData = new LoginRequest
         {
-            Navigation.NavigateTo("/admin/dashboard");
+            correo = Model.EmailField,
+            contraseña = Model.PasswordField
+        };
+
+        
+        var result = await AuthService.LoginAsync(loginData);
+
+        if (result != null)
+        {
+            // Aquí podrías guardar el token en el localStorage, navegar, etc.
+            if (result.usuario.Role == "admin")
+            {
+                Navigation.NavigateTo("/admin/dashboard");
+            }
+            else
+            {
+                Navigation.NavigateTo("/teacher/dashboard");
+            }
         }
         else
         {
-            Navigation.NavigateTo("/teacher/dashboard");
+            ErrorMsg = "Credenciales inválidas o error en el servidor.";
         }
+
     }
 }
 
