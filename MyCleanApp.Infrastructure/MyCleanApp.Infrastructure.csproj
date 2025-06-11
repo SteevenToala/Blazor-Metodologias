@@ -2,9 +2,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MyCleanApp.Domain\MyCleanApp.Domain.csproj" />
+    <ProjectReference Include="..\MyCleanApp.Application\MyCleanApp.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.6" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.6" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.6">
