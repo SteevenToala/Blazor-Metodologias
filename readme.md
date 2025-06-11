@@ -17,11 +17,12 @@ docker run -d --name sqlserver-container -p 1433:1433 mi-sqlserver-custom
 ```
 ### Instalar JSON Server
 ```
-npm install -g json-server
+cd .\FakeApi\
+npm install 
 ```
 ### Ejecutar el servidor de la FAKE API
 ```
-json-server --watch db.json
+node server.js
 ```
 
 ### Ejecutar API Backend
