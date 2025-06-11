@@ -1,13 +1,24 @@
-# Usamos la imagen oficial de PostgreSQL
-FROM postgres:15
+# Usamos la imagen oficial de Microsoft SQL Server para Linux
+FROM mcr.microsoft.com/mssql/server:2022-latest
 
-# Variables de entorno para el usuario, base de datos y contraseña
-ENV POSTGRES_USER=admin
-ENV POSTGRES_PASSWORD=admin123
-ENV POSTGRES_DB=productdb
+# Establecemos las variables de entorno requeridas por SQL Server
+ENV ACCEPT_EULA=Y \
+    MSSQL_SA_PASSWORD=YourStrong!Passw0rd \
+    MSSQL_PID=Developer
 
-# Copiamos el script SQL a la carpeta de inicialización de PostgreSQL
-COPY init.sql /docker-entrypoint-initdb.d/
+# Creamos un directorio para los scripts de inicialización
+RUN mkdir -p /var/opt/mssql/scripts
+WORKDIR /var/opt/mssql/scripts
 
-# Exponemos el puerto por defecto
-EXPOSE 5432
+# Copiamos los scripts a la imagen
+COPY ./scripts/ ./ 
+COPY init.sql .
+
+# Exponemos el puerto por defecto de SQL Server
+EXPOSE 1433
+
+# Comando de inicio personalizado para ejecutar SQL Server y luego el script
+CMD [ "/bin/bash", "-c", "/opt/mssql/bin/sqlservr & \
+    sleep 20 && \
+    /opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P \"$MSSQL_SA_PASSWORD\" -i /var/opt/mssql/scripts/init.sql && \
+    tail -f /dev/null" ]

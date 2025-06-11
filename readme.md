@@ -8,12 +8,20 @@ Aplicación con arquitectura Clean Onion que incluye Backend en .NET 9 y Fronten
 
 ### Construir imagen Docker para la base de datos
 ```
-docker build -t agiles .
+docker build -t sqlserver-custom .
 ```
 
 ### Ejecutar imagen Docker (base de datos)
 ```
-docker run -d -p 5432:5432 --name bd-agiles agiles
+docker run -d --name proyecto_manejo -p 1433:1433 sqlserver-custom
+```
+### Instalar JSON Server
+```
+npm install -g json-server
+```
+### Ejecutar el servidor de la FAKE API
+```
+json-server --watch db.json
 ```
 
 ### Ejecutar API Backend

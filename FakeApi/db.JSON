@@ -1,0 +1,80 @@
+{
+  "Rol": [
+    { "rol": "DOCENTE" },
+    { "rol": "ADMINISTRADOR" }
+  ],
+  "Usuario": [
+    {
+      "id": 1,
+      "nombre": "María López",
+      "correo": "maria@example.com",
+      "contraseña": "maria123",
+      "rol": "DOCENTE"
+    },
+    {
+      "id": 2,
+      "nombre": "Pedro Ruiz",
+      "correo": "pedro@example.com",
+      "contraseña": "pedro123",
+      "rol": "ADMINISTRADOR"
+    }
+  ],
+  "Administrador": [
+    {
+      "idAdmin": 1,
+      "usuarioId": 2
+    }
+  ],
+  "EvaluacionDocente": [
+    {
+      "idEvaluacion": 1,
+      "periodo": "2024A",
+      "puntaje": 8.7,
+      "docenteId": 1
+    }
+  ],
+  "CursoCapacitacion": [
+    {
+      "idCurso": 1,
+      "nombre": "Innovación educativa",
+      "horas": 40,
+      "fecha": "2024-01-10",
+      "fechaFin": "2024-01-20",
+      "docenteId": 1
+    }
+  ],
+  "ProyectoInvestigacion": [
+    {
+      "idProyecto": 1,
+      "titulo": "IA en educación",
+      "fechaInicio": "2024-03-01",
+      "fechaFin": "2024-06-30",
+      "docenteId": 1
+    }
+  ],
+  "PublicacionAcademica": [
+    {
+      "idPublicacion": 1,
+      "titulo": "Nuevas metodologías",
+      "revista": "Revista EDUCA",
+      "año": 2024,
+      "tipo": "Artículo",
+      "docenteId": 1
+    }
+  ],
+  "RequisitoPromocion": [
+    {
+      "idRequisito": 1,
+      "descripcion": "Participación en proyecto de investigación",
+      "cumplido": true,
+      "docenteId": 1
+    }
+  ],
+  "ReporteAvance": [
+    {
+      "idReporte": 1,
+      "fechaGeneracion": "2024-06-01",
+      "docenteId": 1
+    }
+  ]
+}

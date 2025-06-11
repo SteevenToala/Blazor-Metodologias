@@ -2,8 +2,22 @@
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
 @inject NavigationManager Navigation
+@inject HttpClient Http
+@inject IJSRuntime JS
 
 @code {
+protected override async Task OnInitializedAsync()
+{
+    try
+    {
+        var response = await Http.GetStringAsync("http://localhost:3000/Usuario");
+        await JS.InvokeVoidAsync("console.log", "Respuesta de /Usuario:", response);
+    }
+    catch (Exception ex)
+    {
+        await JS.InvokeVoidAsync("console.error", "Error al llamar /Usuario:", ex.Message);
+    }
+}
     public class LoginModel
     {
         public string EmailField { get; set; } = string.Empty;
