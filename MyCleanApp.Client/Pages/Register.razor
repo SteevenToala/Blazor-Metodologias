@@ -51,12 +51,12 @@
                 if (result != null && result.usuario != null)
                 {
                     await LocalStorageService.GuardarObjetoAsync("loginResponse", result);
-                    // Fuerza recarga de la página para refrescar el menú
-                    Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+                    // Redirige directamente a la ruta según el rol (sin recargar antes)
                     if (result.usuario.Rol == "ADMINISTRADOR")
-                        Navigation.NavigateTo("/admin-dashboard");
+                        Navigation.NavigateTo("/admin-dashboard", true);
                     else
-                        Navigation.NavigateTo("/teacher-dashboard");
+                        Navigation.NavigateTo("/teacher-dashboard", true);
+                    return;
                 }
             }
             else
