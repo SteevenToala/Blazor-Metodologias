@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System.Text;
 using MyCleanApp.Application.Interfaces;
 using MyCleanApp.Infrastructure.Persistence;
+using MyCleanApp.Domain.Entities;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -13,6 +14,7 @@ public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _config;
+
     public AuthController(AppDbContext context, IConfiguration config)
     {
         _context = context;
@@ -28,8 +30,12 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto, [FromServices] IPasswordHasher passwordHasher)
     {
-        var usuario = await _context.Usuario.FirstOrDefaultAsync(u => u.Correo == dto.Correo);
-        if (usuario == null || !passwordHasher.Verify(dto.Contraseña, usuario.Contraseña))
+        // Incluir Rol y Persona si deseas usar también esos datos
+        var usuario = await _context.Usuario
+            .Include(u => u.Rol)
+            .FirstOrDefaultAsync(u => u.Correo == dto.Correo);
+
+        if (usuario == null || !passwordHasher.Verify(dto.Contraseña, usuario.PasswordHash))
             return Unauthorized("Usuario o contraseña incorrectos");
 
         var token = GenerateJwtToken(usuario);
@@ -39,22 +45,24 @@ public class AuthController : ControllerBase
             token,
             usuario = new
             {
-                usuario.Nombre,
+                usuario.Id,
                 usuario.Correo,
-                usuario.Rol
+                Rol = usuario.Rol?.RolNombre // mostrar el nombre del rol (e.g., "ADMINISTRADOR")
             }
         });
     }
-    private string GenerateJwtToken(MyCleanApp.Domain.Entities.Usuario usuario)
+
+    private string GenerateJwtToken(Usuario usuario)
     {
         var jwtSettings = _config.GetSection("Jwt");
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, usuario.Correo),
             new Claim("id", usuario.Id.ToString()),
-            new Claim("rol", usuario.Rol),
+            new Claim("rol", usuario.Rol?.RolNombre ?? "SinRol"),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

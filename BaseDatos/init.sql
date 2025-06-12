@@ -130,7 +130,7 @@ CREATE TABLE SolicitudAvanceRango (
     fechaSolicitud DATE,
     estado VARCHAR(20), -- PENDIENTE, APROBADA, RECHAZADA
     fechaRespuesta DATE,
-    administradorId INT,
+    administradorId INT NULL,
     observaciones VARCHAR(300),
     nuevoNivelAcademicoId INT,
     FOREIGN KEY (docenteId) REFERENCES Docente(id),

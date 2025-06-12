@@ -4,6 +4,7 @@ using MyCleanApp.Application.Interfaces;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
 
+
 [ApiController]
 [Route("api/[controller]")]
 public class UsuariosController : ControllerBase
@@ -12,13 +13,36 @@ public class UsuariosController : ControllerBase
     public UsuariosController(AppDbContext context) => _context = context;
 
     [HttpGet]
-    public async Task<IEnumerable<Usuario>> Get() => await _context.Usuario.ToListAsync();
+    public async Task<IEnumerable<UsuarioDto>> Get()
+    {
+        return await _context.Usuario
+            .Include(u => u.Rol)
+            .Include(u => u.Persona)
+            .Select(u => new UsuarioDto
+            {
+                Id = u.Id,
+                Correo = u.Correo,
+                NombreCompleto = u.Persona.Nombres + " " + u.Persona.Apellidos,
+                Rol = u.Rol.RolNombre
+            }).ToListAsync();
+    }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<Usuario>> Get(int id)
+    public async Task<ActionResult<UsuarioDto>> Get(int id)
     {
-        var product = await _context.Usuario.FindAsync(id);
-        return product == null ? NotFound() : Ok(product);
+        var usuario = await _context.Usuario
+            .Include(u => u.Rol)
+            .Include(u => u.Persona)
+            .Where(u => u.Id == id)
+            .Select(u => new UsuarioDto
+            {
+                Id = u.Id,
+                Correo = u.Correo,
+                NombreCompleto = u.Persona.Nombres + " " + u.Persona.Apellidos,
+                Rol = u.Rol.RolNombre
+            }).FirstOrDefaultAsync();
+
+        return usuario == null ? NotFound() : Ok(usuario);
     }
 
     [HttpPost]
@@ -26,24 +50,30 @@ public class UsuariosController : ControllerBase
     {
         var usuario = new Usuario
         {
-            Nombre = dto.Nombre,
             Correo = dto.Correo,
-            Rol = dto.Rol,
-            Contraseña = passwordHasher.Hash(dto.Contraseña)
+            PasswordHash = passwordHasher.Hash(dto.Contraseña),
+            RolId = dto.RolId,
+            PersonaId = dto.PersonaId,
+            Activo = true
         };
 
         _context.Usuario.Add(usuario);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(Get), new { id = usuario.Id }, new { usuario.Id, usuario.Nombre, usuario.Correo, usuario.Rol });
+        return CreatedAtAction(nameof(Get), new { id = usuario.Id }, new { usuario.Id, usuario.Correo });
     }
 
-
     [HttpPut("{id}")]
-    public async Task<IActionResult> Put(int id, Usuario usuario)
+    public async Task<IActionResult> Put(int id, [FromBody] CrearUsuarioDto dto, [FromServices] IPasswordHasher passwordHasher)
     {
-        if (id != usuario.Id) return BadRequest();
-        _context.Entry(usuario).State = EntityState.Modified;
+        var usuario = await _context.Usuario.FindAsync(id);
+        if (usuario == null) return NotFound();
+
+        usuario.Correo = dto.Correo;
+        usuario.PasswordHash = passwordHasher.Hash(dto.Contraseña);
+        usuario.RolId = dto.RolId;
+        usuario.PersonaId = dto.PersonaId;
+
         await _context.SaveChangesAsync();
         return NoContent();
     }
@@ -53,6 +83,7 @@ public class UsuariosController : ControllerBase
     {
         var usuario = await _context.Usuario.FindAsync(id);
         if (usuario == null) return NotFound();
+
         _context.Usuario.Remove(usuario);
         await _context.SaveChangesAsync();
         return NoContent();
