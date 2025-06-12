@@ -1,4 +1,40 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@inject IJSRuntime JS
+@inject AuthService AuthService
+@inject LocalStorageService LocalStorageService
+@inject NavigationManager Navigation
+
+@code {
+    private LoginResponse? loginResponse;
+    private bool cargado = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        loginResponse = await LocalStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        cargado = true;
+        StateHasChanged();
+    }
+
+    private async Task CerrarSesion()
+    {
+        await LocalStorageService.EliminarAsync("loginResponse");
+        loginResponse = null;
+        StateHasChanged();
+        Navigation.NavigateTo("/login", true);
+    }
+
+    private async Task ActualizarLoginResponse()
+    {
+        loginResponse = await LocalStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        StateHasChanged();
+    }
+
+    public async void OnLoginChanged()
+    {
+        await ActualizarLoginResponse();
+    }
+}
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">TeacherBlazorApp</a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
@@ -7,58 +43,61 @@
     </div>
 </div>
 
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="login">
-                <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Login
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="register">
-                <span class="bi bi-person-plus-fill-nav-menu" aria-hidden="true"></span> Register
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin-dashboard">
-                <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Admin Dashboard
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="teacher-dashboard">
-                <span class="bi bi-mortarboard-fill-nav-menu" aria-hidden="true"></span> Teacher Dashboard
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <button class="nav-link text-left w-100 bg-transparent border-0 text-danger" @onclick="CerrarSesion">
-                <span class="bi bi-box-arrow-right" aria-hidden="true"></span> Cerrar sesión
-            </button>
-        </div>
-    </nav>
-</div>
+@if (cargado)
+{
+    <div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+        <nav class="nav flex-column">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                </NavLink>
+            </div>
+            @if (loginResponse == null)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="login">
+                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Login
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="register">
+                        <span class="bi bi-person-plus-fill-nav-menu" aria-hidden="true"></span> Register
+                    </NavLink>
+                </div>
+            }
+            else if (loginResponse.usuario?.Rol == "ADMINISTRADOR")
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin-dashboard">
+                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Admin Dashboard
+                    </NavLink>
+                </div>
+            }
+            else if (loginResponse.usuario?.Rol == "DOCENTE")
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="teacher-dashboard">
+                        <span class="bi bi-mortarboard-fill-nav-menu" aria-hidden="true"></span> Teacher Dashboard
+                    </NavLink>
+                </div>
+            }
+            @if (loginResponse != null)
+            {
+                <div class="nav-item px-3">
+                    <button class="nav-link text-left w-100 bg-transparent border-0 text-danger" @onclick="CerrarSesion">
+                        <span class="bi bi-box-arrow-right" aria-hidden="true"></span> Cerrar sesión
+                    </button>
+                </div>
+            }
+        </nav>
+    </div>
+}
 
 @code {
     private bool collapseNavMenu = true;
-
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
-    }
-
-    [Inject] private LocalStorageService? LocalStorageService { get; set; }
-    [Inject] private NavigationManager? Navigation { get; set; }
-
-    private async Task CerrarSesion()
-    {
-        if (LocalStorageService != null)
-            await LocalStorageService.EliminarAsync("loginResponse");
-        Navigation?.NavigateTo("/login", true);
     }
 }

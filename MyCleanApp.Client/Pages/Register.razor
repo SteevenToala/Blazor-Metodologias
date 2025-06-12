@@ -51,6 +51,8 @@
                 if (result != null && result.usuario != null)
                 {
                     await LocalStorageService.GuardarObjetoAsync("loginResponse", result);
+                    // Fuerza recarga de la página para refrescar el menú
+                    Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
                     if (result.usuario.Rol == "ADMINISTRADOR")
                         Navigation.NavigateTo("/admin-dashboard");
                     else

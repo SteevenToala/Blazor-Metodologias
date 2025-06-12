@@ -6,6 +6,7 @@
 @inject IJSRuntime JS
 @inject AuthService AuthService
 @inject LocalStorageService LocalStorageService
+@inherits LayoutComponentBase
 @code {
     private LoginResponse? loginResponse;
 protected override async Task OnInitializedAsync()
@@ -44,10 +45,7 @@ protected override async Task OnInitializedAsync()
             correo = Model.EmailField,
             contraseña = Model.PasswordField
         };
-
-        
         var result = await AuthService.LoginAsync(loginData);
-
         if (result != null)
         {
             if(result.usuario==null){
@@ -55,6 +53,8 @@ protected override async Task OnInitializedAsync()
                 return;
             }
             await LocalStorageService.GuardarObjetoAsync("loginResponse", result);
+            // Fuerza recarga de la página para refrescar el menú
+            Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
             if ( result.usuario.Rol == "ADMINISTRADOR")
             {
                 Navigation.NavigateTo("/admin-dashboard");
