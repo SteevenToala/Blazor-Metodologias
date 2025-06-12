@@ -19,6 +19,7 @@ public class Usuario
     public string Nombre { get; set; } = string.Empty;
     public string Correo { get; set; } = string.Empty;
     public string Rol { get; set; } = string.Empty;
+    public string Cedula { get; set; } = string.Empty;
 }
 public class AuthService
 {

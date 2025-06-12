@@ -15,12 +15,13 @@ protected override async Task OnInitializedAsync()
     if (loginResponse != null && loginResponse.usuario !=null)
         {
             Console.WriteLine("Este es"+loginResponse.usuario.Rol);
-            if(loginResponse.usuario.Rol=="ADMINISTRADOR"){
-                Navigation.NavigateTo("/admin-dashboard");
-
-            }else{
-                Navigation.NavigateTo("/teacher-dashboard");
-
+            if (loginResponse.usuario.Rol == "ADMINISTRADOR")
+            {
+                Navigation.NavigateTo("/admin-dashboard", true); // El true fuerza recarga
+            }
+            else 
+            {
+                Navigation.NavigateTo("/teacher-dashboard", true); // El true fuerza recarga
             }
         }
 }
@@ -45,6 +46,7 @@ protected override async Task OnInitializedAsync()
             contraseña = Model.PasswordField
         };
 
+        Console.WriteLine(loginData);
         
         var result = await AuthService.LoginAsync(loginData);
 

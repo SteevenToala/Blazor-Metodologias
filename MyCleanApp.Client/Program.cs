@@ -10,5 +10,8 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:3000/") });
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<LocalStorageService>();
+builder.Services.AddScoped<EvaluacionService>();
+builder.Services.AddScoped<DocenteService>();
+
 
 await builder.Build().RunAsync();

@@ -2,15 +2,9 @@
 -- CREAR TABLAS
 -- =====================
 
--- Tabla Rol
-CREATE TABLE Rol (
-    id INT PRIMARY KEY,
-    rol VARCHAR(20) UNIQUE
-);
-
 -- Tabla Persona
 CREATE TABLE Persona (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY IDENTITY(1,1),
     nombres VARCHAR(100),
     apellidos VARCHAR(100),
     cedula VARCHAR(20) UNIQUE,
@@ -21,33 +15,26 @@ CREATE TABLE Persona (
 
 -- Tabla Usuario
 CREATE TABLE Usuario (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY IDENTITY(1,1),
     correo VARCHAR(100) UNIQUE,
     passwordHash VARCHAR(255),
-    rolId INT,
+    rol VARCHAR(100),
     personaId INT,
     activo BIT,
-    FOREIGN KEY (rolId) REFERENCES Rol(id),
     FOREIGN KEY (personaId) REFERENCES Persona(id)
 );
 
--- Tabla Administrador
-CREATE TABLE Administrador (
-    id INT PRIMARY KEY,
-    usuarioId INT UNIQUE,
-    FOREIGN KEY (usuarioId) REFERENCES Usuario(id)
-);
 
 -- Tabla NivelAcademico
 CREATE TABLE NivelAcademico (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY IDENTITY(1,1),
     nombre VARCHAR(50),
     descripcion VARCHAR(200)
 );
 
 -- Tabla Docente
 CREATE TABLE Docente (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY IDENTITY(1,1),
     usuarioId INT UNIQUE,
     nivelAcademicoId INT,
     fechaInicioNivel DATE,
@@ -57,7 +44,7 @@ CREATE TABLE Docente (
 
 -- Tabla EvaluacionDocente
 CREATE TABLE EvaluacionDocente (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY IDENTITY(1,1),
     periodo VARCHAR(20),
     puntaje FLOAT,
     docenteId INT UNIQUE,
@@ -66,7 +53,7 @@ CREATE TABLE EvaluacionDocente (
 
 -- Tabla CursoCapacitacion
 CREATE TABLE CursoCapacitacion (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY IDENTITY(1,1),
     nombre VARCHAR(100),
     horas INT,
     fechaInicio DATE,
@@ -77,7 +64,7 @@ CREATE TABLE CursoCapacitacion (
 
 -- Tabla ProyectoInvestigacion
 CREATE TABLE ProyectoInvestigacion (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY IDENTITY(1,1),
     titulo VARCHAR(200),
     fechaInicio DATE,
     fechaFin DATE,
@@ -88,7 +75,7 @@ CREATE TABLE ProyectoInvestigacion (
 
 -- Tabla PublicacionAcademica
 CREATE TABLE PublicacionAcademica (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY IDENTITY(1,1),
     titulo VARCHAR(200),
     revista VARCHAR(100),
     volumen VARCHAR(50),
@@ -100,14 +87,14 @@ CREATE TABLE PublicacionAcademica (
 
 -- Tabla RequisitoPromocion
 CREATE TABLE RequisitoPromocion (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY IDENTITY(1,1),
     nombre VARCHAR(200),
     porcentajeAsignado INT
 );
 
 -- Tabla CumplimientoRequisito
 CREATE TABLE CumplimientoRequisito (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY IDENTITY(1,1),
     docenteId INT,
     requisitoId INT,
     cumplido BIT,
@@ -118,7 +105,7 @@ CREATE TABLE CumplimientoRequisito (
 
 -- Tabla ReporteAvance
 CREATE TABLE ReporteAvance (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY IDENTITY(1,1),
     fechaGeneracion DATE,
     docenteId INT,
     FOREIGN KEY (docenteId) REFERENCES Docente(id)
@@ -130,15 +117,27 @@ CREATE TABLE SolicitudAvanceRango (
     fechaSolicitud DATE,
     estado VARCHAR(20), -- PENDIENTE, APROBADA, RECHAZADA
     fechaRespuesta DATE,
-    administradorId INT NULL,
     observaciones VARCHAR(300),
     nuevoNivelAcademicoId INT,
     FOREIGN KEY (docenteId) REFERENCES Docente(id),
-    FOREIGN KEY (administradorId) REFERENCES Administrador(id),
     FOREIGN KEY (nuevoNivelAcademicoId) REFERENCES NivelAcademico(id)
 );
 
+-- Tabla TipoRequisito (define el tipo de requisito)
+CREATE TABLE TipoRequisito (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    nombre VARCHAR(100) -- Ejemplo: 'Años en el rango', 'Papers', 'Puntaje Evaluación', 'Horas Capacitación', 'Investigaciones'
+);
 
+-- Tabla RequisitoNivelAcademico (requisitos por nivel)
+CREATE TABLE RequisitoNivelAcademico (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    nivelAcademicoId INT,
+    tipoRequisitoId INT,
+    valorRequerido FLOAT, -- Puede ser años, cantidad, porcentaje, etc.
+    FOREIGN KEY (nivelAcademicoId) REFERENCES NivelAcademico(id),
+    FOREIGN KEY (tipoRequisitoId) REFERENCES TipoRequisito(id)
+);
 
 ALTER TABLE PublicacionAcademica
 ADD archivo VARBINARY(MAX) NULL; -- o puedes usar NVARCHAR(MAX) para una URL
@@ -154,55 +153,95 @@ ADD documento VARBINARY(MAX) NULL; -- o NVARCHAR(MAX) para una URL
 -- INSERTAR DATOS DE PRUEBA
 -- =====================
 
--- Roles
-INSERT INTO Rol (id, rol) VALUES (1, 'DOCENTE'), (2, 'ADMINISTRADOR');
 
 -- Personas
-INSERT INTO Persona (id, nombres, apellidos, cedula, telefono, direccion, fechaNacimiento) VALUES
-(1, 'María', 'López Ramírez', '0102030405', '0987654321', 'Av. Simón Bolívar y Loja, Ambato', '1985-05-15'),
-(2, 'Pedro', 'Ruiz Morales', '0607080910', '0991234567', 'Av. Cevallos y Espejo, Ambato', '1980-11-22');
+INSERT INTO Persona ( nombres, apellidos, cedula, telefono, direccion, fechaNacimiento) VALUES
+( 'María', 'López Ramírez', '0102030405', '0987654321', 'Av. Simón Bolívar y Loja, Ambato', '1985-05-15'),
+( 'Pedro', 'Ruiz Morales', '0607080910', '0991234567', 'Av. Cevallos y Espejo, Ambato', '1980-11-22');
 
 -- Usuarios
-INSERT INTO Usuario (id, correo, passwordHash, rolId, personaId, activo) VALUES
-(1, 'maria@example.com', '$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS', 1, 1, 1),
-(2, 'pedro@example.com', '$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS', 2, 2, 1);
+INSERT INTO Usuario ( correo, passwordHash, rol, personaId, activo) VALUES
+( 'maria@example.com', '$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS', "ADMINISTRADOR", 1, 1),
+( 'pedro@example.com', '$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS', "DOCENTE", 2, 1);
 
--- Administrador
-INSERT INTO Administrador (id, usuarioId) VALUES
-(1, 2);
+-- Niveles Académicos
+INSERT INTO NivelAcademico ( nombre, descripcion) VALUES
+( 'DT2', 'Docente con experiencia inicial'),
+( 'DT3', 'Docente con experiencia media'),
+( 'DT4', 'Docente con experiencia avanzada'),
+( 'DT5', 'Docente con experiencia superior'),
+( 'DT1', 'Docente sin experiencia');
 
--- Nivel Académico
-INSERT INTO NivelAcademico (id, nombre, descripcion) VALUES
-(1, 'DT3', 'Docente con experiencia media');
 
 -- Docente
-INSERT INTO Docente (id, usuarioId, nivelAcademicoId, fechaInicioNivel) VALUES
-(1, 1, 1, '2020-05-01');
+INSERT INTO Docente ( usuarioId, nivelAcademicoId, fechaInicioNivel) VALUES
+( 2, 1, '2020-05-01');
 
 -- Evaluación Docente
-INSERT INTO EvaluacionDocente (id, periodo, puntaje, docenteId) VALUES
-(1, '2024A', 8.7, 1);
+INSERT INTO EvaluacionDocente ( periodo, puntaje, docenteId) VALUES
+('2024A', 87, 1);
 
 -- Curso Capacitación
-INSERT INTO CursoCapacitacion (id, nombre, horas, fechaInicio, fechaFin, docenteId) VALUES
-(1, 'Innovación educativa', 40, '2024-01-10', '2024-01-20', 1);
+INSERT INTO CursoCapacitacion ( nombre, horas, fechaInicio, fechaFin, docenteId) VALUES
+( 'Innovación educativa', 40, '2024-01-10', '2024-01-20', 1);
 
 -- Proyecto de Investigación
-INSERT INTO ProyectoInvestigacion (id, titulo, fechaInicio, fechaFin, rolEnProyecto, docenteId) VALUES
-(1, 'IA en educación', '2024-03-01', '2024-06-30', 'Investigador Principal', 1);
+INSERT INTO ProyectoInvestigacion ( titulo, fechaInicio, fechaFin, rolEnProyecto, docenteId) VALUES
+('IA en educación', '2024-03-01', '2024-06-30', 'Investigador Principal', 1);
 
 -- Publicación Académica
-INSERT INTO PublicacionAcademica (id, titulo, revista, volumen, anio, tipo, docenteId) VALUES
-(1, 'Nuevas metodologías', 'Revista EDUCA', 'Vol. 12', 2024, 'Artículo', 1);
+INSERT INTO PublicacionAcademica ( titulo, revista, volumen, anio, tipo, docenteId) VALUES
+('Nuevas metodologías', 'Revista EDUCA', 'Vol. 12', 2024, 'Artículo', 1);
 
 -- Requisito de Promoción
-INSERT INTO RequisitoPromocion (id, nombre, porcentajeAsignado) VALUES
-(1, 'Participación en proyecto de investigación', 30);
+INSERT INTO RequisitoPromocion ( nombre, porcentajeAsignado) VALUES
+('Participación en proyecto de investigación', 30);
 
 -- Cumplimiento del Requisito
-INSERT INTO CumplimientoRequisito (id, docenteId, requisitoId, cumplido, fechaCumplimiento) VALUES
-(1, 1, 1, 1, '2024-06-01');
+INSERT INTO CumplimientoRequisito ( docenteId, requisitoId, cumplido, fechaCumplimiento) VALUES
+( 1, 1, 1, '2024-06-01');
 
 -- Reporte de Avance
-INSERT INTO ReporteAvance (id, fechaGeneracion, docenteId) VALUES
-(1, '2024-06-01', 1);
+INSERT INTO ReporteAvance ( fechaGeneracion, docenteId) VALUES
+('2024-06-01', 1);
+
+-- Tipos de requisito
+INSERT INTO TipoRequisito (nombre) VALUES
+('Años en el rango'),
+('Papers'),
+('Puntaje Evaluación'),
+('Horas Capacitación'),
+('Investigaciones');
+
+-- Requisitos para DT2
+INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorRequerido) VALUES
+(2, 1, 4),    -- 4 años en DT1
+(2, 2, 1),    -- 1 paper
+(2, 3, 75),   -- 75% puntaje
+(2, 4, 96),   -- 96 horas capacitación
+(2, 5, 0);    -- 0 investigaciones
+
+-- Requisitos para DT3
+INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorRequerido) VALUES
+(3, 1, 4),    -- 4 años en DT2
+(3, 2, 2),    -- 2 papers
+(3, 3, 75),   -- 75% puntaje
+(3, 4, 96),   -- 96 horas capacitación
+(3, 5, 12);    -- 12 meses de investigación
+
+-- Y así para DT4 
+INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorRequerido) VALUES
+(3, 1, 4),    -- 4 años en DT3
+(3, 2, 3),    -- 3 papers
+(3, 3, 75),   -- 75% puntaje
+(3, 4, 128),   -- 128 horas capacitación
+(3, 5, 24);    -- 24 meses de investigación
+
+-- Y así para DT5 
+INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorRequerido) VALUES
+(3, 1, 4),    -- 4 años en DT4
+(3, 2, 5),    -- 2 papers
+(3, 3, 75),   -- 75% puntaje
+(3, 4, 160),   -- 160 horas capacitación
+(3, 5, 24);    -- 24 meses de investigación
+

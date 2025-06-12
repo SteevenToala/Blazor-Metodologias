@@ -32,7 +32,7 @@ public class AuthController : ControllerBase
     {
         // Incluir Rol y Persona si deseas usar también esos datos
         var usuario = await _context.Usuario
-            .Include(u => u.Rol)
+            .Include(u=>u.Persona)
             .FirstOrDefaultAsync(u => u.Correo == dto.Correo);
 
         if (usuario == null || !passwordHasher.Verify(dto.Contraseña, usuario.PasswordHash))
@@ -47,7 +47,9 @@ public class AuthController : ControllerBase
             {
                 usuario.Id,
                 usuario.Correo,
-                Rol = usuario.Rol?.RolNombre // mostrar el nombre del rol (e.g., "ADMINISTRADOR")
+                Nombre=usuario.Persona.Nombres+" "+usuario.Persona.Apellidos,
+                Cedula =usuario.Persona.Cedula,
+                Rol = usuario.Rol // mostrar el nombre del rol (e.g., "ADMINISTRADOR")
             }
         });
     }
@@ -59,7 +61,7 @@ public class AuthController : ControllerBase
         {
             new Claim(JwtRegisteredClaimNames.Sub, usuario.Correo),
             new Claim("id", usuario.Id.ToString()),
-            new Claim("rol", usuario.Rol?.RolNombre ?? "SinRol"),
+            new Claim("rol", usuario.Rol),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
