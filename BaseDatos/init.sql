@@ -215,19 +215,18 @@ INSERT INTO TipoRequisito (nombre) VALUES
 
 -- Requisitos para DT2
 INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorRequerido) VALUES
-(2, 1, 4),    -- 4 años en DT1
-(2, 2, 1),    -- 1 paper
-(2, 3, 75),   -- 75% puntaje
-(2, 4, 96),   -- 96 horas capacitación
-(2, 5, 0);    -- 0 investigaciones
+(1, 1, 4),    -- 4 años en DT1
+(1, 2, 1),    -- 1 paper
+(1, 3, 75),   -- 75% puntaje
+(1, 4, 96),   -- 96 horas capacitación
 
 -- Requisitos para DT3
 INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorRequerido) VALUES
-(3, 1, 4),    -- 4 años en DT2
-(3, 2, 2),    -- 2 papers
-(3, 3, 75),   -- 75% puntaje
-(3, 4, 96),   -- 96 horas capacitación
-(3, 5, 12);    -- 12 meses de investigación
+(2, 1, 4),    -- 4 años en DT2
+(2, 2, 2),    -- 2 papers
+(2, 3, 75),   -- 75% puntaje
+(2, 4, 96),   -- 96 horas capacitación
+(2, 5, 12);    -- 12 meses de investigación
 
 -- Y así para DT4 
 INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorRequerido) VALUES
@@ -239,9 +238,9 @@ INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorReq
 
 -- Y así para DT5 
 INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorRequerido) VALUES
-(3, 1, 4),    -- 4 años en DT4
-(3, 2, 5),    -- 2 papers
-(3, 3, 75),   -- 75% puntaje
-(3, 4, 160),   -- 160 horas capacitación
-(3, 5, 24);    -- 24 meses de investigación
+(4, 1, 4),    -- 4 años en DT4
+(4, 2, 5),    -- 2 papers
+(4, 3, 75),   -- 75% puntaje
+(4, 4, 160),   -- 160 horas capacitación
+(4, 5, 24);    -- 24 meses de investigación
 
