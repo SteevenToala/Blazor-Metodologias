@@ -15,18 +15,13 @@
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
             <NavLink class="nav-link" href="login">
                 <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Login
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="register">
+                <span class="bi bi-person-plus-fill-nav-menu" aria-hidden="true"></span> Register
             </NavLink>
         </div>
         <div class="nav-item px-3">
@@ -39,6 +34,11 @@
                 <span class="bi bi-mortarboard-fill-nav-menu" aria-hidden="true"></span> Teacher Dashboard
             </NavLink>
         </div>
+        <div class="nav-item px-3">
+            <button class="nav-link text-left w-100 bg-transparent border-0 text-danger" @onclick="CerrarSesion">
+                <span class="bi bi-box-arrow-right" aria-hidden="true"></span> Cerrar sesión
+            </button>
+        </div>
     </nav>
 </div>
 
@@ -50,5 +50,15 @@
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    [Inject] private LocalStorageService? LocalStorageService { get; set; }
+    [Inject] private NavigationManager? Navigation { get; set; }
+
+    private async Task CerrarSesion()
+    {
+        if (LocalStorageService != null)
+            await LocalStorageService.EliminarAsync("loginResponse");
+        Navigation?.NavigateTo("/login", true);
     }
 }

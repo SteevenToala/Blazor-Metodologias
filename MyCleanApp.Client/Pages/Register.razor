@@ -1,0 +1,99 @@
+@page "/register"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject AuthService AuthService
+@inject LocalStorageService LocalStorageService
+
+<EditForm Model="registerModel" OnValidSubmit="HandleRegister">
+    <div class="max-w-lg mx-auto bg-white p-8 rounded-xl shadow-md mt-10">
+        <h2 class="text-2xl font-bold mb-6 text-blue-800">Registro de Usuario</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InputText class="input" @bind-Value="registerModel.Nombres" placeholder="Nombres" />
+            <InputText class="input" @bind-Value="registerModel.Apellidos" placeholder="Apellidos" />
+            <InputText class="input" @bind-Value="registerModel.Cedula" placeholder="Cédula" />
+            <InputText class="input" @bind-Value="registerModel.Telefono" placeholder="Teléfono" />
+            <InputText class="input md:col-span-2" @bind-Value="registerModel.Direccion" placeholder="Dirección" />
+            <InputDate class="input md:col-span-2" @bind-Value="registerModel.FechaNacimiento" />
+            <InputText class="input md:col-span-2" @bind-Value="registerModel.Correo" placeholder="Correo electrónico" />
+            <InputText class="input md:col-span-2" @bind-Value="registerModel.Contraseña" placeholder="Contraseña" type="password" />
+            <div class="md:col-span-2">
+                <label class="block text-sm font-semibold text-blue-900 mb-1">Rol</label>
+                <select class="input w-full" @bind="registerModel.RolId">
+                    <option value="">Selecciona un rol</option>
+                    <option value="1">DOCENTE</option>
+                    <option value="2">ADMINISTRADOR</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="w-full mt-6 bg-blue-700 hover:bg-blue-800 text-white rounded-lg px-4 py-2 font-semibold shadow-md transition-all">Registrarse</button>
+        @if (!string.IsNullOrEmpty(ErrorMsg))
+        {
+            <div class="text-red-600 mt-2">@ErrorMsg</div>
+        }
+    </div>
+</EditForm>
+
+@code {
+    private RegisterModel registerModel = new();
+    private string ErrorMsg = string.Empty;
+
+    private async Task HandleRegister()
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync("http://localhost:5015/api/Auth/register", registerModel);
+            if (response.IsSuccessStatusCode)
+            {
+                // Login automático tras registro
+                var loginData = new LoginRequest { correo = registerModel.Correo, contraseña = registerModel.Contraseña };
+                var result = await AuthService.LoginAsync(loginData);
+                if (result != null && result.usuario != null)
+                {
+                    await LocalStorageService.GuardarObjetoAsync("loginResponse", result);
+                    if (result.usuario.Rol == "ADMINISTRADOR")
+                        Navigation.NavigateTo("/admin-dashboard");
+                    else
+                        Navigation.NavigateTo("/teacher-dashboard");
+                }
+            }
+            else
+            {
+                ErrorMsg = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMsg = ex.Message;
+        }
+    }
+
+    public class RegisterModel
+    {
+        public string Nombres { get; set; } = string.Empty;
+        public string Apellidos { get; set; } = string.Empty;
+        public string Cedula { get; set; } = string.Empty;
+        public string Telefono { get; set; } = string.Empty;
+        public string Direccion { get; set; } = string.Empty;
+        public DateTime FechaNacimiento { get; set; } = DateTime.Today;
+        public string Correo { get; set; } = string.Empty;
+        public string Contraseña { get; set; } = string.Empty;
+        public int RolId { get; set; }
+    }
+}
+
+<style>
+.input {
+    border: 1px solid #bfdbfe;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    width: 100%;
+    outline: none;
+    transition: box-shadow 0.2s;
+}
+.input:focus {
+    box-shadow: 0 0 0 2px #60a5fa;
+    border-color: #60a5fa;
+}
+</style>
