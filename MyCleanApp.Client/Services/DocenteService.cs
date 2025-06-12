@@ -22,7 +22,8 @@ public class DocenteService
         try
         {
             var cedula = loginResponse.usuario.Cedula;
-            var response = await _http.GetAsync($"http://localhost:5015/api/Docente/info/2");
+            Console.WriteLine("su id es : "+loginResponse.usuario.Id);
+            var response = await _http.GetAsync($"http://localhost:5015/api/Docente/info/{loginResponse.usuario.Id}");
 
             if (response.IsSuccessStatusCode)
             {
@@ -62,7 +63,7 @@ public class DocenteService
         }
         try
         {
-            var response = await _http.GetAsync($"http://localhost:5015/api/PublicacionAcademica/usuario/2");
+            var response = await _http.GetAsync($"http://localhost:5015/api/PublicacionAcademica/usuario/{loginResponse.usuario.Id}");
             var data = await response.Content.ReadFromJsonAsync<PublicacionAcademicaDto[]>();
             if (data == null)
             {
