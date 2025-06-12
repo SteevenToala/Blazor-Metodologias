@@ -1,15 +1,20 @@
-﻿@inject IJSRuntime JS
+
+@inject IJSRuntime JS
 @inject AuthService AuthService
 @inject LocalStorageService LocalStorageService
 @inject NavigationManager Navigation
 
 @code {
+    private bool collapseNavMenu = true;
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
     private LoginResponse? loginResponse;
+    private string rol = "";
     private bool cargado = false;
 
     protected override async Task OnInitializedAsync()
     {
         loginResponse = await LocalStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+
         cargado = true;
         StateHasChanged();
     }
@@ -34,6 +39,7 @@
     }
 }
 
+
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">TeacherBlazorApp</a>
@@ -42,6 +48,7 @@
         </button>
     </div>
 </div>
+
 
 @if (cargado)
 {

@@ -6,8 +6,7 @@ namespace MyCleanApp.Domain.Entities
         public required string Correo { get; set; }
         public required string PasswordHash { get; set; }
 
-        public int RolId { get; set; }
-        public Rol Rol { get; set; } = null!;
+        public string Rol { get; set; }
 
         public int PersonaId { get; set; }
         public Persona Persona { get; set; } = null!;

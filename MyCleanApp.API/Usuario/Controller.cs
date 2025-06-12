@@ -16,14 +16,13 @@ public class UsuariosController : ControllerBase
     public async Task<IEnumerable<UsuarioDto>> Get()
     {
         return await _context.Usuario
-            .Include(u => u.Rol)
             .Include(u => u.Persona)
             .Select(u => new UsuarioDto
             {
                 Id = u.Id,
                 Correo = u.Correo,
                 NombreCompleto = u.Persona.Nombres + " " + u.Persona.Apellidos,
-                Rol = u.Rol.RolNombre
+                Rol = u.Rol
             }).ToListAsync();
     }
 
@@ -31,7 +30,6 @@ public class UsuariosController : ControllerBase
     public async Task<ActionResult<UsuarioDto>> Get(int id)
     {
         var usuario = await _context.Usuario
-            .Include(u => u.Rol)
             .Include(u => u.Persona)
             .Where(u => u.Id == id)
             .Select(u => new UsuarioDto
@@ -39,7 +37,7 @@ public class UsuariosController : ControllerBase
                 Id = u.Id,
                 Correo = u.Correo,
                 NombreCompleto = u.Persona.Nombres + " " + u.Persona.Apellidos,
-                Rol = u.Rol.RolNombre
+                Rol = u.Rol
             }).FirstOrDefaultAsync();
 
         return usuario == null ? NotFound() : Ok(usuario);
@@ -52,7 +50,7 @@ public class UsuariosController : ControllerBase
         {
             Correo = dto.Correo,
             PasswordHash = passwordHasher.Hash(dto.Contraseña),
-            RolId = dto.RolId,
+            Rol = dto.Rol,
             PersonaId = dto.PersonaId,
             Activo = true
         };
@@ -71,7 +69,7 @@ public class UsuariosController : ControllerBase
 
         usuario.Correo = dto.Correo;
         usuario.PasswordHash = passwordHasher.Hash(dto.Contraseña);
-        usuario.RolId = dto.RolId;
+        usuario.Rol = dto.Rol;
         usuario.PersonaId = dto.PersonaId;
 
         await _context.SaveChangesAsync();

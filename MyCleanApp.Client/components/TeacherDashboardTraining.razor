@@ -1,0 +1,65 @@
+@using Microsoft.AspNetCore.Components
+
+@code {
+    [Parameter]
+    public int TrainingHours { get; set; }
+
+    [Parameter]
+    public int RequiredHours { get; set; }
+
+    [Parameter]
+    public List<TrainingCourse> Courses { get; set; } = new();
+}
+
+<div class="space-y-4">
+    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div class="p-6">
+            <div class="flex flex-row items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-lg font-medium">Cursos de Capacitación</h3>
+                    <p class="text-sm text-gray-600">
+                        Has completado @TrainingHours de @RequiredHours horas requeridas
+                    </p>
+                </div>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
+                    Registrar Nuevo Curso
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                         style="width: @(Math.Min((double)TrainingHours / RequiredHours * 100, 100))%;"></div>
+                </div>
+
+                <div class="border rounded-lg divide-y">
+                    @if (Courses != null && Courses.Any())
+                    {
+                        @foreach (var course in Courses)
+                        {
+                            <div class="p-4">
+                                <div class="font-medium">@course.Title</div>
+                                <div class="text-sm text-gray-500 mt-1">@course.Hours horas - @course.Date</div>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">
+                                    Certificado
+                                </span>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="p-4 text-gray-500 text-center">No hay cursos registrados.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    public class TrainingCourse
+    {
+        public string Title { get; set; } = string.Empty;
+        public int Hours { get; set; }
+        public string Date { get; set; } = string.Empty;
+    }
+}

@@ -2,7 +2,7 @@ public class CrearUsuarioDto
 {
     public string Correo { get; set; } = null!;
     public string Contraseña { get; set; } = null!;
-    public int RolId { get; set; }
+    public string Rol { get; set; }
     public int PersonaId { get; set; }
 }
 
