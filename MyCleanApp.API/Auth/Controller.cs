@@ -128,6 +128,21 @@ public class AuthController : ControllerBase
             _context.Usuario.Add(usuario);
             await _context.SaveChangesAsync();
 
+            // Si el rol es DOCENTE (1), crear perfil Docente automáticamente
+            if (usuario.RolId == 1)
+            {
+                int nextDocenteId = (_context.Docente.Any() ? _context.Docente.Max(d => d.Id) : 0) + 1;
+                var docente = new Docente
+                {
+                    Id = nextDocenteId,
+                    UsuarioId = usuario.Id,
+                    NivelAcademicoId = 1, // Asignar nivel académico inicial por defecto
+                    FechaInicioNivel = DateTime.Today
+                };
+                _context.Docente.Add(docente);
+                await _context.SaveChangesAsync();
+            }
+
             return Ok(new { usuario.Id, usuario.Correo });
         }
         catch (Exception ex)
