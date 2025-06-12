@@ -78,4 +78,63 @@ public class AuthController : ControllerBase
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    public class RegisterDto
+    {
+        public string Correo { get; set; } = null!;
+        public string Contraseña { get; set; } = null!;
+        public int RolId { get; set; }
+        public string Nombres { get; set; } = null!;
+        public string Apellidos { get; set; } = null!;
+        public string Cedula { get; set; } = null!;
+        public string Telefono { get; set; } = null!;
+        public string Direccion { get; set; } = null!;
+        public DateTime FechaNacimiento { get; set; }
+    }
+
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterDto dto, [FromServices] IPasswordHasher passwordHasher)
+    {
+        try
+        {
+            // Validar correo duplicado
+            if (await _context.Usuario.AnyAsync(u => u.Correo == dto.Correo))
+                return BadRequest("El correo ya está registrado");
+
+            // Asignar manualmente el ID de Persona
+            int nextPersonaId = (_context.Persona.Any() ? _context.Persona.Max(p => p.Id) : 0) + 1;
+            var persona = new Persona
+            {
+                Id = nextPersonaId,
+                Nombres = dto.Nombres,
+                Apellidos = dto.Apellidos,
+                Cedula = dto.Cedula,
+                Telefono = dto.Telefono,
+                Direccion = dto.Direccion,
+                FechaNacimiento = dto.FechaNacimiento
+            };
+            _context.Persona.Add(persona);
+            await _context.SaveChangesAsync();
+
+            // Asignar manualmente el ID de Usuario
+            int nextUsuarioId = (_context.Usuario.Any() ? _context.Usuario.Max(u => u.Id) : 0) + 1;
+            var usuario = new Usuario
+            {
+                Id = nextUsuarioId,
+                Correo = dto.Correo,
+                PasswordHash = passwordHasher.Hash(dto.Contraseña),
+                RolId = dto.RolId,
+                PersonaId = persona.Id,
+                Activo = true
+            };
+            _context.Usuario.Add(usuario);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { usuario.Id, usuario.Correo });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error en el registro: {ex.Message} {ex.InnerException?.Message}");
+        }
+    }
 }

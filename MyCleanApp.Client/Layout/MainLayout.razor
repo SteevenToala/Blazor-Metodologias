@@ -1,7 +1,15 @@
 ﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components
+@code {
+    private NavMenu? navMenuRef;
+    public void NotificarCambioLogin()
+    {
+        navMenuRef?.OnLoginChanged();
+    }
+}
 <div class="page">
     <div class="sidebar">
-        <NavMenu />
+        <NavMenu @ref="navMenuRef" />
     </div>
 
     <main>
