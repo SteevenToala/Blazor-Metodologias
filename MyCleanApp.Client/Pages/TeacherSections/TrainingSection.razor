@@ -1,17 +1,203 @@
+@inject MyCleanApp.Client.Services.CourseService CourseService
+@inject MyCleanApp.Client.Services.TeacherService TeacherService
+@inject LocalStorageService LocalStorageService
+
 @* Sección Capacitaciones *@
 <div class="space-y-4">
-    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div class="p-6">
-            <div class="flex flex-row items-center justify-between mb-4">
-                <div>
-                    <h3 class="text-lg font-medium">Cursos de Capacitación</h3>
-                    <p class="text-sm text-gray-600">Has completado 80 de 96 horas requeridas</p>
+    @if (isLoading)
+    {
+        <div class="p-6">Cargando cursos...</div>
+    }
+    else if (!string.IsNullOrEmpty(error))
+    {
+        <div class="p-6 text-red-600">Error: @error</div>
+    }
+    else
+    {
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div class="p-6">
+                <div class="flex flex-row items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-medium">Cursos de Capacitación</h3>
+                        <p class="text-sm text-gray-600">Total cursos: @(cursos?.Count ?? 0)</p>
+                    </div>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors" @onclick="()=>MostrarFormularioNuevo()">Registrar Nuevo Curso</button>
                 </div>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">Registrar Nuevo Curso</button>
-            </div>
-            <div class="space-y-4">
-                <!-- ...progreso y cursos... -->
+                <div class="space-y-4">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="border px-4 py-2 text-left">Nombre</th>
+                                <th class="border px-4 py-2 text-left">Horas</th>
+                                <th class="border px-4 py-2 text-left">Fecha Inicio</th>
+                                <th class="border px-4 py-2 text-left">Fecha Fin</th>
+                                <th class="border px-4 py-2 text-left">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (cursos != null && cursos.Any())
+                            {
+                                @foreach (var curso in cursos)
+                                {
+                                    <tr>
+                                        <td class="border px-4 py-2">@curso.Nombre</td>
+                                        <td class="border px-4 py-2">@curso.Horas</td>
+                                        <td class="border px-4 py-2">@curso.FechaInicio.ToString("yyyy-MM-dd")</td>
+                                        <td class="border px-4 py-2">@curso.FechaFin.ToString("yyyy-MM-dd")</td>
+                                        <td class="border px-4 py-2 space-x-2">
+                                            <button class="text-blue-600 hover:underline" @onclick="() => EditarCurso(curso)">Editar</button>
+                                            <button class="text-red-600 hover:underline" @onclick="() => EliminarCurso(curso.Id)">Eliminar</button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="5" class="border px-4 py-2 text-center text-gray-400">No hay cursos registrados.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
+    }
+
+    @if (mostrarFormulario)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                <h3 class="text-lg font-medium mb-4">@(editando ? "Editar Curso" : "Registrar Curso")</h3>
+                <div class="space-y-2">
+                    <input class="w-full border rounded px-3 py-2" placeholder="Nombre" @bind="cursoForm.Nombre" />
+                    <input class="w-full border rounded px-3 py-2" placeholder="Horas" type="number" @bind="cursoForm.Horas" />
+                    <label class="block text-sm">Fecha Inicio</label>
+                    <input type="date" class="w-full border rounded px-3 py-2" @bind="fechaInicioForm" />
+                    <label class="block text-sm">Fecha Fin</label>
+                    <input type="date" class="w-full border rounded px-3 py-2" @bind="fechaFinForm" />
+                </div>
+                <div class="flex justify-end space-x-2 mt-4">
+                    <button class="px-4 py-2 rounded bg-gray-200" @onclick="()=>mostrarFormulario=false">Cancelar</button>
+                    <button class="px-4 py-2 rounded bg-blue-600 text-white" @onclick="GuardarCurso">Guardar</button>
+                </div>
+            </div>
+        </div>
+    }
 </div>
+
+@code {
+    private List<MyCleanApp.Client.Services.CursoCapacitacionDto>? cursos;
+    private bool isLoading = true;
+    private string? error;
+    private int docenteId = 0;
+    private bool mostrarFormulario = false;
+    private bool editando = false;
+    private MyCleanApp.Client.Services.CursoCapacitacionDto cursoForm = new();
+    private DateTime fechaInicioForm = DateTime.Today;
+    private DateTime fechaFinForm = DateTime.Today;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarCursos();
+    }
+
+    private async Task CargarCursos()
+    {
+        try
+        {
+            isLoading = true;
+            error = null;
+            var loginResponse = await LocalStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+            if (loginResponse?.usuario == null)
+            {
+                error = "No se pudo obtener el usuario autenticado.";
+                isLoading = false;
+                return;
+            }
+            var docentes = await TeacherService.GetAllTeachersAsync();
+            var docente = docentes?.FirstOrDefault(d => d.UsuarioId == loginResponse.usuario.Id);
+            if (docente == null)
+            {
+                error = "No se encontró el perfil de docente para este usuario.";
+                isLoading = false;
+                return;
+            }
+            docenteId = docente.Id;
+            var allCursos = await CourseService.GetAllCoursesAsync();
+            cursos = allCursos?.Where(c => c.DocenteId == docenteId).ToList();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+
+    private void MostrarFormularioNuevo()
+    {
+        cursoForm = new MyCleanApp.Client.Services.CursoCapacitacionDto();
+        fechaInicioForm = DateTime.Today;
+        fechaFinForm = DateTime.Today;
+        editando = false;
+        mostrarFormulario = true;
+    }
+
+    private void EditarCurso(MyCleanApp.Client.Services.CursoCapacitacionDto curso)
+    {
+        cursoForm = new MyCleanApp.Client.Services.CursoCapacitacionDto
+        {
+            Id = curso.Id,
+            Nombre = curso.Nombre,
+            Horas = curso.Horas,
+            FechaInicio = curso.FechaInicio,
+            FechaFin = curso.FechaFin,
+            DocenteId = curso.DocenteId
+        };
+        fechaInicioForm = curso.FechaInicio;
+        fechaFinForm = curso.FechaFin;
+        editando = true;
+        mostrarFormulario = true;
+    }
+
+    private async Task GuardarCurso()
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            cursoForm.DocenteId = docenteId;
+            cursoForm.FechaInicio = fechaInicioForm;
+            cursoForm.FechaFin = fechaFinForm;
+            if (editando && cursoForm.Id > 0)
+            {
+                await CourseService.UpdateCourseAsync(cursoForm.Id, cursoForm);
+            }
+            else
+            {
+                await CourseService.CreateCourseAsync(cursoForm);
+            }
+            mostrarFormulario = false;
+            await CargarCursos();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+
+    private async Task EliminarCurso(int id)
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            await CourseService.DeleteCourseAsync(id);
+            await CargarCursos();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+}

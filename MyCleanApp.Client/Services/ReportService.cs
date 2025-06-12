@@ -29,6 +29,16 @@ namespace MyCleanApp.Client.Services
             return await _http.PostAsJsonAsync("http://localhost:5015/api/ReporteAvance", reporte);
         }
 
+        public async Task UpdateReportAsync(int id, ReporteAvanceDto reporte)
+        {
+            await _http.PutAsJsonAsync($"http://localhost:5015/api/ReporteAvance/{id}", reporte);
+        }
+
+        public async Task DeleteReportAsync(int id)
+        {
+            await _http.DeleteAsync($"http://localhost:5015/api/ReporteAvance/{id}");
+        }
+
         public async Task<List<ReporteAvanceDto>?> GetInstitutionalReportAsync(int? nivelId = null, string? periodo = null)
         {
             string url = "http://localhost:5015/api/Administrador/reporte-institucional";
@@ -40,6 +50,19 @@ namespace MyCleanApp.Client.Services
             }
             return await _http.GetFromJsonAsync<List<ReporteAvanceDto>>(url);
         }
+
+        public async Task<string> UploadReportFileAsync(byte[] fileBytes, string fileName)
+        {
+            using var content = new MultipartFormDataContent();
+            var fileContent = new ByteArrayContent(fileBytes);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+            content.Add(fileContent, "file", fileName);
+            var response = await _http.PostAsync("http://localhost:5015/api/ReporteAvance/upload", content);
+            response.EnsureSuccessStatusCode();
+            // Suponiendo que el backend responde con la URL del archivo
+            var url = await response.Content.ReadAsStringAsync();
+            return url.Trim('"'); // Por si viene como string JSON
+        }
     }
 
     public class ReporteAvanceDto
@@ -47,6 +70,7 @@ namespace MyCleanApp.Client.Services
         public int Id { get; set; }
         public DateTime FechaGeneracion { get; set; }
         public int DocenteId { get; set; }
+        public string? ArchivoUrl { get; set; } // Para soporte de archivos
         // Puedes agregar más propiedades según el backend
     }
 }

@@ -1,65 +1,245 @@
-@* Sección: Listado de Docentes (tab Docentes) *@
-<div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-    <div class="p-6">
-        <h3 class="text-lg font-medium mb-2">Listado de Docentes</h3>
-        <p class="text-sm text-gray-600 mb-4">Gestiona los perfiles de docentes y sus niveles</p>
-        <div class="flex flex-col md:flex-row gap-4 mb-4">
-            <div class="relative flex-1">
-                <input placeholder="Buscar por nombre..." class="pl-8 w-full px-3 py-2 border border-gray-300 rounded-md" />
-            </div>
-            <div class="flex gap-2">
-                <div class="relative">
-                    <button class="border border-gray-300 bg-white text-gray-700 font-medium py-2 px-4 rounded-md flex items-center">Nivel: Todos</button>
+@inject MyCleanApp.Client.Services.TeacherService TeacherService
+@inject MyCleanApp.Client.Services.UserService UserService
+@inject MyCleanApp.Client.Services.NivelAcademicoService NivelAcademicoService
+
+@code {
+    private List<MyCleanApp.Client.Services.DocenteDto>? docentes;
+    private List<MyCleanApp.Client.Services.UsuarioDto>? usuarios;
+    private List<MyCleanApp.Client.Services.NivelAcademicoDto>? niveles;
+    private bool isLoading = true;
+    private string searchTerm = string.Empty;
+    private int? filterNivelId = null;
+    private bool mostrarFormulario = false;
+    private bool isSaving = false;
+    private string? formError;
+    private bool editando = false;
+    private MyCleanApp.Client.Services.DocenteDto docenteForm = new();
+    private DateTime fechaInicioNivelForm = DateTime.Today;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        docentes = await TeacherService.GetAllTeachersAsync();
+        usuarios = await UserService.GetAllUsersAsync();
+        niveles = await NivelAcademicoService.GetAllAsync();
+        isLoading = false;
+    }
+
+    private string GetNombreDocente(int usuarioId)
+    {
+        var usuario = usuarios?.FirstOrDefault(u => u.Id == usuarioId);
+        return usuario?.NombreCompleto ?? "-";
+    }
+
+    private string GetNivelNombre(int nivelId)
+    {
+        var nivel = niveles?.FirstOrDefault(n => n.Id == nivelId);
+        return nivel?.Nombre ?? "-";
+    }
+
+    private IEnumerable<MyCleanApp.Client.Services.DocenteDto> GetFilteredDocentes()
+    {
+        var query = docentes?.AsEnumerable() ?? Enumerable.Empty<MyCleanApp.Client.Services.DocenteDto>();
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(d => GetNombreDocente(d.UsuarioId).Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+        if (filterNivelId.HasValue)
+        {
+            query = query.Where(d => d.NivelAcademicoId == filterNivelId.Value);
+        }
+        return query;
+    }
+
+    private void MostrarFormularioNuevo()
+    {
+        docenteForm = new MyCleanApp.Client.Services.DocenteDto();
+        fechaInicioNivelForm = DateTime.Today;
+        editando = false;
+        mostrarFormulario = true;
+        formError = null;
+    }
+
+    private async Task GuardarDocente()
+    {
+        isSaving = true;
+        formError = null;
+        try
+        {
+            if (docenteForm.UsuarioId == 0 || docenteForm.NivelAcademicoId == 0)
+            {
+                formError = "Debe seleccionar usuario y nivel académico.";
+                isSaving = false;
+                return;
+            }
+            docenteForm.FechaInicioNivel = fechaInicioNivelForm;
+            if (editando && docenteForm.Id > 0)
+            {
+                await TeacherService.UpdateTeacherAsync(docenteForm.Id, docenteForm);
+            }
+            else
+            {
+                await TeacherService.CreateTeacherAsync(docenteForm);
+            }
+            mostrarFormulario = false;
+            await RecargarDocentes();
+        }
+        catch (Exception ex)
+        {
+            formError = ex.Message;
+        }
+        isSaving = false;
+    }
+
+    private async Task RecargarDocentes()
+    {
+        isLoading = true;
+        docentes = await TeacherService.GetAllTeachersAsync();
+        isLoading = false;
+    }
+
+    private async Task EditarDocente(MyCleanApp.Client.Services.DocenteDto docente)
+    {
+        docenteForm = new MyCleanApp.Client.Services.DocenteDto
+        {
+            Id = docente.Id,
+            UsuarioId = docente.UsuarioId,
+            NivelAcademicoId = docente.NivelAcademicoId,
+            FechaInicioNivel = docente.FechaInicioNivel
+        };
+        fechaInicioNivelForm = docente.FechaInicioNivel;
+        editando = true;
+        mostrarFormulario = true;
+        formError = null;
+    }
+
+    private async Task EliminarDocente(int id)
+    {
+        isLoading = true;
+        formError = null;
+        try
+        {
+            await TeacherService.DeleteTeacherAsync(id);
+            await RecargarDocentes();
+        }
+        catch (Exception ex)
+        {
+            formError = ex.Message;
+        }
+        isLoading = false;
+    }
+}
+
+@if (isLoading)
+{
+    <div class="p-6">Cargando docentes...</div>
+}
+else
+{
+    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div class="p-6">
+            <h3 class="text-lg font-medium mb-2">Listado de Docentes</h3>
+            <p class="text-sm text-gray-600 mb-4">Gestiona los perfiles de docentes y sus niveles</p>
+            <div class="flex flex-col md:flex-row gap-4 mb-4">
+                <div class="relative flex-1">
+                    <input @bind="searchTerm" placeholder="Buscar por nombre..." class="pl-8 w-full px-3 py-2 border border-gray-300 rounded-md" />
+                </div>
+                <div class="flex gap-2">
+                    <div class="relative">
+                        <select @bind="filterNivelId" class="border border-gray-300 bg-white text-gray-700 font-medium py-2 px-4 rounded-md">
+                            <option value="">Nivel: Todos</option>
+                            @if (niveles != null)
+                            {
+                                foreach (var nivel in niveles)
+                                {
+                                    <option value="@nivel.Id">@nivel.Nombre</option>
+                                }
+                            }
+                        </select>
+                    </div>
                 </div>
             </div>
+            <div class="border rounded-lg overflow-hidden">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Docente</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nivel</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Años</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Usuario</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 bg-white">
+                        @if (GetFilteredDocentes().Any())
+                        {
+                            @foreach (var docente in GetFilteredDocentes())
+                            {
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 whitespace-nowrap"><div class="font-medium">@GetNombreDocente(docente.UsuarioId)</div></td>
+                                    <td class="px-4 py-3 whitespace-nowrap"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium font-semibold bg-blue-50">@GetNivelNombre(docente.NivelAcademicoId)</span></td>
+                                    <td class="px-4 py-3 whitespace-nowrap hidden md:table-cell">@((DateTime.Now.Year - docente.FechaInicioNivel.Year) + ((DateTime.Now.DayOfYear < docente.FechaInicioNivel.DayOfYear) ? -1 : 0)) años</td>
+                                    <td class="px-4 py-3 whitespace-nowrap hidden md:table-cell">@docente.UsuarioId</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-right">
+                                        <button class="text-blue-600 hover:underline mr-2" @onclick="() => EditarDocente(docente)">Editar</button>
+                                        <button class="text-red-600 hover:underline" @onclick="() => EliminarDocente(docente.Id)">Eliminar</button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr><td colspan="5" class="px-4 py-3 text-center text-gray-400">No se encontraron docentes.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div class="border rounded-lg overflow-hidden">
-            <table class="w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Docente</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nivel</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Años</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Papers</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Evaluación</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 bg-white">
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 whitespace-nowrap"><div class="font-medium">María García</div></td>
-                        <td class="px-4 py-3 whitespace-nowrap"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium font-semibold bg-blue-50">DT.2</span></td>
-                        <td class="px-4 py-3 whitespace-nowrap hidden md:table-cell">3 años</td>
-                        <td class="px-4 py-3 whitespace-nowrap hidden md:table-cell">1</td>
-                        <td class="px-4 py-3 whitespace-nowrap hidden lg:table-cell"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">82%</span></td>
-                        <td class="px-4 py-3 whitespace-nowrap"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-700">En progreso</span></td>
-                        <td class="px-4 py-3 whitespace-nowrap text-right"><button class="text-gray-400 hover:text-gray-600 p-1">...</button></td>
-                    </tr>
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 whitespace-nowrap"><div class="font-medium">Juan Pérez</div></td>
-                        <td class="px-4 py-3 whitespace-nowrap"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium font-semibold bg-blue-50">DT.3</span></td>
-                        <td class="px-4 py-3 whitespace-nowrap hidden md:table-cell">4 años</td>
-                        <td class="px-4 py-3 whitespace-nowrap hidden md:table-cell">3</td>
-                        <td class="px-4 py-3 whitespace-nowrap hidden lg:table-cell"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">88%</span></td>
-                        <td class="px-4 py-3 whitespace-nowrap"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Elegible para promoción</span></td>
-                        <td class="px-4 py-3 whitespace-nowrap text-right"><button class="text-gray-400 hover:text-gray-600 p-1">...</button></td>
-                    </tr>
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 whitespace-nowrap"><div class="font-medium">Ana Rodríguez</div></td>
-                        <td class="px-4 py-3 whitespace-nowrap"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium font-semibold bg-blue-50">DT.1</span></td>
-                        <td class="px-4 py-3 whitespace-nowrap hidden md:table-cell">4 años</td>
-                        <td class="px-4 py-3 whitespace-nowrap hidden md:table-cell">1</td>
-                        <td class="px-4 py-3 whitespace-nowrap hidden lg:table-cell"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">90%</span></td>
-                        <td class="px-4 py-3 whitespace-nowrap"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Elegible para promoción</span></td>
-                        <td class="px-4 py-3 whitespace-nowrap text-right"><button class="text-gray-400 hover:text-gray-600 p-1">...</button></td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="px-6 py-4 flex justify-between border-t border-gray-200">
+            <div class="text-sm text-gray-500">Mostrando @GetFilteredDocentes().Count() de @(docentes?.Count ?? 0) docentes</div>
+            <button class="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium py-1 px-3 rounded-md text-sm transition-colors" @onclick="MostrarFormularioNuevo">Registrar Docente</button>
         </div>
     </div>
-    <div class="px-6 py-4 flex justify-between border-t border-gray-200">
-        <div class="text-sm text-gray-500">Mostrando 3 de 5 docentes</div>
-        <button class="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium py-1 px-3 rounded-md text-sm transition-colors">Exportar Lista</button>
+}
+@if (mostrarFormulario)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-medium mb-4">@(editando ? "Editar Docente" : "Registrar Docente")</h3>
+            @if (!string.IsNullOrEmpty(formError))
+            {
+                <div class="text-red-600 mb-2">@formError</div>
+            }
+            <div class="space-y-2">
+                <label class="block text-sm">Usuario</label>
+                <select class="w-full border rounded px-3 py-2" @bind="docenteForm.UsuarioId">
+                    <option value="">Seleccione...</option>
+                    @if (usuarios != null)
+                    {
+                        @foreach (var u in usuarios)
+                        {
+                            <option value="@u.Id">@u.NombreCompleto (@u.Correo)</option>
+                        }
+                    }
+                </select>
+                <label class="block text-sm">Nivel académico</label>
+                <select class="w-full border rounded px-3 py-2" @bind="docenteForm.NivelAcademicoId">
+                    <option value="">Seleccione...</option>
+                    @if (niveles != null)
+                    {
+                        @foreach (var n in niveles)
+                        {
+                            <option value="@n.Id">@n.Nombre</option>
+                        }
+                    }
+                </select>
+                <label class="block text-sm">Fecha inicio nivel</label>
+                <input type="date" class="w-full border rounded px-3 py-2" @bind="fechaInicioNivelForm" />
+            </div>
+            <div class="flex justify-end space-x-2 mt-4">
+                <button class="px-4 py-2 rounded bg-gray-200" @onclick="()=>mostrarFormulario=false" disabled="@isSaving">Cancelar</button>
+                <button class="px-4 py-2 rounded bg-blue-600 text-white" @onclick="GuardarDocente" disabled="@isSaving">Guardar</button>
+            </div>
+        </div>
     </div>
-</div>
+}

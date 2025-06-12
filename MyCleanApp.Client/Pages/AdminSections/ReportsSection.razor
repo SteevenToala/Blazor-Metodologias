@@ -1,3 +1,141 @@
+@page "/informes"
+@inject MyCleanApp.Client.Services.ReportService ReportService
+@inject MyCleanApp.Client.Services.TeacherService TeacherService
+@inject MyCleanApp.Client.Services.UserService UserService
+
+@code {
+    private List<MyCleanApp.Client.Services.ReporteAvanceDto>? reportes;
+    private List<MyCleanApp.Client.Services.DocenteDto>? docentes;
+    private List<MyCleanApp.Client.Services.UsuarioDto>? usuarios;
+    private bool isLoading = true;
+    private string? error;
+    private bool mostrarFormulario = false;
+    private bool editando = false;
+    private MyCleanApp.Client.Services.ReporteAvanceDto reporteForm = new();
+    private DateTime fechaGeneracionForm = DateTime.Today;
+    private IBrowserFile? archivoForm;
+    private string? archivoNombreForm;
+    private bool isSaving = false;
+    private string? formError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarReportes();
+    }
+
+    private async Task CargarReportes()
+    {
+        try
+        {
+            isLoading = true;
+            reportes = await ReportService.GetAllReportsAsync();
+            docentes = await TeacherService.GetAllTeachersAsync();
+            usuarios = await UserService.GetAllUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+
+    private string GetNombreDocente(int docenteId)
+    {
+        var docente = docentes?.FirstOrDefault(d => d.Id == docenteId);
+        if (docente == null) return "-";
+        var usuario = usuarios?.FirstOrDefault(u => u.Id == docente.UsuarioId);
+        return usuario?.NombreCompleto ?? "-";
+    }
+
+    private void MostrarFormularioNuevo()
+    {
+        reporteForm = new MyCleanApp.Client.Services.ReporteAvanceDto();
+        fechaGeneracionForm = DateTime.Today;
+        editando = false;
+        mostrarFormulario = true;
+    }
+
+    private void EditarReporte(MyCleanApp.Client.Services.ReporteAvanceDto reporte)
+    {
+        reporteForm = new MyCleanApp.Client.Services.ReporteAvanceDto
+        {
+            Id = reporte.Id,
+            DocenteId = reporte.DocenteId,
+            FechaGeneracion = reporte.FechaGeneracion
+        };
+        fechaGeneracionForm = reporte.FechaGeneracion;
+        editando = true;
+        mostrarFormulario = true;
+    }
+
+    private async Task GuardarReporte()
+    {
+        isSaving = true;
+        error = null;
+        formError = null;
+        try
+        {
+            if (reporteForm.DocenteId == 0)
+            {
+                formError = "Debe seleccionar un docente.";
+                isSaving = false;
+                return;
+            }
+            reporteForm.FechaGeneracion = fechaGeneracionForm;
+            // Si hay archivo adjunto, subirlo primero
+            if (archivoForm != null)
+            {
+                using var stream = archivoForm.OpenReadStream(10 * 1024 * 1024); // 10MB max
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                var bytes = ms.ToArray();
+                // Suponiendo que ReportService tiene un método para subir archivos
+                var url = await ReportService.UploadReportFileAsync(bytes, archivoForm.Name);
+                reporteForm.ArchivoUrl = url;
+            }
+            if (editando && reporteForm.Id > 0)
+            {
+                await ReportService.UpdateReportAsync(reporteForm.Id, reporteForm);
+            }
+            else
+            {
+                await ReportService.CreateReportAsync(reporteForm);
+            }
+            mostrarFormulario = false;
+            await CargarReportes();
+            archivoForm = null;
+            archivoNombreForm = null;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isSaving = false;
+    }
+
+    private async Task EliminarReporte(int id)
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            await ReportService.DeleteReportAsync(id);
+            await CargarReportes();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+
+    private async Task OnArchivoSeleccionado(InputFileChangeEventArgs e)
+    {
+        archivoForm = e.File;
+        archivoNombreForm = archivoForm?.Name;
+    }
+}
+
 @* Sección: Informes (tab Informes) *@
 <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
     <div class="p-6">
@@ -9,7 +147,110 @@
             </svg>
             <h3 class="text-lg font-medium">Módulo de informes</h3>
             <p class="text-sm text-gray-500 mb-4 max-w-md mx-auto">Accede a informes detallados sobre el rendimiento docente, historial de promociones y más.</p>
-            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">Generar Informe</button>
+            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors" @onclick="MostrarFormularioNuevo">Registrar Informe</button>
         </div>
     </div>
 </div>
+
+@if (isLoading)
+{
+    <div class="p-6">Cargando informes...</div>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <div class="p-6 text-red-600">Error: @error</div>
+}
+else
+{
+    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div class="p-6">
+            <h3 class="text-lg font-medium mb-2">Informes de avance</h3>
+            <p class="text-sm text-gray-600 mb-4">Lista de reportes generados por los docentes</p>
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="border px-4 py-2 text-left">Docente</th>
+                            <th class="border px-4 py-2 text-left">Fecha de Generación</th>
+                            <th class="border px-4 py-2 text-left">Archivo</th>
+                            <th class="border px-4 py-2 text-left">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (reportes != null && reportes.Any())
+                        {
+                            @foreach (var reporte in reportes)
+                            {
+                                <tr>
+                                    <td class="border px-4 py-2">@GetNombreDocente(reporte.DocenteId)</td>
+                                    <td class="border px-4 py-2">@reporte.FechaGeneracion.ToString("yyyy-MM-dd")</td>
+                                    <td class="border px-4 py-2">
+                                        @if (!string.IsNullOrEmpty(reporte.ArchivoUrl))
+                                        {
+                                            <a class="text-blue-600 underline" href="@reporte.ArchivoUrl" target="_blank">Descargar</a>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-gray-400 text-xs">Sin archivo</span>
+                                        }
+                                    </td>
+                                    <td class="border px-4 py-2 space-x-2">
+                                        <button class="text-blue-600 hover:underline" @onclick="() => EditarReporte(reporte)">Editar</button>
+                                        <button class="text-red-600 hover:underline" @onclick="() => EliminarReporte(reporte.Id)">Eliminar</button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr><td colspan="4" class="border px-4 py-2 text-center text-gray-400">No hay informes registrados.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mostrarFormulario)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-medium mb-4">@(editando ? "Editar Informe" : "Registrar Informe")</h3>
+            @if (!string.IsNullOrEmpty(formError))
+            {
+                <div class="text-red-600 mb-2">@formError</div>
+            }
+            <div class="space-y-2">
+                <label class="block text-sm">Docente</label>
+                <select class="w-full border rounded px-3 py-2" @bind="reporteForm.DocenteId">
+                    <option value="">Seleccione...</option>
+                    @if (docentes != null)
+                    {
+                        @foreach (var d in docentes)
+                        {
+                            var usuario = usuarios?.FirstOrDefault(u => u.Id == d.UsuarioId);
+                            <option value="@d.Id">@usuario?.NombreCompleto</option>
+                        }
+                    }
+                </select>
+                <label class="block text-sm">Fecha de Generación</label>
+                <input type="date" class="w-full border rounded px-3 py-2" @bind="fechaGeneracionForm" />
+                <label class="block text-sm">Archivo adjunto</label>
+                <InputFile OnChange="OnArchivoSeleccionado" />
+                @if (!string.IsNullOrEmpty(archivoNombreForm))
+                {
+                    <div class="text-xs text-gray-600">Archivo seleccionado: @archivoNombreForm</div>
+                }
+                @if (!string.IsNullOrEmpty(reporteForm.ArchivoUrl))
+                {
+                    <a class="text-blue-600 underline text-xs" href="@reporteForm.ArchivoUrl" target="_blank">Ver archivo actual</a>
+                }
+            </div>
+            <div class="flex justify-end space-x-2 mt-4">
+                <button class="px-4 py-2 rounded bg-gray-200" @onclick="()=>mostrarFormulario=false" disabled="@isSaving">Cancelar</button>
+                <button class="px-4 py-2 rounded bg-blue-600 text-white" @onclick="GuardarReporte" disabled="@isSaving">Guardar</button>
+            </div>
+        </div>
+    </div>
+}

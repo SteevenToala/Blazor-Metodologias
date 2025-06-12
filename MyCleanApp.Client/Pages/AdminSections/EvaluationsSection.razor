@@ -1,3 +1,109 @@
+@page "/evaluaciones"
+@using MyCleanApp.Client.Services
+@inject TeacherEvaluationService EvaluationService
+@inject TeacherService TeacherService
+@inject UserService UserService
+
+@code {
+    private List<EvaluacionDocenteDto>? evaluaciones;
+    private List<DocenteDto>? docentes;
+    private List<UsuarioDto>? usuarios;
+    private bool isLoading = true;
+    private string? error;
+    private bool mostrarFormulario = false;
+    private bool editando = false;
+    private EvaluacionDocenteDto evaluacionForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarEvaluaciones();
+    }
+
+    private async Task CargarEvaluaciones()
+    {
+        try
+        {
+            isLoading = true;
+            evaluaciones = await EvaluationService.GetAllEvaluationsAsync();
+            docentes = await TeacherService.GetAllTeachersAsync();
+            usuarios = await UserService.GetAllUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+
+    private string GetNombreDocente(int docenteId)
+    {
+        var docente = docentes?.FirstOrDefault(d => d.Id == docenteId);
+        if (docente == null) return "-";
+        var usuario = usuarios?.FirstOrDefault(u => u.Id == docente.UsuarioId);
+        return usuario?.NombreCompleto ?? "-";
+    }
+
+    private void MostrarFormularioNuevo()
+    {
+        evaluacionForm = new EvaluacionDocenteDto();
+        editando = false;
+        mostrarFormulario = true;
+    }
+
+    private void EditarEvaluacion(EvaluacionDocenteDto eval)
+    {
+        evaluacionForm = new EvaluacionDocenteDto
+        {
+            Id = eval.Id,
+            DocenteId = eval.DocenteId,
+            Periodo = eval.Periodo,
+            Puntaje = eval.Puntaje
+        };
+        editando = true;
+        mostrarFormulario = true;
+    }
+
+    private async Task GuardarEvaluacion()
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            if (editando && evaluacionForm.Id > 0)
+            {
+                await EvaluationService.UpdateEvaluationAsync(evaluacionForm.Id, evaluacionForm);
+            }
+            else
+            {
+                await EvaluationService.CreateEvaluationAsync(evaluacionForm);
+            }
+            mostrarFormulario = false;
+            await CargarEvaluaciones();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+
+    private async Task EliminarEvaluacion(int id)
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            await EvaluationService.DeleteEvaluationAsync(id);
+            await CargarEvaluaciones();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+}
+
 @* Sección: Evaluaciones (tab Evaluaciones) *@
 <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
     <div class="p-6">
@@ -10,7 +116,87 @@
             </svg>
             <h3 class="text-lg font-medium">Módulo de evaluaciones</h3>
             <p class="text-sm text-gray-500 mb-4 max-w-md mx-auto">Aquí podrás gestionar las evaluaciones de desempeño docente, configurar criterios y generar informes.</p>
-            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">Acceder a Evaluaciones</button>
+            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors" @onclick="MostrarFormularioNuevo">Registrar Evaluación</button>
         </div>
     </div>
 </div>
+
+@if (isLoading)
+{
+    <div class="p-6">Cargando evaluaciones...</div>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <div class="p-6 text-red-600">Error: @error</div>
+}
+else
+{
+    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div class="p-6">
+            <h3 class="text-lg font-medium mb-2">Evaluaciones de Docentes</h3>
+            <p class="text-sm text-gray-600 mb-4">Lista de evaluaciones de desempeño docente</p>
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="border px-4 py-2 text-left">Docente</th>
+                            <th class="border px-4 py-2 text-left">Periodo</th>
+                            <th class="border px-4 py-2 text-left">Puntaje</th>
+                            <th class="border px-4 py-2 text-left">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (evaluaciones != null && evaluaciones.Any())
+                        {
+                            @foreach (var eval in evaluaciones)
+                            {
+                                <tr>
+                                    <td class="border px-4 py-2">@GetNombreDocente(eval.DocenteId)</td>
+                                    <td class="border px-4 py-2">@eval.Periodo</td>
+                                    <td class="border px-4 py-2">@eval.Puntaje</td>
+                                    <td class="border px-4 py-2 space-x-2">
+                                        <button class="text-blue-600 hover:underline" @onclick="() => EditarEvaluacion(eval)">Editar</button>
+                                        <button class="text-red-600 hover:underline" @onclick="() => EliminarEvaluacion(eval.Id)">Eliminar</button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr><td colspan="4" class="border px-4 py-2 text-center text-gray-400">No hay evaluaciones registradas.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mostrarFormulario)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-medium mb-4">@(editando ? "Editar Evaluación" : "Registrar Evaluación")</h3>
+            <div class="space-y-2">
+                <label class="block text-sm">Docente</label>
+                <select class="w-full border rounded px-3 py-2" @bind="evaluacionForm.DocenteId">
+                    <option value="">Seleccione...</option>
+                    @if (docentes != null)
+                    {
+                        @foreach (var d in docentes)
+                        {
+                            var usuario = usuarios?.FirstOrDefault(u => u.Id == d.UsuarioId);
+                            <option value="@d.Id">@usuario?.NombreCompleto</option>
+                        }
+                    }
+                </select>
+                <input class="w-full border rounded px-3 py-2" placeholder="Periodo" @bind="evaluacionForm.Periodo" />
+                <input class="w-full border rounded px-3 py-2" placeholder="Puntaje" type="number" step="0.01" @bind="evaluacionForm.Puntaje" />
+            </div>
+            <div class="flex justify-end space-x-2 mt-4">
+                <button class="px-4 py-2 rounded bg-gray-200" @onclick="()=>mostrarFormulario=false">Cancelar</button>
+                <button class="px-4 py-2 rounded bg-blue-600 text-white" @onclick="GuardarEvaluacion">Guardar</button>
+            </div>
+        </div>
+    </div>
+}

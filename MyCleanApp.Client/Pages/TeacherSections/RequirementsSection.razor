@@ -1,12 +1,191 @@
-@* Sección Requisitos de Promoción *@
+@page "/requisitos-promocion"
+@inject MyCleanApp.Client.Services.PromotionRequirementService PromotionRequirementService
+@inject MyCleanApp.Client.Services.CumplimientoRequisitoService CumplimientoRequisitoService
+@inject MyCleanApp.Client.Services.TeacherService TeacherService
+@inject LocalStorageService LocalStorageService
+
 <div class="space-y-4">
-    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div class="p-6">
-            <h3 class="text-lg font-medium mb-2">Requisitos para avanzar a DT.3</h3>
-            <p class="text-sm text-gray-600 mb-4">Cumple todos estos requisitos para ser elegible para promoción</p>
-            <div class="space-y-4">
-                <!-- ...requisitos... -->
+    @if (isLoading)
+    {
+        <div class="p-6">Cargando requisitos...</div>
+    }
+    else if (!string.IsNullOrEmpty(error))
+    {
+        <div class="p-6 text-red-600">Error: @error</div>
+    }
+    else
+    {
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div class="p-6">
+                <h3 class="text-lg font-medium mb-2">Requisitos para avanzar a DT.3</h3>
+                <p class="text-sm text-gray-600 mb-4">Cumple todos estos requisitos para ser elegible para promoción</p>
+                <div class="space-y-4">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="border px-4 py-2 text-left">Requisito</th>
+                                <th class="border px-4 py-2 text-left">Cumplido</th>
+                                <th class="border px-4 py-2 text-left">Fecha Cumplimiento</th>
+                                <th class="border px-4 py-2 text-left">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (requisitos != null && requisitos.Any())
+                            {
+                                @foreach (var req in requisitos)
+                                {
+                                    var cumplimiento = cumplimientos?.FirstOrDefault(c => c.RequisitoId == req.Id);
+                                    <tr>
+                                        <td class="border px-4 py-2">@req.Nombre</td>
+                                        <td class="border px-4 py-2">@(cumplimiento?.Cumplido == true ? "Sí" : "No")</td>
+                                        <td class="border px-4 py-2">@(cumplimiento?.Cumplido == true ? cumplimiento.FechaCumplimiento.ToString("yyyy-MM-dd") : "-")</td>
+                                        <td class="border px-4 py-2 space-x-2">
+                                            <button class="text-blue-600 hover:underline" @onclick="() => MostrarFormularioCumplimiento(req, cumplimiento)">@(cumplimiento == null ? "Registrar" : "Editar")</button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="4" class="border px-4 py-2 text-center text-gray-400">No hay requisitos registrados.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
+    }
+
+    @if (mostrarFormularioCumplimiento)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                <h3 class="text-lg font-medium mb-4">@(editandoCumplimiento ? "Editar Cumplimiento" : "Registrar Cumplimiento")</h3>
+                <div class="space-y-2">
+                    <label class="block text-sm">Cumplido</label>
+                    <select class="w-full border rounded px-3 py-2" @bind="cumplimientoForm.Cumplido">
+                        <option value="true">Sí</option>
+                        <option value="false">No</option>
+                    </select>
+                    <label class="block text-sm">Fecha Cumplimiento</label>
+                    <input type="date" class="w-full border rounded px-3 py-2" @bind="fechaCumplimientoForm" />
+                </div>
+                <div class="flex justify-end space-x-2 mt-4">
+                    <button class="px-4 py-2 rounded bg-gray-200" @onclick="()=>mostrarFormularioCumplimiento=false">Cancelar</button>
+                    <button class="px-4 py-2 rounded bg-blue-600 text-white" @onclick="GuardarCumplimiento">Guardar</button>
+                </div>
+            </div>
+        </div>
+    }
 </div>
+
+@code {
+    private List<MyCleanApp.Client.Services.RequisitoPromocionDto>? requisitos;
+    private List<MyCleanApp.Client.Services.CumplimientoRequisitoDto>? cumplimientos;
+    private bool isLoading = true;
+    private string? error;
+    private int docenteId = 0;
+    private bool mostrarFormularioCumplimiento = false;
+    private bool editandoCumplimiento = false;
+    private MyCleanApp.Client.Services.RequisitoPromocionDto? requisitoSeleccionado;
+    private MyCleanApp.Client.Services.CumplimientoRequisitoDto cumplimientoForm = new();
+    private DateTime fechaCumplimientoForm = DateTime.Today;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarRequisitos();
+    }
+
+    private async Task CargarRequisitos()
+    {
+        try
+        {
+            isLoading = true;
+            error = null;
+            var loginResponse = await LocalStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+            if (loginResponse?.usuario == null)
+            {
+                error = "No se pudo obtener el usuario autenticado.";
+                isLoading = false;
+                return;
+            }
+            var docentes = await TeacherService.GetAllTeachersAsync();
+            var docente = docentes?.FirstOrDefault(d => d.UsuarioId == loginResponse.usuario.Id);
+            if (docente == null)
+            {
+                error = "No se encontró el perfil de docente para este usuario.";
+                isLoading = false;
+                return;
+            }
+            docenteId = docente.Id;
+            requisitos = await PromotionRequirementService.GetAllRequirementsAsync();
+            var allCumplimientos = await CumplimientoRequisitoService.GetAllAsync();
+            cumplimientos = allCumplimientos?.Where(c => c.DocenteId == docenteId).ToList();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+
+    private void MostrarFormularioCumplimiento(MyCleanApp.Client.Services.RequisitoPromocionDto req, MyCleanApp.Client.Services.CumplimientoRequisitoDto? cumplimiento)
+    {
+        requisitoSeleccionado = req;
+        if (cumplimiento != null)
+        {
+            cumplimientoForm = new MyCleanApp.Client.Services.CumplimientoRequisitoDto
+            {
+                Id = cumplimiento.Id,
+                DocenteId = cumplimiento.DocenteId,
+                RequisitoId = cumplimiento.RequisitoId,
+                Cumplido = cumplimiento.Cumplido,
+                FechaCumplimiento = cumplimiento.FechaCumplimiento
+            };
+            fechaCumplimientoForm = cumplimiento.FechaCumplimiento;
+            editandoCumplimiento = true;
+        }
+        else
+        {
+            cumplimientoForm = new MyCleanApp.Client.Services.CumplimientoRequisitoDto
+            {
+                Id = 0,
+                DocenteId = docenteId,
+                RequisitoId = req.Id,
+                Cumplido = false,
+                FechaCumplimiento = DateTime.Today
+            };
+            fechaCumplimientoForm = DateTime.Today;
+            editandoCumplimiento = false;
+        }
+        mostrarFormularioCumplimiento = true;
+    }
+
+    private async Task GuardarCumplimiento()
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            cumplimientoForm.DocenteId = docenteId;
+            cumplimientoForm.RequisitoId = requisitoSeleccionado?.Id ?? 0;
+            cumplimientoForm.FechaCumplimiento = fechaCumplimientoForm;
+            if (editandoCumplimiento && cumplimientoForm.Id > 0)
+            {
+                // No hay endpoint de update, solo create, así que se puede eliminar y crear de nuevo si es necesario
+            }
+            else
+            {
+                // Aquí deberías llamar a un método de servicio para crear el cumplimiento
+                // await CumplimientoRequisitoService.CreateAsync(cumplimientoForm);
+            }
+            mostrarFormularioCumplimiento = false;
+            await CargarRequisitos();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+}

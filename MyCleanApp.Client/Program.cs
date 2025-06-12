@@ -21,5 +21,7 @@ builder.Services.AddScoped<MyCleanApp.Client.Services.AdminDashboardService>();
 builder.Services.AddScoped<MyCleanApp.Client.Services.PromotionRequestService>();
 builder.Services.AddScoped<MyCleanApp.Client.Services.ReportService>();
 builder.Services.AddScoped<MyCleanApp.Client.Services.UserService>();
+builder.Services.AddScoped<MyCleanApp.Client.Services.NivelAcademicoService>();
+builder.Services.AddScoped<MyCleanApp.Client.Services.CumplimientoRequisitoService>();
 
 await builder.Build().RunAsync();

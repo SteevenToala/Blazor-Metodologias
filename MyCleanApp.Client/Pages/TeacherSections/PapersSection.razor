@@ -1,17 +1,198 @@
+@page "/publicaciones"
+@inject MyCleanApp.Client.Services.AcademicPaperService AcademicPaperService
+@inject MyCleanApp.Client.Services.TeacherService TeacherService
+@inject LocalStorageService LocalStorageService
+
 @* Sección Publicaciones *@
 <div class="space-y-4">
-    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div class="p-6">
-            <div class="flex flex-row items-center justify-between mb-4">
-                <div>
-                    <h3 class="text-lg font-medium">Publicaciones Académicas</h3>
-                    <p class="text-sm text-gray-600">Tus publicaciones registradas en el sistema</p>
+    @if (isLoading)
+    {
+        <div class="p-6">Cargando publicaciones...</div>
+    }
+    else if (!string.IsNullOrEmpty(error))
+    {
+        <div class="p-6 text-red-600">Error: @error</div>
+    }
+    else
+    {
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div class="p-6">
+                <div class="flex flex-row items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-medium">Publicaciones Académicas</h3>
+                        <p class="text-sm text-gray-600">Total publicaciones: @(publicaciones?.Count ?? 0)</p>
+                    </div>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors" @onclick="()=>MostrarFormularioNuevo()">Añadir Nueva Publicación</button>
                 </div>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">Añadir Nueva Publicación</button>
-            </div>
-            <div class="border rounded-lg divide-y">
-                <!-- ...publicaciones... -->
+                <div class="space-y-4">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="border px-4 py-2 text-left">Título</th>
+                                <th class="border px-4 py-2 text-left">Revista</th>
+                                <th class="border px-4 py-2 text-left">Volumen</th>
+                                <th class="border px-4 py-2 text-left">Año</th>
+                                <th class="border px-4 py-2 text-left">Tipo</th>
+                                <th class="border px-4 py-2 text-left">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (publicaciones != null && publicaciones.Any())
+                            {
+                                @foreach (var pub in publicaciones)
+                                {
+                                    <tr>
+                                        <td class="border px-4 py-2">@pub.Titulo</td>
+                                        <td class="border px-4 py-2">@pub.Revista</td>
+                                        <td class="border px-4 py-2">@pub.Volumen</td>
+                                        <td class="border px-4 py-2">@pub.Anio</td>
+                                        <td class="border px-4 py-2">@pub.Tipo</td>
+                                        <td class="border px-4 py-2 space-x-2">
+                                            <button class="text-blue-600 hover:underline" @onclick="() => EditarPublicacion(pub)">Editar</button>
+                                            <button class="text-red-600 hover:underline" @onclick="() => EliminarPublicacion(pub.Id)">Eliminar</button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="6" class="border px-4 py-2 text-center text-gray-400">No hay publicaciones registradas.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
+    }
+
+    @if (mostrarFormulario)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                <h3 class="text-lg font-medium mb-4">@(editando ? "Editar Publicación" : "Registrar Publicación")</h3>
+                <div class="space-y-2">
+                    <input class="w-full border rounded px-3 py-2" placeholder="Título" @bind="publicacionForm.Titulo" />
+                    <input class="w-full border rounded px-3 py-2" placeholder="Revista" @bind="publicacionForm.Revista" />
+                    <input class="w-full border rounded px-3 py-2" placeholder="Volumen" @bind="publicacionForm.Volumen" />
+                    <input class="w-full border rounded px-3 py-2" placeholder="Año" type="number" @bind="publicacionForm.Anio" />
+                    <input class="w-full border rounded px-3 py-2" placeholder="Tipo" @bind="publicacionForm.Tipo" />
+                </div>
+                <div class="flex justify-end space-x-2 mt-4">
+                    <button class="px-4 py-2 rounded bg-gray-200" @onclick="()=>mostrarFormulario=false">Cancelar</button>
+                    <button class="px-4 py-2 rounded bg-blue-600 text-white" @onclick="GuardarPublicacion">Guardar</button>
+                </div>
+            </div>
+        </div>
+    }
 </div>
+
+@code {
+    private List<MyCleanApp.Client.Services.PublicacionAcademicaDto>? publicaciones;
+    private bool isLoading = true;
+    private string? error;
+    private int docenteId = 0;
+    private bool mostrarFormulario = false;
+    private bool editando = false;
+    private MyCleanApp.Client.Services.PublicacionAcademicaDto publicacionForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarPublicaciones();
+    }
+
+    private async Task CargarPublicaciones()
+    {
+        try
+        {
+            isLoading = true;
+            error = null;
+            var loginResponse = await LocalStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+            if (loginResponse?.usuario == null)
+            {
+                error = "No se pudo obtener el usuario autenticado.";
+                isLoading = false;
+                return;
+            }
+            var docentes = await TeacherService.GetAllTeachersAsync();
+            var docente = docentes?.FirstOrDefault(d => d.UsuarioId == loginResponse.usuario.Id);
+            if (docente == null)
+            {
+                error = "No se encontró el perfil de docente para este usuario.";
+                isLoading = false;
+                return;
+            }
+            docenteId = docente.Id;
+            var allPubs = await AcademicPaperService.GetAllPapersAsync();
+            publicaciones = allPubs?.Where(p => p.DocenteId == docenteId).ToList();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+
+    private void MostrarFormularioNuevo()
+    {
+        publicacionForm = new MyCleanApp.Client.Services.PublicacionAcademicaDto();
+        editando = false;
+        mostrarFormulario = true;
+    }
+
+    private void EditarPublicacion(MyCleanApp.Client.Services.PublicacionAcademicaDto pub)
+    {
+        publicacionForm = new MyCleanApp.Client.Services.PublicacionAcademicaDto
+        {
+            Id = pub.Id,
+            Titulo = pub.Titulo,
+            Revista = pub.Revista,
+            Volumen = pub.Volumen,
+            Anio = pub.Anio,
+            Tipo = pub.Tipo,
+            DocenteId = pub.DocenteId
+        };
+        editando = true;
+        mostrarFormulario = true;
+    }
+
+    private async Task GuardarPublicacion()
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            publicacionForm.DocenteId = docenteId;
+            if (editando && publicacionForm.Id > 0)
+            {
+                await AcademicPaperService.UpdatePaperAsync(publicacionForm.Id, publicacionForm);
+            }
+            else
+            {
+                await AcademicPaperService.CreatePaperAsync(publicacionForm);
+            }
+            mostrarFormulario = false;
+            await CargarPublicaciones();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+
+    private async Task EliminarPublicacion(int id)
+    {
+        isLoading = true;
+        error = null;
+        try
+        {
+            await AcademicPaperService.DeletePaperAsync(id);
+            await CargarPublicaciones();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        isLoading = false;
+    }
+}
