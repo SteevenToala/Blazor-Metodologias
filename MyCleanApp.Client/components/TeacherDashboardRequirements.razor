@@ -1,0 +1,153 @@
+@inject DocenteService DocenteService
+
+@code {
+    private string NextLevel { get; set; } = "";
+    private List<Requirement> Requirements { get; set; } = new();
+    private bool isLoading = true;
+
+    // Calcula el porcentaje y requisitos completados
+    private double progressPercentage => Requirements.Count == 0 ? 0 : (Requirements.Count(r => r.Completed) * 100.0 / Requirements.Count);
+    private int completedRequirements => Requirements.Count(r => r.Completed);
+    private int totalRequirements => Requirements.Count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var dashboard = await DocenteService.getDataDashBoard();
+        if (dashboard != null)
+        {
+            Requirements = dashboard.requisitoNivel?.Select(r => new Requirement
+            {
+                Name = r.Nombre,
+                Current = r.Nombre switch
+                {
+                    "Años en el rango" or "Años en nivel actual" => dashboard.AniosEnNivel,
+                    "Papers" or "Publicaciones académicas" => dashboard.PublicacionesAcademicas,
+                    "Puntaje Evaluación" or "Puntaje de evaluación" => (int)dashboard.PuntajeEvaluacion,
+                    "Horas Capacitación" or "Horas de capacitación" => dashboard.HorasCapacitacion,
+                    "Investigaciones" or "Meses en investigación" => dashboard.Investigaciones,
+                    _ => 0
+                },
+                Required = r.ValorRequerido,
+                Completed = r.Nombre switch
+                {
+                    "Años en el rango" or "Años en nivel actual" => dashboard.AniosEnNivel >= r.ValorRequerido,
+                    "Papers" or "Publicaciones académicas" => dashboard.PublicacionesAcademicas >= r.ValorRequerido,
+                    "Puntaje Evaluación" or "Puntaje de evaluación" => dashboard.PuntajeEvaluacion >= r.ValorRequerido,
+                    "Horas Capacitación" or "Horas de capacitación" => dashboard.HorasCapacitacion >= r.ValorRequerido,
+                    "Investigaciones" or "Meses en investigación" => dashboard.Investigaciones >= r.ValorRequerido,
+                    _ => false
+                }
+            }).ToList() ?? new List<Requirement>();
+
+            var nivelActual = dashboard.NivelAcademico;
+            var prefijo = nivelActual.Substring(0, nivelActual.Length - 1);
+            var numero = int.TryParse(nivelActual.Substring(nivelActual.Length - 1), out var n) ? n : 1;
+            NextLevel = numero < 5 ? $"{prefijo}{numero + 1}" : nivelActual;
+        }
+        isLoading = false;
+    }
+
+    public class Requirement
+    {
+        public string Name { get; set; } = string.Empty;
+        public int Current { get; set; }
+        public int Required { get; set; }
+        public bool Completed { get; set; }
+    }
+}
+
+@if (isLoading)
+{
+    <div class="text-center py-8 text-gray-500">Cargando requisitos...</div>
+}
+else
+{
+    <div class="mb-6">
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 flex items-center gap-6 shadow-sm">
+            <div class="flex-shrink-0">
+                <svg class="h-10 w-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke-width="2" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 6v6l4 2" />
+                </svg>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center justify-between">
+                    <span class="text-lg font-semibold text-blue-700">
+                        Avance general para promoción
+                    </span>
+                    <span class="text-lg font-bold text-blue-700">
+                        @progressPercentage.ToString("0")%
+                    </span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3 mt-2">
+                    <div class="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                         style="width: @progressPercentage%;"></div>
+                </div>
+                <div class="text-sm text-gray-600 mt-2">
+                    Has completado @completedRequirements de @totalRequirements requisitos necesarios para ser elegible para la promoción.
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="space-y-4">
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div class="p-6">
+                <h3 class="text-lg font-medium mb-2">Requisitos para avanzar a @NextLevel</h3>
+                <p class="text-sm text-gray-600 mb-4">
+                    Cumple todos estos requisitos para ser elegible para promoción
+                </p>
+                <div class="space-y-4">
+                    @foreach (var req in Requirements)
+                    {
+                        <div class="border rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="font-medium flex items-center">
+                                    @if (req.Completed)
+                                    {
+                                        <div class="h-5 w-5 rounded-full bg-green-500 mr-2 flex items-center justify-center text-white text-xs">
+                                            &#10003;
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="h-5 w-5 rounded-full border-2 border-gray-300 mr-2"></div>
+                                    }
+                                    @req.Name
+                                </div>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @(req.Completed ? "bg-green-100 text-green-800" : "border border-gray-300 bg-white text-gray-700")">
+                                    @(req.Completed ? "Completado" : "Pendiente")
+                                </span>
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                Progreso: @req.Current de @req.Required @(req.Name == "Puntaje de evaluación" ? "%" : "")
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-2 @(req.Completed ? "bg-green-100" : "")">
+                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                     style="width: @(Math.Min((double)req.Current / req.Required * 100, 100))%;"></div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="border rounded-lg p-4 border-amber-500 bg-amber-50">
+                        <div class="flex">
+                            <svg class="h-4 w-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round"
+                                      stroke-linejoin="round"
+                                      stroke-width="2"
+                                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium">Te faltan requisitos para promocionar</h3>
+                                <div class="mt-2 text-sm">
+                                    Completa todos los requisitos pendientes para ser elegible para la promoción a
+                                    @NextLevel.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

@@ -1,0 +1,65 @@
+@using Microsoft.AspNetCore.Components
+
+@code {
+    [Parameter]
+    public int ResearchMonths { get; set; }
+
+    [Parameter]
+    public string ProjectTitle { get; set; } = "Impacto de las nuevas tecnologías en el aprendizaje colaborativo";
+
+    [Parameter]
+    public string StartDate { get; set; } = "Septiembre 2023";
+
+    [Parameter]
+    public string EndDate { get; set; } = "Septiembre 2024";
+
+    [Parameter]
+    public string Role { get; set; } = "Investigador asociado";
+
+    [Parameter]
+    public string Status { get; set; } = "En progreso";
+}
+
+<div class="space-y-4">
+    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div class="p-6">
+            <div class="flex flex-row items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-lg font-medium">Proyectos de Investigación</h3>
+                    <p class="text-sm text-gray-600">
+                        Has completado @ResearchMonths de 12 meses requeridos en proyectos de investigación
+                    </p>
+                </div>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
+                    Registrar Proyecto
+                </button>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
+                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                     style="width: @(Math.Min((double)ResearchMonths / 12 * 100, 100))%;"></div>
+            </div>
+
+            <div class="border rounded-lg p-4">
+                <div class="font-medium">@ProjectTitle</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                    <div>
+                        <div class="text-sm font-medium text-gray-500">Fecha de inicio</div>
+                        <div>@StartDate</div>
+                    </div>
+                    <div>
+                        <div class="text-sm font-medium text-gray-500">Fecha estimada de finalización</div>
+                        <div>@EndDate</div>
+                    </div>
+                    <div>
+                        <div class="text-sm font-medium text-gray-500">Rol en el proyecto</div>
+                        <div>@Role</div>
+                    </div>
+                    <div>
+                        <div class="text-sm font-medium text-gray-500">Estado</div>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">@Status</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

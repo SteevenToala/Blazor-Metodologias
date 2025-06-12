@@ -1,14 +1,22 @@
+@using MyCleanApp.Client.components
 @inject LocalStorageService LocalStorage
 @inject NavigationManager Navigation
 @inject EvaluacionService EvaluacionService
 @inject DocenteService DocenteService
 
+
 @code {
+    private void IrASubirPublicacion()
+    {
+        Navigation.NavigateTo("/subir-publicacion");
+    }
     private LoginResponse? loginResponse;
     private DashBoardDocente? dashBoardDocente;
 private List<PublicacionAcademicaDto> publicacionesAcademicas = new();
     protected override async Task OnInitializedAsync()
     {
+
+        
         loginResponse = await LocalStorage.ObtenerObjetoAsync<LoginResponse>("loginResponse");
 
         if (loginResponse != null && loginResponse.usuario != null)
@@ -285,66 +293,7 @@ else
 
         @if (activeTab == "requirements")
         {
-            <div class="space-y-4">
-                <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <div class="p-6">
-                        <h3 class="text-lg font-medium mb-2">Requisitos para avanzar a @teacherData.NextLevel</h3>
-                        <p class="text-sm text-gray-600 mb-4">
-                            Cumple todos estos requisitos para ser elegible para promoción
-                        </p>
-                        <div class="space-y-4">
-                            @foreach (var req in teacherData.Requirements)
-                            {
-                                <div class="border rounded-lg p-4">
-                                    <div class="flex justify-between items-center mb-2">
-                                        <div class="font-medium flex items-center">
-                                            @if (req.Completed)
-                                            {
-                                                <div class="h-5 w-5 rounded-full bg-green-500 mr-2 flex items-center justify-center text-white text-xs">
-                                                    &#10003;
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <div class="h-5 w-5 rounded-full border-2 border-gray-300 mr-2"></div>
-                                            }
-                                            @req.Name
-                                        </div>
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @(req.Completed ? "bg-green-100 text-green-800" : "border border-gray-300 bg-white text-gray-700")">
-                                            @(req.Completed ? "Completado" : "Pendiente")
-                                        </span>
-                                    </div>
-                                    <div class="text-sm text-gray-500">
-                                        Progreso: @req.Current de @req.Required @(req.Name == "Puntaje de evaluación" ? "%" : "")
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2 @(req.Completed ? "bg-green-100" : "")">
-                                        <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                             style="width: @(Math.Min((double)req.Current / req.Required * 100, 100))%;"></div>
-                                    </div>
-                                </div>
-                            }
-
-                            <div class="border rounded-lg p-4 border-amber-500 bg-amber-50">
-                                <div class="flex">
-                                    <svg class="h-4 w-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round"
-                                              stroke-linejoin="round"
-                                              stroke-width="2"
-                                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                    </svg>
-                                    <div class="ml-3">
-                                        <h3 class="text-sm font-medium">Te faltan requisitos para promocionar</h3>
-                                        <div class="mt-2 text-sm">
-                                            Completa todos los requisitos pendientes para ser elegible para la promoción a
-                                            @teacherData.NextLevel.
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <MyCleanApp.Client.components.TeacherDashboardRequirements/>
         }
 
        @if (activeTab == "papers")
@@ -357,7 +306,8 @@ else
                                 <h3 class="text-lg font-medium">Publicaciones Académicas</h3>
                                 <p class="text-sm text-gray-600">Tus publicaciones registradas en el sistema</p>
                             </div>
-                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                            @onclick="IrASubirPublicacion">
                                 Añadir Nueva Publicación
                             </button>
                         </div>
@@ -410,100 +360,27 @@ else
         }
         @if (activeTab == "training")
         {
-            <div class="space-y-4">
-                <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <div class="p-6">
-                        <div class="flex flex-row items-center justify-between mb-4">
-                            <div>
-                                <h3 class="text-lg font-medium">Cursos de Capacitación</h3>
-                                <p class="text-sm text-gray-600">
-                                    Has completado @teacherData.TrainingHours de 96 horas requeridas
-                                </p>
-                            </div>
-                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-                                Registrar Nuevo Curso
-                            </button>
-                        </div>
-                        <div class="space-y-4">
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                     style="width: @(Math.Min((double)teacherData.TrainingHours / 96 * 100, 100))%;"></div>
-                            </div>
-
-                            <div class="border rounded-lg divide-y">
-                                <div class="p-4">
-                                    <div class="font-medium">Pedagogía Digital para la Educación Superior</div>
-                                    <div class="text-sm text-gray-500 mt-1">40 horas - Febrero 2024</div>
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">
-                                        Certificado
-                                    </span>
-                                </div>
-                                <div class="p-4">
-                                    <div class="font-medium">Metodologías Activas en el Aula</div>
-                                    <div class="text-sm text-gray-500 mt-1">30 horas - Noviembre 2023</div>
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">
-                                        Certificado
-                                    </span>
-                                </div>
-                                <div class="p-4">
-                                    <div class="font-medium">Diseño de Contenidos Educativos Digitales</div>
-                                    <div class="text-sm text-gray-500 mt-1">10 horas - Agosto 2023</div>
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">
-                                        Certificado
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            var trainingCourses = new List<MyCleanApp.Client.components.TeacherDashboardTraining.TrainingCourse>
+            {
+                new() { Title = "Pedagogía Digital para la Educación Superior", Hours = 40, Date = "Febrero 2024" },
+                new() { Title = "Metodologías Activas en el Aula", Hours = 30, Date = "Noviembre 2023" },
+                new() { Title = "Diseño de Contenidos Educativos Digitales", Hours = 10, Date = "Agosto 2023" }
+            };
+            <TeacherDashboardTraining 
+                TrainingHours="teacherData.TrainingHours"
+                RequiredHours="96"
+                Courses="trainingCourses" />
         }
 
         @if (activeTab == "research")
         {
-            <div class="space-y-4">
-                <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                    <div class="p-6">
-                        <div class="flex flex-row items-center justify-between mb-4">
-                            <div>
-                                <h3 class="text-lg font-medium">Proyectos de Investigación</h3>
-                                <p class="text-sm text-gray-600">
-                                    Has completado @teacherData.ResearchMonths de 12 meses requeridos en proyectos de investigación
-                                </p>
-                            </div>
-                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-                                Registrar Proyecto
-                            </button>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
-                            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                 style="width: @(Math.Min((double)teacherData.ResearchMonths / 12 * 100, 100))%;"></div>
-                        </div>
-
-                        <div class="border rounded-lg p-4">
-                            <div class="font-medium">Impacto de las nuevas tecnologías en el aprendizaje colaborativo</div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                                <div>
-                                    <div class="text-sm font-medium text-gray-500">Fecha de inicio</div>
-                                    <div>Septiembre 2023</div>
-                                </div>
-                                <div>
-                                    <div class="text-sm font-medium text-gray-500">Fecha estimada de finalización</div>
-                                    <div>Septiembre 2024</div>
-                                </div>
-                                <div>
-                                    <div class="text-sm font-medium text-gray-500">Rol en el proyecto</div>
-                                    <div>Investigador asociado</div>
-                                </div>
-                                <div>
-                                    <div class="text-sm font-medium text-gray-500">Estado</div>
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">En progreso</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <MyCleanApp.Client.components.TeacherDashboardResearch 
+            ResearchMonths="teacherData.ResearchMonths"
+            ProjectTitle="Impacto de las nuevas tecnologías en el aprendizaje colaborativo"
+            StartDate="Septiembre 2023"
+            EndDate="Septiembre 2024"
+            Role="Investigador asociado"
+            Status="En progreso" />
         }
     </div>
 </div>

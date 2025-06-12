@@ -78,4 +78,16 @@ public class DocenteService
             return null;
         }
     }
+    public async Task<bool> SubirPublicacionAcademicaAsync(PublicacionAcademicaRequest data)
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse == null || loginResponse.usuario == null)
+        {
+            return false;
+
+        }
+        var httpClient = new HttpClient();
+        var response = await httpClient.PostAsJsonAsync("http://localhost:5015/api/PublicacionAcademica", data);
+        return response.IsSuccessStatusCode;
+    }
 }
