@@ -90,6 +90,7 @@ public class AuthController : ControllerBase
         public string Telefono { get; set; } = null!;
         public string Direccion { get; set; } = null!;
         public DateTime FechaNacimiento { get; set; }
+        public string Rol { get; set; } = null!; // Nueva propiedad Rol
     }
 
     [HttpPost("register")]
@@ -100,12 +101,12 @@ public class AuthController : ControllerBase
             // Validar correo duplicado
             if (await _context.Usuario.AnyAsync(u => u.Correo == dto.Correo))
                 return BadRequest("El correo ya está registrado");
+            // Validar cédula duplicada
+            if (await _context.Persona.AnyAsync(p => p.Cedula == dto.Cedula))
+                return BadRequest("La cédula ya está registrada");
 
-            // Asignar manualmente el ID de Persona
-            int nextPersonaId = (_context.Persona.Any() ? _context.Persona.Max(p => p.Id) : 0) + 1;
             var persona = new Persona
             {
-                Id = nextPersonaId,
                 Nombres = dto.Nombres,
                 Apellidos = dto.Apellidos,
                 Cedula = dto.Cedula,
@@ -117,18 +118,36 @@ public class AuthController : ControllerBase
             await _context.SaveChangesAsync();
 
             // Asignar manualmente el ID de Usuario
-            int nextUsuarioId = (_context.Usuario.Any() ? _context.Usuario.Max(u => u.Id) : 0) + 1;
             var usuario = new Usuario
             {
-                Id = nextUsuarioId,
                 Correo = dto.Correo,
                 PasswordHash = passwordHasher.Hash(dto.Contraseña),
-                RolId = dto.RolId,
+                Rol = dto.Rol, // Cambiado de RolId a Rol
                 PersonaId = persona.Id,
                 Activo = true
             };
             _context.Usuario.Add(usuario);
             await _context.SaveChangesAsync();
+
+            // Si el rol es DOCENTE, crear registro en Docente
+            if (dto.Rol.ToUpper() == "DOCENTE")
+            {
+                // Buscar el id del nivel académico inicial (DT2)
+                var nivelInicial = await _context.NivelAcademico.FirstOrDefaultAsync(n => n.nombre == "DT2");
+                if (nivelInicial == null)
+                {
+                    return StatusCode(500, "No existe el nivel académico inicial 'DT2' en la base de datos.");
+                }
+                var docente = new Docente
+                {
+                    UsuarioId = usuario.Id,
+                    NivelAcademicoId = nivelInicial.Id,
+                    NivelAcademico = nivelInicial,
+                    FechaInicioNivel = DateTime.Now
+                };
+                _context.Docente.Add(docente);
+                await _context.SaveChangesAsync();
+            }
 
             return Ok(new { usuario.Id, usuario.Correo });
         }

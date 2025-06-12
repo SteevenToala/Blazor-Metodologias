@@ -19,10 +19,10 @@
             <InputText class="input md:col-span-2" @bind-Value="registerModel.Contraseña" placeholder="Contraseña" type="password" />
             <div class="md:col-span-2">
                 <label class="block text-sm font-semibold text-blue-900 mb-1">Rol</label>
-                <select class="input w-full" @bind="registerModel.RolId">
+                <select class="input w-full" @bind="registerModel.Rol">
                     <option value="">Selecciona un rol</option>
-                    <option value="1">DOCENTE</option>
-                    <option value="2">ADMINISTRADOR</option>
+                    <option value="DOCENTE">DOCENTE</option>
+                    <option value="ADMINISTRADOR">ADMINISTRADOR</option>
                 </select>
             </div>
         </div>
@@ -80,7 +80,7 @@
         public DateTime FechaNacimiento { get; set; } = DateTime.Today;
         public string Correo { get; set; } = string.Empty;
         public string Contraseña { get; set; } = string.Empty;
-        public int RolId { get; set; }
+        public string Rol { get; set; } = string.Empty;
     }
 }
 
