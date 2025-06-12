@@ -1,27 +1,14 @@
-@inject LocalStorageService LocalStorage
-@code
-{
-    private LoginResponse? loginResponse;
-
-    protected override async Task OnInitializedAsync()
-    {
-    loginResponse = await LocalStorage.ObtenerObjetoAsync<LoginResponse>("loginResponse");
-
-        if (loginResponse != null)
-        {
-            Console.WriteLine($"Usuario logueado: {loginResponse.usuario?.Nombre}");
-        }
-    }
-}
 @page "/teacher-dashboard"
+
+@* Dashboard Docente: Tabs funcionales y contenido estático *@
 <div class="container mx-auto px-4 py-8">
     <div class="flex flex-col md:flex-row items-start justify-between mb-8 gap-4">
         <div>
-            <h1 class="text-3xl font-bold">Bienvenido, @loginResponse.usuario.Nombre</h1>
+            <h1 class="text-3xl font-bold">Bienvenido, Prof. María García</h1>
             <p class="text-gray-600 mt-1">
                 Nivel actual:
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 ml-1 font-semibold">
-                    @teacherData.Level
+                    DT.2
                 </span>
             </p>
         </div>
@@ -38,142 +25,106 @@
     <div class="space-y-4">
         <div class="border-b border-gray-200">
             <nav class="-mb-px flex space-x-8">
-                @foreach (var tab in Tabs)
-                {
-                    <button @onclick="() => activeTab = tab.id"
-                            class="py-2 px-1 border-b-2 font-medium text-sm @(activeTab == tab.id ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300")">
-                        @tab.label
-                    </button>
-                }
+                <button @onclick="@( () => SetTab("overview") )" class="py-2 px-1 border-b-2 font-medium text-sm @( _activeTab == "overview" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300")">Resumen</button>
+                <button @onclick="@( () => SetTab("requirements") )" class="py-2 px-1 border-b-2 font-medium text-sm @( _activeTab == "requirements" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300")">Requisitos de Promoción</button>
+                <button @onclick="@( () => SetTab("papers") )" class="py-2 px-1 border-b-2 font-medium text-sm @( _activeTab == "papers" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300")">Publicaciones</button>
+                <button @onclick="@( () => SetTab("training") )" class="py-2 px-1 border-b-2 font-medium text-sm @( _activeTab == "training" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300")">Capacitaciones</button>
+                <button @onclick="@( () => SetTab("research") )" class="py-2 px-1 border-b-2 font-medium text-sm @( _activeTab == "research" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300")">Investigación</button>
             </nav>
         </div>
 
-        @if (activeTab == "overview")
+        @if (_activeTab == "overview")
         {
+            <!-- Sección Resumen -->
             <div class="space-y-4">
-                <div class="border rounded-lg p-4 @(progressPercentage == 100 ? "border-green-500 bg-green-50" : "border-amber-500 bg-amber-50")">
+                <div class="border rounded-lg p-4 border-amber-500 bg-amber-50">
                     <div class="flex">
-                        <svg class="h-5 w-5 @(progressPercentage == 100 ? "text-green-500" : "text-amber-500")"
-                             fill="none"
-                             stroke="currentColor"
-                             viewBox="0 0 24 24">
-                            <path stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  stroke-width="2"
-                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        <svg class="h-5 w-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                         </svg>
                         <div class="ml-3">
-                            <h3 class="text-sm font-medium">
-                                @(progressPercentage == 100 ? $"¡Felicidades! Cumples con todos los requisitos para avanzar a {teacherData.NextLevel}" : $"Progreso hacia {teacherData.NextLevel}")
-                            </h3>
+                            <h3 class="text-sm font-medium">Progreso hacia DT.3</h3>
                             <div class="mt-2 text-sm">
-                                Has completado @completedRequirements de @totalRequirements requisitos necesarios para avanzar al
-                                siguiente nivel.
+                                Has completado 1 de 5 requisitos necesarios para avanzar al siguiente nivel.
                             </div>
                         </div>
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
                         <div class="p-4 pb-2">
                             <div class="flex items-center text-sm font-medium text-gray-600">
                                 <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round"
-                                          stroke-linejoin="round"
-                                          stroke-width="2"
-                                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                                 Años en nivel actual
                             </div>
                         </div>
                         <div class="p-4 pt-0">
-                            <div class="text-2xl font-bold">@teacherData.Years / 4</div>
+                            <div class="text-2xl font-bold">3 / 4</div>
                             <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                     style="width: @(Math.Min((double)teacherData.Years / 4 * 100, 100))%;"></div>
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: 75%;"></div>
                             </div>
                         </div>
                     </div>
-
                     <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
                         <div class="p-4 pb-2">
                             <div class="flex items-center text-sm font-medium text-gray-600">
                                 <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round"
-                                          stroke-linejoin="round"
-                                          stroke-width="2"
-                                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
                                 Publicaciones académicas
                             </div>
                         </div>
                         <div class="p-4 pt-0">
-                            <div class="text-2xl font-bold">@teacherData.Papers / 2</div>
+                            <div class="text-2xl font-bold">1 / 2</div>
                             <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                     style="width: @(Math.Min((double)teacherData.Papers / 2 * 100, 100))%;"></div>
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: 50%;"></div>
                             </div>
                         </div>
                     </div>
-
                     <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
                         <div class="p-4 pb-2">
                             <div class="flex items-center text-sm font-medium text-gray-600">
                                 <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round"
-                                          stroke-linejoin="round"
-                                          stroke-width="2"
-                                          d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                                 </svg>
                                 Puntaje de evaluación
                             </div>
                         </div>
                         <div class="p-4 pt-0">
-                            <div class="text-2xl font-bold">@teacherData.EvaluationScore% / 75%</div>
+                            <div class="text-2xl font-bold">82% / 75%</div>
                             <div class="w-full bg-green-100 rounded-full h-2 mt-2">
-                                <div class="bg-green-600 h-2 rounded-full transition-all duration-300"
-                                     style="width: @(teacherData.EvaluationScore)%;"></div>
+                                <div class="bg-green-600 h-2 rounded-full" style="width: 82%;"></div>
                             </div>
                         </div>
                     </div>
-
                     <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
                         <div class="p-4 pb-2">
                             <div class="flex items-center text-sm font-medium text-gray-600">
                                 <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round"
-                                          stroke-linejoin="round"
-                                          stroke-width="2"
-                                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 Horas de capacitación
                             </div>
                         </div>
                         <div class="p-4 pt-0">
-                            <div class="text-2xl font-bold">@teacherData.TrainingHours / 96</div>
+                            <div class="text-2xl font-bold">80 / 96</div>
                             <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                     style="width: @(Math.Min((double)teacherData.TrainingHours / 96 * 100, 100))%;"></div>
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: 83%;"></div>
                             </div>
                         </div>
                     </div>
                 </div>
-
                 <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div class="p-6">
                         <h3 class="text-lg font-medium mb-2">Próximas fechas importantes</h3>
-                        <p class="text-sm text-gray-600 mb-4">
-                            Eventos y fechas límite relevantes para tu desarrollo profesional
-                        </p>
+                        <p class="text-sm text-gray-600 mb-4">Eventos y fechas límite relevantes para tu desarrollo profesional</p>
                         <div class="space-y-2">
                             <div class="flex justify-between p-2 border rounded-md bg-slate-50">
                                 <div class="flex items-center">
                                     <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round"
-                                              stroke-linejoin="round"
-                                              stroke-width="2"
-                                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
                                     <span>Presentación de informe de investigación</span>
                                 </div>
@@ -182,10 +133,7 @@
                             <div class="flex justify-between p-2 border rounded-md bg-slate-50">
                                 <div class="flex items-center">
                                     <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round"
-                                              stroke-linejoin="round"
-                                              stroke-width="2"
-                                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
                                     <span>Evaluación anual de desempeño</span>
                                 </div>
@@ -194,10 +142,7 @@
                             <div class="flex justify-between p-2 border rounded-md bg-slate-50">
                                 <div class="flex items-center">
                                     <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round"
-                                              stroke-linejoin="round"
-                                              stroke-width="2"
-                                              d="M12 14l9-5-9-5-9 5 9 5z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z" />
                                     </svg>
                                     <span>Curso de capacitación pedagógica</span>
                                 </div>
@@ -208,62 +153,88 @@
                 </div>
             </div>
         }
-
-        @if (activeTab == "requirements")
+        @if (_activeTab == "requirements")
         {
+            <!-- Sección Requisitos de Promoción -->
             <div class="space-y-4">
                 <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div class="p-6">
-                        <h3 class="text-lg font-medium mb-2">Requisitos para avanzar a @teacherData.NextLevel</h3>
-                        <p class="text-sm text-gray-600 mb-4">
-                            Cumple todos estos requisitos para ser elegible para promoción
-                        </p>
+                        <h3 class="text-lg font-medium mb-2">Requisitos para avanzar a DT.3</h3>
+                        <p class="text-sm text-gray-600 mb-4">Cumple todos estos requisitos para ser elegible para promoción</p>
                         <div class="space-y-4">
-                            @foreach (var req in teacherData.Requirements)
-                            {
-                                <div class="border rounded-lg p-4">
-                                    <div class="flex justify-between items-center mb-2">
-                                        <div class="font-medium flex items-center">
-                                            @if (req.Completed)
-                                            {
-                                                <div class="h-5 w-5 rounded-full bg-green-500 mr-2 flex items-center justify-center text-white text-xs">
-                                                    &#10003;
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <div class="h-5 w-5 rounded-full border-2 border-gray-300 mr-2"></div>
-                                            }
-                                            @req.Name
-                                        </div>
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @(req.Completed ? "bg-green-100 text-green-800" : "border border-gray-300 bg-white text-gray-700")">
-                                            @(req.Completed ? "Completado" : "Pendiente")
-                                        </span>
+                            <div class="border rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div class="font-medium flex items-center">
+                                        <div class="h-5 w-5 rounded-full border-2 border-gray-300 mr-2"></div>
+                                        Años en nivel actual
                                     </div>
-                                    <div class="text-sm text-gray-500">
-                                        Progreso: @req.Current de @req.Required @(req.Name == "Puntaje de evaluación" ? "%" : "")
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2 @(req.Completed ? "bg-green-100" : "")">
-                                        <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                             style="width: @(Math.Min((double)req.Current / req.Required * 100, 100))%;"></div>
-                                    </div>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-700">Pendiente</span>
                                 </div>
-                            }
-
+                                <div class="text-sm text-gray-500">Progreso: 3 de 4</div>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: 75%;"></div>
+                                </div>
+                            </div>
+                            <div class="border rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div class="font-medium flex items-center">
+                                        <div class="h-5 w-5 rounded-full border-2 border-gray-300 mr-2"></div>
+                                        Publicaciones académicas
+                                    </div>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-700">Pendiente</span>
+                                </div>
+                                <div class="text-sm text-gray-500">Progreso: 1 de 2</div>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: 50%;"></div>
+                                </div>
+                            </div>
+                            <div class="border rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div class="font-medium flex items-center">
+                                        <div class="h-5 w-5 rounded-full bg-green-500 mr-2 flex items-center justify-center text-white text-xs">&#10003;</div>
+                                        Puntaje de evaluación
+                                    </div>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Completado</span>
+                                </div>
+                                <div class="text-sm text-gray-500">Progreso: 82 de 75 %</div>
+                                <div class="w-full bg-green-100 rounded-full h-2 mt-2">
+                                    <div class="bg-green-600 h-2 rounded-full" style="width: 82%;"></div>
+                                </div>
+                            </div>
+                            <div class="border rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div class="font-medium flex items-center">
+                                        <div class="h-5 w-5 rounded-full border-2 border-gray-300 mr-2"></div>
+                                        Horas de capacitación
+                                    </div>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-700">Pendiente</span>
+                                </div>
+                                <div class="text-sm text-gray-500">Progreso: 80 de 96</div>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: 83%;"></div>
+                                </div>
+                            </div>
+                            <div class="border rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div class="font-medium flex items-center">
+                                        <div class="h-5 w-5 rounded-full border-2 border-gray-300 mr-2"></div>
+                                        Meses en investigación
+                                    </div>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-700">Pendiente</span>
+                                </div>
+                                <div class="text-sm text-gray-500">Progreso: 8 de 12</div>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: 67%;"></div>
+                                </div>
+                            </div>
                             <div class="border rounded-lg p-4 border-amber-500 bg-amber-50">
                                 <div class="flex">
                                     <svg class="h-4 w-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round"
-                                              stroke-linejoin="round"
-                                              stroke-width="2"
-                                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                                     </svg>
                                     <div class="ml-3">
                                         <h3 class="text-sm font-medium">Te faltan requisitos para promocionar</h3>
-                                        <div class="mt-2 text-sm">
-                                            Completa todos los requisitos pendientes para ser elegible para la promoción a
-                                            @teacherData.NextLevel.
-                                        </div>
+                                        <div class="mt-2 text-sm">Completa todos los requisitos pendientes para ser elegible para la promoción a DT.3.</div>
                                     </div>
                                 </div>
                             </div>
@@ -272,9 +243,9 @@
                 </div>
             </div>
         }
-
-        @if (activeTab == "papers")
+        @if (_activeTab == "papers")
         {
+            <!-- Sección Publicaciones -->
             <div class="space-y-4">
                 <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div class="p-6">
@@ -283,9 +254,7 @@
                                 <h3 class="text-lg font-medium">Publicaciones Académicas</h3>
                                 <p class="text-sm text-gray-600">Tus publicaciones registradas en el sistema</p>
                             </div>
-                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-                                Añadir Nueva Publicación
-                            </button>
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">Añadir Nueva Publicación</button>
                         </div>
                         <div class="border rounded-lg divide-y">
                             <div class="p-4">
@@ -293,68 +262,51 @@
                                 <div class="text-sm text-gray-500 mt-1">Revista de Educación Superior, Vol. 34, 2024</div>
                                 <div class="flex items-center mt-2">
                                     <svg class="h-4 w-4 text-blue-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round"
-                                              stroke-linejoin="round"
-                                              stroke-width="2"
-                                              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                     </svg>
                                     <span class="text-sm text-blue-500">Artículo científico</span>
                                 </div>
                             </div>
                             <div class="p-4">
-                                <div class="text-gray-500 text-center py-4">
-                                    Se requiere 1 publicación adicional para cumplir con los requisitos de promoción.
-                                </div>
+                                <div class="text-gray-500 text-center py-4">Se requiere 1 publicación adicional para cumplir con los requisitos de promoción.</div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         }
-
-        @if (activeTab == "training")
+        @if (_activeTab == "training")
         {
+            <!-- Sección Capacitaciones -->
             <div class="space-y-4">
                 <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div class="p-6">
                         <div class="flex flex-row items-center justify-between mb-4">
                             <div>
                                 <h3 class="text-lg font-medium">Cursos de Capacitación</h3>
-                                <p class="text-sm text-gray-600">
-                                    Has completado @teacherData.TrainingHours de 96 horas requeridas
-                                </p>
+                                <p class="text-sm text-gray-600">Has completado 80 de 96 horas requeridas</p>
                             </div>
-                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-                                Registrar Nuevo Curso
-                            </button>
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">Registrar Nuevo Curso</button>
                         </div>
                         <div class="space-y-4">
                             <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                     style="width: @(Math.Min((double)teacherData.TrainingHours / 96 * 100, 100))%;"></div>
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: 83%;"></div>
                             </div>
-
                             <div class="border rounded-lg divide-y">
                                 <div class="p-4">
                                     <div class="font-medium">Pedagogía Digital para la Educación Superior</div>
                                     <div class="text-sm text-gray-500 mt-1">40 horas - Febrero 2024</div>
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">
-                                        Certificado
-                                    </span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">Certificado</span>
                                 </div>
                                 <div class="p-4">
                                     <div class="font-medium">Metodologías Activas en el Aula</div>
                                     <div class="text-sm text-gray-500 mt-1">30 horas - Noviembre 2023</div>
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">
-                                        Certificado
-                                    </span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">Certificado</span>
                                 </div>
                                 <div class="p-4">
                                     <div class="font-medium">Diseño de Contenidos Educativos Digitales</div>
                                     <div class="text-sm text-gray-500 mt-1">10 horas - Agosto 2023</div>
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">
-                                        Certificado
-                                    </span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">Certificado</span>
                                 </div>
                             </div>
                         </div>
@@ -362,28 +314,22 @@
                 </div>
             </div>
         }
-
-        @if (activeTab == "research")
+        @if (_activeTab == "research")
         {
+            <!-- Sección Investigación -->
             <div class="space-y-4">
                 <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
                     <div class="p-6">
                         <div class="flex flex-row items-center justify-between mb-4">
                             <div>
                                 <h3 class="text-lg font-medium">Proyectos de Investigación</h3>
-                                <p class="text-sm text-gray-600">
-                                    Has completado @teacherData.ResearchMonths de 12 meses requeridos en proyectos de investigación
-                                </p>
+                                <p class="text-sm text-gray-600">Has completado 8 de 12 meses requeridos en proyectos de investigación</p>
                             </div>
-                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-                                Registrar Proyecto
-                            </button>
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">Registrar Proyecto</button>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
-                            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                 style="width: @(Math.Min((double)teacherData.ResearchMonths / 12 * 100, 100))%;"></div>
+                            <div class="bg-blue-600 h-2 rounded-full" style="width: 67%;"></div>
                         </div>
-
                         <div class="border rounded-lg p-4">
                             <div class="font-medium">Impacto de las nuevas tecnologías en el aprendizaje colaborativo</div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
@@ -413,57 +359,6 @@
 </div>
 
 @code {
-    public class Teacher
-    {
-        public string Name { get; set; } = string.Empty;
-        public string Level { get; set; } = string.Empty;
-        public int Years { get; set; }
-        public int Papers { get; set; }
-        public int EvaluationScore { get; set; }
-        public int TrainingHours { get; set; }
-        public int ResearchMonths { get; set; }
-        public string NextLevel { get; set; } = string.Empty;
-        public List<Requirement> Requirements { get; set; } = new();
-    }
-
-    public class Requirement
-    {
-        public string Name { get; set; } = string.Empty;
-        public int Current { get; set; }
-        public int Required { get; set; }
-        public bool Completed { get; set; }
-    }
-
-    private Teacher teacherData = new Teacher
-    {
-        Name = "Prof. María García",
-        Level = "DT.2",
-        Years = 3,
-        Papers = 1,
-        EvaluationScore = 82,
-        TrainingHours = 80,
-        ResearchMonths = 8,
-        NextLevel = "DT.3",
-        Requirements = new List<Requirement>
-        {
-            new Requirement { Name = "Años en nivel actual", Current = 3, Required = 4, Completed = false },
-            new Requirement { Name = "Publicaciones académicas", Current = 1, Required = 2, Completed = false },
-            new Requirement { Name = "Puntaje de evaluación", Current = 82, Required = 75, Completed = true },
-            new Requirement { Name = "Horas de capacitación", Current = 80, Required = 96, Completed = false },
-            new Requirement { Name = "Meses en investigación", Current = 8, Required = 12, Completed = false },
-        }
-    };
-
-    private string activeTab = "overview";
-    private List<(string id, string label)> Tabs = new()
-    {
-        ("overview", "Resumen"),
-        ("requirements", "Requisitos de Promoción"),
-        ("papers", "Publicaciones"),
-        ("training", "Capacitaciones"),
-        ("research", "Investigación")
-    };
-    private int completedRequirements => teacherData.Requirements.Count(req => req.Completed);
-    private int totalRequirements => teacherData.Requirements.Count;
-    private double progressPercentage => (double)completedRequirements / totalRequirements * 100;
+    private string _activeTab = "overview";
+    private void SetTab(string tab) => _activeTab = tab;
 }
