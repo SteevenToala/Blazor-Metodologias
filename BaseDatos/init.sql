@@ -1,4 +1,15 @@
 -- =====================
+-- CREAR Y USAR BASE DE DATOS
+-- =====================
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'MyCleanAppDB')
+BEGIN
+    CREATE DATABASE MyCleanAppDB;
+END;
+GO
+USE MyCleanAppDB;
+GO
+
+-- =====================
 -- CREAR TABLAS
 -- =====================
 
@@ -218,7 +229,7 @@ INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorReq
 (1, 1, 4),    -- 4 años en DT1
 (1, 2, 1),    -- 1 paper
 (1, 3, 75),   -- 75% puntaje
-(1, 4, 96),   -- 96 horas capacitación
+(1, 4, 96);   -- 96 horas capacitación
 
 -- Requisitos para DT3
 INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorRequerido) VALUES
@@ -239,7 +250,7 @@ INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorReq
 -- Y así para DT5 
 INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorRequerido) VALUES
 (4, 1, 4),    -- 4 años en DT4
-(4, 2, 5),    -- 2 papers
+(4, 2, 5),    -- 5 papers
 (4, 3, 75),   -- 75% puntaje
 (4, 4, 160),   -- 160 horas capacitación
 (4, 5, 24);    -- 24 meses de investigación

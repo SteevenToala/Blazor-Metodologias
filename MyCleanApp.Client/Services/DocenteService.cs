@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using MyCleanApp.Application.DTOs;
+using MyCleanApp.Client.DTOs;
 
 public class DocenteService
 {
@@ -127,6 +128,50 @@ public class DocenteService
         var httpClient = new HttpClient();
         var response = await httpClient.PostAsJsonAsync($"http://localhost:5015/api/CursoCapacitacion/usuario/{loginResponse.usuario.Id}", data);
         return response.IsSuccessStatusCode;
+    }
+
+    public async Task<int?> ObtenerDocenteIdPorUsuarioId(int usuarioId)
+    {
+        var response = await _http.GetAsync($"http://localhost:5015/api/Docente");
+        if (response.IsSuccessStatusCode)
+        {
+            var docentes = await response.Content.ReadFromJsonAsync<List<DocenteDto>>();
+            var docente = docentes?.FirstOrDefault(d => d.UsuarioId == usuarioId);
+            return docente?.Id;
+        }
+        return null;
+    }
+
+    public async Task<bool> RegistrarProyectoInvestigacionAsync(ProyectoInvestigacionRequest data)
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse == null || loginResponse.usuario == null)
+        {
+            return false;
+        }
+        var docenteId = await ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+        if (docenteId == null)
+            return false;
+        data.DocenteId = docenteId.Value;
+        var response = await _http.PostAsJsonAsync("http://localhost:5015/api/ProyectoInvestigacion", data);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<List<ProyectoInvestigacionDto>> GetProyectosInvestigacionAsync()
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse == null || loginResponse.usuario == null)
+        {
+            return new List<ProyectoInvestigacionDto>();
+        }
+        var docenteId = await ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+        if (docenteId == null)
+            return new List<ProyectoInvestigacionDto>();
+        var response = await _http.GetAsync($"http://localhost:5015/api/ProyectoInvestigacion");
+        if (!response.IsSuccessStatusCode)
+            return new List<ProyectoInvestigacionDto>();
+        var proyectos = await response.Content.ReadFromJsonAsync<List<ProyectoInvestigacionDto>>();
+        return proyectos?.Where(p => p.DocenteId == docenteId.Value).ToList() ?? new List<ProyectoInvestigacionDto>();
     }
 
 }

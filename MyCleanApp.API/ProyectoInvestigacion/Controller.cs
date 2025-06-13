@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MyCleanApp.API.DTOs;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
 
@@ -22,8 +23,17 @@ public class ProyectoInvestigacionController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult> Post([FromBody] ProyectoInvestigacion proyecto)
+    public async Task<ActionResult> Post([FromBody] ProyectoInvestigacionCreateDto dto)
     {
+        var proyecto = new ProyectoInvestigacion
+        {
+            Titulo = dto.Titulo,
+            FechaInicio = dto.FechaInicio,
+            FechaFin = dto.FechaFin,
+            RolEnProyecto = dto.RolEnProyecto,
+            DocenteId = dto.DocenteId,
+            Documento = dto.Documento
+        };
         _context.ProyectoInvestigacion.Add(proyecto);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(Get), new { id = proyecto.Id }, proyecto);
