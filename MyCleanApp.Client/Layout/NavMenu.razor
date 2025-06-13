@@ -23,7 +23,7 @@
         await LocalStorageService.EliminarAsync("loginResponse");
         loginResponse = null;
         StateHasChanged();
-        Navigation.NavigateTo("/login", true);
+        Navigation.NavigateTo("/", true);
     }
 
     private async Task ActualizarLoginResponse()
@@ -67,7 +67,7 @@
             {
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="login">
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Login
+                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Login Docente
                     </NavLink>
                 </div>
                 <div class="nav-item px-3">
@@ -75,6 +75,12 @@
                         <span class="bi bi-person-plus-fill-nav-menu" aria-hidden="true"></span> Register
                     </NavLink>
                 </div>
+                 <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="login-admin">
+                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> Login Administrador
+                    </NavLink>
+                </div>
+                
             }
             else if (loginResponse.usuario?.Rol == "ADMINISTRADOR")
             {

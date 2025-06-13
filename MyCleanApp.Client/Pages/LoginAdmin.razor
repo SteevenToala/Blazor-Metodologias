@@ -1,4 +1,4 @@
-@page "/login"
+@page "/login-admin"
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
 @inject NavigationManager Navigation
@@ -35,7 +35,7 @@ protected override async Task OnInitializedAsync()
     private LoginModel Model = new();
     [Parameter]
     [SupplyParameterFromQuery]
-    public string? RoleParam { get; set; } = "teacher";
+    public string? RoleParam { get; set; } = "admin";
 
     private string ErrorMsg { get; set; } = string.Empty;
 
@@ -54,13 +54,13 @@ protected override async Task OnInitializedAsync()
                 ErrorMsg = "Usuario inválido en la respuesta del servidor.";
                 return;
             }
-            if (result.usuario.Rol != "DOCENTE")
+            if (result.usuario.Rol != "ADMINISTRADOR")
             {
-                ErrorMsg = "Solo los usuarios docentes pueden ingresar aquí.";
+                ErrorMsg = "Solo los usuarios administradores pueden ingresar aquí.";
                 return;
             }
             await LocalStorageService.GuardarObjetoAsync("loginResponse", result);
-            Navigation.NavigateTo("/teacher-dashboard", true);
+            Navigation.NavigateTo("/admin-dashboard", true);
         }
         else
         {
@@ -87,7 +87,7 @@ protected override async Task OnInitializedAsync()
                     </div>
                 }
             </div>
-            <h2 class="text-2xl text-center font-bold mb-2 text-blue-800">@(RoleParam == "admin" ? "Acceso Administrador" : "Acceso Docente")</h2>
+            <h2 class="text-2xl text-center font-bold mb-2 text-blue-800">@((RoleParam ?? "admin").Trim().ToLower() == "admin" ? "Acceso Administrador" : $"Acceso Docente ({RoleParam})")</h2>
             <p class="text-center text-gray-500 mb-6">Introduce tus credenciales para acceder al sistema</p>
             <Microsoft.AspNetCore.Components.Forms.EditForm Model="Model" OnValidSubmit="HandleSubmit">
                 <div class="space-y-4">
