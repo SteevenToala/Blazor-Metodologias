@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using MyCleanApp.Application.DTOs;
 
 public class DocenteService
 {
@@ -22,7 +23,7 @@ public class DocenteService
         try
         {
             var cedula = loginResponse.usuario.Cedula;
-            Console.WriteLine("su id es : "+loginResponse.usuario.Id);
+            Console.WriteLine("su id es : " + loginResponse.usuario.Id);
             var response = await _http.GetAsync($"http://localhost:5015/api/Docente/info/{loginResponse.usuario.Id}");
 
             if (response.IsSuccessStatusCode)
@@ -91,4 +92,41 @@ public class DocenteService
         var response = await httpClient.PostAsJsonAsync("http://localhost:5015/api/PublicacionAcademica", data);
         return response.IsSuccessStatusCode;
     }
+
+    public async Task<CursoCapacitacionDto[]> getCursosCapacitaciones()
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse == null || loginResponse.usuario == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var requisitos = await _http.GetAsync($"http://localhost:5015/api/CursoCapacitacion/usuario/{loginResponse.usuario.Id}");
+            var cursoCapacitacions = await requisitos.Content.ReadFromJsonAsync<CursoCapacitacionDto[]>();
+            return cursoCapacitacions ?? Array.Empty<CursoCapacitacionDto>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción en la petición: {ex.Message}");
+            return null;
+        }
+
+    }
+
+
+    public async Task<bool> SubirCapacigtaciones(CursoCapacitacionCreateReques data)
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse == null || loginResponse.usuario == null)
+        {
+            return false;
+
+        }
+        var httpClient = new HttpClient();
+        var response = await httpClient.PostAsJsonAsync($"http://localhost:5015/api/CursoCapacitacion/usuario/{loginResponse.usuario.Id}", data);
+        return response.IsSuccessStatusCode;
+    }
+
 }

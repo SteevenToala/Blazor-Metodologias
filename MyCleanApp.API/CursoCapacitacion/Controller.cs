@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MyCleanApp.Application.DTOs;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
 
@@ -28,12 +29,29 @@ public class CursoCapacitacionController : ControllerBase
         return curso == null ? NotFound() : Ok(curso);
     }
 
-    [HttpPost]
-    public async Task<ActionResult> Post([FromBody] CursoCapacitacion curso)
+    [HttpPost("usuario/{usuarioId}")]
+    public async Task<IActionResult> CrearCursoCapacitacion(int usuarioId, [FromBody] CursoCapacitacionCreateRequest request)
     {
+        // Buscar el docente por el usuarioId
+        var docente = await _context.Docente.FirstOrDefaultAsync(d => d.UsuarioId == usuarioId);
+        if (docente == null)
+            return NotFound("Docente no encontrado para el usuario dado.");
+
+        // Calcular las horas (puedes ajustar la lógica según tu necesidad)
+        var curso = new CursoCapacitacion
+        {
+            Nombre = request.Nombre,
+            FechaInicio = request.FechaInicio,
+            FechaFin = request.FechaFin,
+            Horas = request.Horas,
+            Certificado = request.Certificado,
+            DocenteId = docente.Id
+        };
+
         _context.CursoCapacitacion.Add(curso);
         await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(Get), new { id = curso.Id }, curso);
+
+        return Ok(new { curso.Id });
     }
 
     [HttpPut("{id}")]
@@ -55,5 +73,25 @@ public class CursoCapacitacionController : ControllerBase
         _context.CursoCapacitacion.Remove(curso);
         await _context.SaveChangesAsync();
         return NoContent();
+    }
+    [HttpGet("usuario/{usuarioId}")]
+    public async Task<ActionResult<IEnumerable<CursoCapacitacionDto>>> GetCursosByUsuarioId(int usuarioId)
+    {
+        var docente = await _context.Docente.FirstOrDefaultAsync(d => d.UsuarioId == usuarioId);
+        if (docente == null)
+            return NotFound("Docente no encontrado para el usuario dado.");
+
+        var cursos = await _context.CursoCapacitacion
+            .Where(c => c.DocenteId == docente.Id)
+            .Select(c => new CursoCapacitacionDto
+            {
+                Nombre = c.Nombre,
+                Horas = c.Horas,
+                FechaFin = c.FechaFin,
+                Certificado = c.Certificado
+            })
+            .ToListAsync();
+
+        return Ok(cursos);
     }
 }

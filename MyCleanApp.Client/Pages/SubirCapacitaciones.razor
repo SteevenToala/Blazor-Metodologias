@@ -1,0 +1,109 @@
+@page "/subir-capacitacion"
+@inject DocenteService DocenteService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+@using System.ComponentModel.DataAnnotations
+
+<div class="max-w-xl mx-auto mt-10">
+    <div class="bg-white border border-gray-200 rounded-lg shadow-lg p-8">
+        <div class="flex justify-end mb-4">
+            <button
+                class="flex items-center gap-2 bg-gray-100 hover:bg-blue-100 text-blue-700 font-medium py-1.5 px-4 rounded transition-colors border border-gray-200 shadow-sm"
+                @onclick="VolverAlDashboard">
+                <svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Volver al Dashboard
+            </button>
+        </div>
+        <h2 class="text-2xl font-bold text-blue-700 mb-2 flex items-center gap-2">
+            <svg class="h-7 w-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Nueva Capacitación
+        </h2>
+        <p class="text-gray-600 mb-6">Completa el formulario para registrar una nueva capacitación.</p>
+
+        <EditForm Model="@capacitacion" OnValidSubmit="SubirCapacitacion" class="space-y-5">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del Curso</label>
+                <InputText @bind-Value="capacitacion.Nombre"
+                    class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <ValidationMessage For="@(() => capacitacion.Nombre)" />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label>
+                    <InputDate @bind-Value="capacitacion.FechaInicio"
+                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <ValidationMessage For="@(() => capacitacion.FechaInicio)" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Fin</label>
+                    <InputDate @bind-Value="capacitacion.FechaFin"
+                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <ValidationMessage For="@(() => capacitacion.FechaFin)" />
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Horas</label>
+                <InputNumber @bind-Value="capacitacion.Horas"
+                    class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <ValidationMessage For="@(() => capacitacion.Horas)" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Certificado (PDF)</label>
+                <InputFile OnChange="OnFileChange" class="w-full text-gray-700" />
+                <ValidationMessage For="@(() => capacitacion.Certificado)" />
+            </div>
+            <div class="flex justify-end">
+                <button type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-md shadow transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Guardar Capacitación
+                </button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    CursoCapacitacionCreateReques capacitacion = new();
+
+    private async Task OnFileChange(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        using var stream = file.OpenReadStream();
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        capacitacion.Certificado = Convert.ToBase64String(ms.ToArray());
+    }
+
+    private async Task SubirCapacitacion()
+    {
+        // Mapear a tu DTO original si es necesario
+        var dto = new CursoCapacitacionCreateReques
+        {
+            Nombre = capacitacion.Nombre,
+            FechaInicio = capacitacion.FechaInicio,
+            FechaFin = capacitacion.FechaFin,
+            Certificado = capacitacion.Certificado,
+            Horas = (int) capacitacion.Horas
+        };
+
+        var ok = await DocenteService.SubirCapacigtaciones(dto);
+        if (ok)
+            await JS.InvokeVoidAsync("alert", "✅ Capacitación subida con éxito.");
+        else
+            await JS.InvokeVoidAsync("alert", "❌ Error al subir la capacitación.");
+    }
+
+    private void VolverAlDashboard()
+    {
+        Navigation.NavigateTo("/teacher-dashboard");
+    }
+
+}

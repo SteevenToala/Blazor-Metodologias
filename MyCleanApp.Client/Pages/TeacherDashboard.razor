@@ -360,16 +360,13 @@ else
         }
         @if (activeTab == "training")
         {
-            var trainingCourses = new List<MyCleanApp.Client.components.TeacherDashboardTraining.TrainingCourse>
+            var trainingCourses = new List<MyCleanApp.Client.components.TeacherDashboardTraining>
             {
-                new() { Title = "Pedagogía Digital para la Educación Superior", Hours = 40, Date = "Febrero 2024" },
-                new() { Title = "Metodologías Activas en el Aula", Hours = 30, Date = "Noviembre 2023" },
-                new() { Title = "Diseño de Contenidos Educativos Digitales", Hours = 10, Date = "Agosto 2023" }
             };
-            <TeacherDashboardTraining 
-                TrainingHours="teacherData.TrainingHours"
-                RequiredHours="96"
-                Courses="trainingCourses" />
+            <TeacherDashboardTraining  
+                TrainingHours="@dashBoardDocente.HorasCapacitacion"
+                RequiredHours="@dashBoardDocente.GetValorRequerido("Horas Capacitación")"
+            />
         }
 
         @if (activeTab == "research")
