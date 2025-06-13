@@ -129,4 +129,49 @@ public class DocenteService
         return response.IsSuccessStatusCode;
     }
 
+
+
+    public async Task<ProyectoInvestigacionDto[]?> getProyectos()
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse == null || loginResponse.usuario == null)
+        {
+            return null;
+        }
+        try
+        {
+            var response = await _http.GetAsync($"http://localhost:5015/api/ProyectoInvestigacion/usuario/{loginResponse.usuario.Id}");
+            var data = await response.Content.ReadFromJsonAsync<ProyectoInvestigacionDto[]>();
+            if (data == null)
+            {
+                Console.WriteLine("No se pudo deserializar la respuesta a PublicacionAcademicaDto[].");
+                return Array.Empty<ProyectoInvestigacionDto>(); // or handle as appropriate
+            }
+            return data;
+        }
+        catch (Exception ex)
+        {
+
+            Console.WriteLine($"Excepción en la petición: {ex.Message}");
+            return null;
+        }
+    }
+
+
+
+
+    public async Task<bool> SubirProyectoInvestigacion(ProyectoInvestigacionCreateReque data)
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse == null || loginResponse.usuario == null)
+        {
+            return false;
+
+        }
+        var httpClient = new HttpClient();
+        var response = await httpClient.PostAsJsonAsync($"http://localhost:5015/api/ProyectoInvestigacion/usuario/{loginResponse.usuario.Id}", data);
+        return response.IsSuccessStatusCode;
+    }
+
+
 }

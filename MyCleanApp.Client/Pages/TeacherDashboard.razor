@@ -371,13 +371,7 @@ else
 
         @if (activeTab == "research")
         {
-        <MyCleanApp.Client.components.TeacherDashboardResearch 
-            ResearchMonths="teacherData.ResearchMonths"
-            ProjectTitle="Impacto de las nuevas tecnologías en el aprendizaje colaborativo"
-            StartDate="Septiembre 2023"
-            EndDate="Septiembre 2024"
-            Role="Investigador asociado"
-            Status="En progreso" />
+        <MyCleanApp.Client.components.TeacherDashboardResearch MesesNecesarios="@dashBoardDocente.GetValorRequerido("Investigaciones")"/>
         }
     </div>
 </div>

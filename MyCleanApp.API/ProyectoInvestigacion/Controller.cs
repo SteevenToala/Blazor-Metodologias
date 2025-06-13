@@ -47,4 +47,54 @@ public class ProyectoInvestigacionController : ControllerBase
         await _context.SaveChangesAsync();
         return NoContent();
     }
+
+
+
+    [HttpGet("usuario/{usuarioId}")]
+    public async Task<ActionResult<IEnumerable<ProyectoInvestigacionDto>>> GetProyectosPorUsuario(int usuarioId)
+    {
+        // Busca el docente asociado al usuario
+        var docente = await _context.Docente.FirstOrDefaultAsync(d => d.UsuarioId == usuarioId);
+        if (docente == null)
+            return NotFound("Docente no encontrado para el usuario dado.");
+
+        var proyectos = await _context.ProyectoInvestigacion
+            .Where(p => p.DocenteId == docente.Id)
+            .Select(p => new ProyectoInvestigacionDto
+            {
+                Titulo = p.Titulo,
+                FechaInicio = p.FechaInicio,
+                FechaFin = p.FechaFin,
+                RolEnProyecto = p.RolEnProyecto,
+                Estado = p.FechaFin < DateTime.Now ? "Finalizado" : "En progreso"
+            })
+            .ToListAsync();
+
+        return Ok(proyectos);
+    }
+
+    [HttpPost("usuario/{usuarioId}")]
+    public async Task<IActionResult> RegistrarProyecto(int usuarioId, [FromBody] ProyectoInvestigacionCreateRequest request)
+    {
+        // Buscar el docente por el usuarioId
+        var docente = await _context.Docente.FirstOrDefaultAsync(d => d.UsuarioId == usuarioId);
+        if (docente == null)
+            return NotFound("Docente no encontrado para el usuario dado.");
+
+        var proyecto = new ProyectoInvestigacion
+        {
+            Titulo = request.Titulo,
+            FechaInicio = request.FechaInicio,
+            FechaFin = request.FechaFin,
+            RolEnProyecto = request.RolEnProyecto,
+            Documento = request.Documento,
+            DocenteId = docente.Id
+        };
+
+        _context.ProyectoInvestigacion.Add(proyecto);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { proyecto.Id });
+    }
+
 }
