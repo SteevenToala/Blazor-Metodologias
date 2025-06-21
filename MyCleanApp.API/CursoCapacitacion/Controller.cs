@@ -94,4 +94,22 @@ public class CursoCapacitacionController : ControllerBase
 
         return Ok(cursos);
     }
+
+    [HttpPost("importar")]
+    public async Task<IActionResult> ImportarCursoExterno([FromBody] CursoCapacitacionDto curso)
+    {
+        var entidad = new CursoCapacitacion
+        {
+            Nombre = curso.Nombre,
+            Horas = curso.Horas,
+            FechaInicio = curso.FechaInicio,
+            FechaFin = curso.FechaFin,
+            DocenteId = curso.DocenteId,
+            Externo = true,
+            Certificado = curso.Certificado
+        };
+        _context.CursoCapacitacion.Add(entidad);
+        await _context.SaveChangesAsync();
+        return Ok();
+    }
 }

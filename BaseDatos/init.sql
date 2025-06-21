@@ -70,6 +70,7 @@ CREATE TABLE CursoCapacitacion (
     fechaInicio DATE,
     fechaFin DATE,
     docenteId INT,
+    externo BIT DEFAULT 0,
     FOREIGN KEY (docenteId) REFERENCES Docente(id)
 );
 
@@ -193,8 +194,8 @@ INSERT INTO EvaluacionDocente ( periodo, puntaje, docenteId) VALUES
 ('2024A', 87, 1);
 
 -- Curso Capacitación
-INSERT INTO CursoCapacitacion ( nombre, horas, fechaInicio, fechaFin, docenteId) VALUES
-( 'Innovación educativa', 40, '2024-01-10', '2024-01-20', 1);
+INSERT INTO CursoCapacitacion ( nombre, horas, fechaInicio, fechaFin, docenteId, externo) VALUES
+( 'Innovación educativa', 40, '2024-01-10', '2024-01-20', 1, 0);
 
 -- Proyecto de Investigación
 INSERT INTO ProyectoInvestigacion ( titulo, fechaInicio, fechaFin, rolEnProyecto, docenteId) VALUES

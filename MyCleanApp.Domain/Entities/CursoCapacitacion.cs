@@ -9,6 +9,7 @@ namespace MyCleanApp.Domain.Entities
         public DateTime FechaFin { get; set; }
         public int DocenteId { get; set; }
         public byte[]? Certificado { get; set; }
+        public bool Externo { get; set; }
 
         public Docente? Docente { get; set; }
     }

@@ -83,7 +83,17 @@
       "horas": 40,
       "fechaInicio": "2024-01-10",
       "fechaFin": "2024-01-20",
-      "docenteId": 1
+      "docenteId": 1,
+      "externo": true
+    },
+    {
+      "id": 2,
+      "nombre": "Curso de TIC",
+      "horas": 20,
+      "fechaInicio": "2024-02-01",
+      "fechaFin": "2024-02-10",
+      "docenteId": 1,
+      "externo": true
     }
   ],
   "ProyectoInvestigacion": [

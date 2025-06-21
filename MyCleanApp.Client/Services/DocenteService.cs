@@ -174,4 +174,10 @@ public class DocenteService
         return proyectos?.Where(p => p.DocenteId == docenteId.Value).ToList() ?? new List<ProyectoInvestigacionDto>();
     }
 
+    public async Task<bool> ImportarCursoExternoAsync(CursoCapacitacionDto curso)
+    {
+        var response = await _http.PostAsJsonAsync("http://localhost:5015/api/CursoCapacitacion/importar", curso);
+        return response.IsSuccessStatusCode;
+    }
+
 }
