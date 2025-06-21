@@ -57,4 +57,33 @@ public class ProyectoInvestigacionController : ControllerBase
         await _context.SaveChangesAsync();
         return NoContent();
     }
+
+    [HttpPost("importar")]
+    public async Task<IActionResult> ImportarProyectoExterno([FromBody] ProyectoInvestigacionDto proyecto)
+    {
+        // Validación para evitar duplicados
+        bool yaExiste = await _context.ProyectoInvestigacion.AnyAsync(p =>
+            p.Titulo == proyecto.Titulo &&
+            p.FechaInicio == proyecto.FechaInicio &&
+            p.FechaFin == proyecto.FechaFin &&
+            p.DocenteId == proyecto.DocenteId &&
+            p.Externo);
+
+        if (yaExiste)
+            return Conflict("El proyecto ya fue importado previamente.");
+
+        var entidad = new ProyectoInvestigacion
+        {
+            Titulo = proyecto.Titulo,
+            FechaInicio = proyecto.FechaInicio,
+            FechaFin = proyecto.FechaFin,
+            RolEnProyecto = proyecto.RolEnProyecto,
+            DocenteId = proyecto.DocenteId,
+            Documento = proyecto.Documento,
+            Externo = true
+        };
+        _context.ProyectoInvestigacion.Add(entidad);
+        await _context.SaveChangesAsync();
+        return Ok();
+    }
 }

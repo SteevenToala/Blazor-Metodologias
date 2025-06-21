@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MyCleanApp.API.DTOs;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
 
@@ -90,5 +91,37 @@ public class PublicacionAcademicaController : ControllerBase
             .ToListAsync();
 
         return Ok(publicaciones);
+    }
+
+    [HttpPost("importar")]
+    public async Task<IActionResult> ImportarPublicacionExterna([FromBody] PublicacionAcademicaDto publicacion)
+    {
+        // Validación para evitar duplicados
+        bool yaExiste = await _context.PublicacionAcademica.AnyAsync(p =>
+            p.Titulo == publicacion.Titulo &&
+            p.Revista == publicacion.Revista &&
+            p.Volumen == publicacion.Volumen &&
+            p.Anio == publicacion.Anio &&
+            p.Tipo == publicacion.Tipo &&
+            p.DocenteId == publicacion.DocenteId &&
+            p.Externo);
+
+        if (yaExiste)
+            return Conflict("La publicación ya fue importada previamente.");
+
+        var entidad = new PublicacionAcademica
+        {
+            Titulo = publicacion.Titulo,
+            Revista = publicacion.Revista,
+            Volumen = publicacion.Volumen,
+            Anio = publicacion.Anio,
+            Tipo = publicacion.Tipo,
+            DocenteId = publicacion.DocenteId,
+            Archivo = publicacion.Archivo,
+            Externo = true
+        };
+        _context.PublicacionAcademica.Add(entidad);
+        await _context.SaveChangesAsync();
+        return Ok();
     }
 }

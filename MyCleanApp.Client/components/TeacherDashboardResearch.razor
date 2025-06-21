@@ -4,14 +4,65 @@
 @using MyCleanApp.Client.DTOs
 
 @inject NavigationManager Navigation
+@inject DocenteService DocenteService
 
 @code {
     [Parameter]
     public List<ProyectoInvestigacionDto> ProyectosInvestigacion { get; set; } = new();
 
+    private bool showModalImportar = false;
+    private string modalMessageImportar = string.Empty;
+
     private void IrASubirProyecto()
     {
         Navigation.NavigateTo("/subir-proyecto-investigacion");
+    }
+
+    private async Task ImportarProyectosExternos()
+    {
+        var http = new HttpClient();
+        var proyectosExternos = await http.GetFromJsonAsync<List<ProyectoInvestigacionDto>>("http://localhost:3000/ProyectoInvestigacion");
+        var soloExternos = proyectosExternos?.Where(p => p.Externo).ToList() ?? new List<ProyectoInvestigacionDto>();
+        // Recarga la lista real desde el backend antes de comparar
+        ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
+        var proyectosActuales = ProyectosInvestigacion
+            .Select(p => (p.Titulo.Trim().ToLower(), p.FechaInicio.Date, p.FechaFin.Date))
+            .ToHashSet();
+        int importados = 0, duplicados = 0;
+        foreach (var proyecto in soloExternos)
+        {
+            var key = (proyecto.Titulo.Trim().ToLower(), proyecto.FechaInicio.Date, proyecto.FechaFin.Date);
+            if (!proyectosActuales.Contains(key))
+            {
+                var response = await DocenteService.ImportarProyectoExternoAsync(proyecto);
+                if (response)
+                    importados++;
+                else
+                    duplicados++;
+            }
+            else
+            {
+                duplicados++;
+            }
+        }
+        // Recarga la lista después de importar
+        ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
+        if (importados > 0)
+            modalMessageImportar = $"Se importaron {importados} proyecto(s) nuevo(s).";
+        else
+            modalMessageImportar = "No se importaron proyectos porque ya existen.";
+        showModalImportar = true;
+    }
+
+    private void CerrarModalImportar()
+    {
+        showModalImportar = false;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Asegúrate de que este método obtenga los proyectos desde el backend real
+        ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
     }
 }
 
@@ -23,10 +74,16 @@
                     <h3 class="text-lg font-medium">Proyectos de Investigación</h3>
                     <p class="text-sm text-gray-600">Tus proyectos registrados en el sistema</p>
                 </div>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
-                        @onclick="IrASubirProyecto">
-                    Registrar Proyecto
-                </button>
+                <div>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                            @onclick="IrASubirProyecto">
+                        Registrar Proyecto
+                    </button>
+                    <button class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors ml-2"
+                            @onclick="ImportarProyectosExternos">
+                        Importar datos
+                    </button>
+                </div>
             </div>
             <div class="border rounded-lg divide-y">
                 @if (ProyectosInvestigacion != null && ProyectosInvestigacion.Any())
@@ -66,4 +123,15 @@
             </div>
         </div>
     </div>
+
+    @if (showModalImportar)
+    {
+        <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+            <div class="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full text-center">
+                <div class="text-lg font-semibold mb-4">Importación de Proyectos</div>
+                <div class="mb-6">@modalMessageImportar</div>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md" @onclick="CerrarModalImportar">Cerrar</button>
+            </div>
+        </div>
+    }
 </div>

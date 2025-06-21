@@ -9,6 +9,7 @@ namespace MyCleanApp.Domain.Entities
         public string RolEnProyecto { get; set; } = string.Empty;
         public int DocenteId { get; set; }
         public byte[]? Documento { get; set; }
+        public bool Externo { get; set; }
 
         public Docente? Docente { get; set; }
     }

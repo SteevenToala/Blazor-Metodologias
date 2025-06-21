@@ -1,4 +1,4 @@
-namespace MyCleanApp.Client.DTOs
+namespace MyCleanApp.API.DTOs
 {
     public class ProyectoInvestigacionDto
     {

@@ -98,6 +98,17 @@ public class CursoCapacitacionController : ControllerBase
     [HttpPost("importar")]
     public async Task<IActionResult> ImportarCursoExterno([FromBody] CursoCapacitacionDto curso)
     {
+        // Validación para evitar duplicados
+        bool yaExiste = await _context.CursoCapacitacion.AnyAsync(c =>
+            c.Nombre == curso.Nombre &&
+            c.FechaInicio == curso.FechaInicio &&
+            c.FechaFin == curso.FechaFin &&
+            c.DocenteId == curso.DocenteId &&
+            c.Externo);
+
+        if (yaExiste)
+            return Conflict("El curso ya fue importado previamente.");
+
         var entidad = new CursoCapacitacion
         {
             Nombre = curso.Nombre,

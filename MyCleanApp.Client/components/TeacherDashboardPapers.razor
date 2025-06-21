@@ -1,13 +1,68 @@
 @using System
 @using System.Collections.Generic
 @using Microsoft.AspNetCore.Components
+@inject DocenteService DocenteService
 
 @* Recibe la lista de publicaciones como parámetro *@
 @code {
     [Parameter]
     public List<PublicacionAcademicaDto> PublicacionesAcademicas { get; set; } = new();
-}
 
+    private bool showModalImportar = false;
+    private string modalMessageImportar = string.Empty;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; }
+
+    [Parameter]
+    public EventCallback OnImportarCompletado { get; set; }
+
+    private void IrASubirPublicacion()
+    {
+        Navigation.NavigateTo("/subir-publicacion");
+    }
+
+    private async Task ImportarPublicacionesExternas()
+    {
+        var http = new HttpClient();
+        var publicacionesExternas = await http.GetFromJsonAsync<List<PublicacionAcademicaDto>>("http://localhost:3000/PublicacionAcademica");
+        var soloExternas = publicacionesExternas?.Where(p => p.Externo).ToList() ?? new List<PublicacionAcademicaDto>();
+        // Recarga la lista real desde el backend antes de comparar
+        var publicacionesActuales = PublicacionesAcademicas
+            .Select(p => (p.Titulo.Trim().ToLower(), p.Revista.Trim().ToLower(), p.Volumen.Trim().ToLower(), p.Anio, p.Tipo.Trim().ToLower()))
+            .ToHashSet();
+        int importadas = 0, duplicadas = 0;
+        foreach (var pub in soloExternas)
+        {
+            var key = (pub.Titulo.Trim().ToLower(), pub.Revista.Trim().ToLower(), pub.Volumen.Trim().ToLower(), pub.Anio, pub.Tipo.Trim().ToLower());
+            if (!publicacionesActuales.Contains(key))
+            {
+                var response = await DocenteService.ImportarPublicacionExternaAsync(pub);
+                if (response)
+                    importadas++;
+                else
+                    duplicadas++;
+            }
+            else
+            {
+                duplicadas++;
+            }
+        }
+        // Notifica al padre para que recargue la lista
+        if (OnImportarCompletado.HasDelegate)
+            await OnImportarCompletado.InvokeAsync();
+        if (importadas > 0)
+            modalMessageImportar = $"Se importaron {importadas} publicación(es) nueva(s).";
+        else
+            modalMessageImportar = "No se importaron publicaciones porque ya existen.";
+        showModalImportar = true;
+    }
+
+    private void CerrarModalImportar()
+    {
+        showModalImportar = false;
+    }
+}
 
 <div class="space-y-4">
     <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -17,9 +72,17 @@
                     <h3 class="text-lg font-medium">Publicaciones Académicas</h3>
                     <p class="text-sm text-gray-600">Tus publicaciones registradas en el sistema</p>
                 </div>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-                    Añadir Nueva Publicación
-                </button>
+                <div class="flex flex-row gap-2 items-center">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                            @onclick="IrASubirPublicacion">
+                        Añadir Nueva Publicación
+                    </button>
+                    <button class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                            style="margin-left: 0.5rem;"
+                            @onclick="ImportarPublicacionesExternas">
+                        <span class="inline-block align-middle">Importar datos</span>
+                    </button>
+                </div>
             </div>
             <div class="border rounded-lg divide-y">
                 @if (PublicacionesAcademicas != null && PublicacionesAcademicas.Any())
@@ -62,4 +125,15 @@
             </div>
         </div>
     </div>
+
+    @if (showModalImportar)
+    {
+        <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+            <div class="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full text-center">
+                <div class="text-lg font-semibold mb-4">Importación de Publicaciones</div>
+                <div class="mb-6">@modalMessageImportar</div>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md" @onclick="CerrarModalImportar">Cerrar</button>
+            </div>
+        </div>
+    }
 </div>

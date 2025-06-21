@@ -1,6 +1,6 @@
-namespace MyCleanApp.Domain.Entities
+namespace MyCleanApp.API.DTOs
 {
-    public class PublicacionAcademica
+    public class PublicacionAcademicaDto
     {
         public int Id { get; set; }
         public string Titulo { get; set; } = string.Empty;
@@ -11,7 +11,5 @@ namespace MyCleanApp.Domain.Entities
         public int DocenteId { get; set; }
         public byte[]? Archivo { get; set; }
         public bool Externo { get; set; }
-
-        public Docente? Docente { get; set; }
     }
 }

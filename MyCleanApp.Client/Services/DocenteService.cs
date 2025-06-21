@@ -180,4 +180,33 @@ public class DocenteService
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<bool> ImportarProyectoExternoAsync(ProyectoInvestigacionDto proyecto)
+    {
+        var response = await _http.PostAsJsonAsync("http://localhost:5015/api/ProyectoInvestigacion/importar", proyecto);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<List<PublicacionAcademicaDto>> GetPublicacionesAcademicasAsync()
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse == null || loginResponse.usuario == null)
+        {
+            return new List<PublicacionAcademicaDto>();
+        }
+        var docenteId = await ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+        if (docenteId == null)
+            return new List<PublicacionAcademicaDto>();
+        var response = await _http.GetAsync($"http://localhost:5015/api/PublicacionAcademica");
+        if (!response.IsSuccessStatusCode)
+            return new List<PublicacionAcademicaDto>();
+        var publicaciones = await response.Content.ReadFromJsonAsync<List<PublicacionAcademicaDto>>();
+        return publicaciones?.Where(p => p.DocenteId == docenteId.Value).ToList() ?? new List<PublicacionAcademicaDto>();
+    }
+
+    public async Task<bool> ImportarPublicacionExternaAsync(PublicacionAcademicaDto publicacion)
+    {
+        var response = await _http.PostAsJsonAsync("http://localhost:5015/api/PublicacionAcademica/importar", publicacion);
+        return response.IsSuccessStatusCode;
+    }
+
 }

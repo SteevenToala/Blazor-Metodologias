@@ -82,8 +82,15 @@ CREATE TABLE ProyectoInvestigacion (
     fechaFin DATE,
     rolEnProyecto VARCHAR(100),
     docenteId INT,
+    externo BIT DEFAULT 0,
     FOREIGN KEY (docenteId) REFERENCES Docente(id)
 );
+
+-- Asegura que todos los registros existentes tengan un valor válido en 'externo'
+UPDATE ProyectoInvestigacion SET externo = 0 WHERE externo IS NULL;
+
+-- Hace que la columna no acepte valores nulos en el futuro
+ALTER TABLE ProyectoInvestigacion ALTER COLUMN externo BIT NOT NULL;
 
 -- Tabla PublicacionAcademica
 CREATE TABLE PublicacionAcademica (
@@ -94,8 +101,15 @@ CREATE TABLE PublicacionAcademica (
     anio INT,
     tipo VARCHAR(50),
     docenteId INT,
+    externo BIT DEFAULT 0,
     FOREIGN KEY (docenteId) REFERENCES Docente(id)
 );
+
+-- Asegura que todos los registros existentes tengan un valor válido en 'externo'
+UPDATE PublicacionAcademica SET externo = 0 WHERE externo IS NULL;
+
+-- Hace que la columna no acepte valores nulos en el futuro
+ALTER TABLE PublicacionAcademica ALTER COLUMN externo BIT NOT NULL;
 
 -- Tabla RequisitoPromocion
 CREATE TABLE RequisitoPromocion (
@@ -198,8 +212,8 @@ INSERT INTO CursoCapacitacion ( nombre, horas, fechaInicio, fechaFin, docenteId,
 ( 'Innovación educativa', 40, '2024-01-10', '2024-01-20', 1, 0);
 
 -- Proyecto de Investigación
-INSERT INTO ProyectoInvestigacion ( titulo, fechaInicio, fechaFin, rolEnProyecto, docenteId) VALUES
-('IA en educación', '2024-03-01', '2024-06-30', 'Investigador Principal', 1);
+INSERT INTO ProyectoInvestigacion ( titulo, fechaInicio, fechaFin, rolEnProyecto, docenteId, externo) VALUES
+('IA en educación', '2024-03-01', '2024-06-30', 'Investigador Principal', 1, 0);
 
 -- Publicación Académica
 INSERT INTO PublicacionAcademica ( titulo, revista, volumen, anio, tipo, docenteId) VALUES

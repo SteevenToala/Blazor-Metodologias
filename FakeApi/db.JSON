@@ -103,7 +103,8 @@
       "fechaInicio": "2024-03-01",
       "fechaFin": "2024-06-30",
       "rolEnProyecto": "Investigador Principal",
-      "docenteId": 1
+      "docenteId": 1,
+      "externo": true
     }
   ],
   "PublicacionAcademica": [
@@ -114,7 +115,8 @@
       "volumen": "Vol. 12",
       "anio": 2024,
       "tipo": "Artículo",
-      "docenteId": 1
+      "docenteId": 1,
+      "externo": true
     }
   ],
   "RequisitoPromocion": [
