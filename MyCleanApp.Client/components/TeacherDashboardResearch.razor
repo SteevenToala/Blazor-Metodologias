@@ -12,6 +12,32 @@
 
     private bool showModalImportar = false;
     private string modalMessageImportar = string.Empty;
+    private string searchTerm = string.Empty;
+    private string selectedRol = "";
+    private string selectedAnio = "";
+    private IEnumerable<string> RolesDisponibles => ProyectosInvestigacion
+        .Select(p => p.RolEnProyecto)
+        .Where(r => !string.IsNullOrWhiteSpace(r))
+        .Distinct()
+        .OrderBy(r => r);
+    private IEnumerable<string> AniosDisponibles => ProyectosInvestigacion
+        .Select(p => p.FechaInicio.Year.ToString())
+        .Distinct()
+        .OrderByDescending(a => a);
+    private IEnumerable<ProyectoInvestigacionDto> Filtrados =>
+        ProyectosInvestigacion
+            .Where(p =>
+                (string.IsNullOrWhiteSpace(searchTerm)
+                    || (p.Titulo?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+                && (string.IsNullOrWhiteSpace(selectedRol) || p.RolEnProyecto == selectedRol)
+                && (string.IsNullOrWhiteSpace(selectedAnio) || p.FechaInicio.Year.ToString() == selectedAnio)
+            );
+    private void LimpiarFiltros()
+    {
+        searchTerm = string.Empty;
+        selectedRol = "";
+        selectedAnio = "";
+    }
 
     private void IrASubirProyecto()
     {
@@ -85,10 +111,30 @@
                     </button>
                 </div>
             </div>
+            <div class="flex flex-row gap-2 mb-4">
+                <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedRol">
+                    <option value="">Todos los roles</option>
+                    @foreach (var rol in RolesDisponibles)
+                    {
+                        <option value="@rol">@rol</option>
+                    }
+                </select>
+                <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedAnio">
+                    <option value="">Todos los años</option>
+                    @foreach (var anio in AniosDisponibles)
+                    {
+                        <option value="@anio">@anio</option>
+                    }
+                </select>
+                <input class="w-full border rounded-md px-3 py-2 text-sm" placeholder="Buscar proyecto..." @bind="searchTerm" />
+                <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-3 py-2 rounded-md text-sm" @onclick="LimpiarFiltros" title="Limpiar filtros">
+                    Limpiar
+                </button>
+            </div>
             <div class="border rounded-lg divide-y">
-                @if (ProyectosInvestigacion != null && ProyectosInvestigacion.Any())
+                @if (Filtrados != null && Filtrados.Any())
                 {
-                    @foreach (var proyecto in ProyectosInvestigacion)
+                    @foreach (var proyecto in Filtrados)
                     {
                         <div class="p-4">
                             <div class="font-medium">@proyecto.Titulo</div>

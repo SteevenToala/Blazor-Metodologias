@@ -19,6 +19,31 @@
     private bool isLoading = true;
     private bool showModal = false;
     private string modalMessage = string.Empty;
+    private string searchTerm = string.Empty;
+    private string selectedHoras = "";
+    private string selectedAnio = "";
+    private IEnumerable<string> HorasDisponibles => cursos
+        .Select(c => c.Horas.ToString())
+        .Distinct()
+        .OrderByDescending(h => h);
+    private IEnumerable<string> AniosDisponibles => cursos
+        .Select(c => c.FechaFin.Year.ToString())
+        .Distinct()
+        .OrderByDescending(a => a);
+    private IEnumerable<CursoCapacitacionDto> Filtrados =>
+        cursos
+            .Where(c =>
+                (string.IsNullOrWhiteSpace(searchTerm)
+                    || (c.Nombre?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+                && (string.IsNullOrWhiteSpace(selectedHoras) || c.Horas.ToString() == selectedHoras)
+                && (string.IsNullOrWhiteSpace(selectedAnio) || c.FechaFin.Year.ToString() == selectedAnio)
+            );
+    private void LimpiarFiltros()
+    {
+        searchTerm = string.Empty;
+        selectedHoras = "";
+        selectedAnio = "";
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -111,10 +136,30 @@ else
                             style="width: @(Math.Min((double)TrainingHours / RequiredHours * 100, 100))%;"></div>
                     </div>
 
+                    <div class="flex flex-row gap-2 mb-4">
+                        <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedHoras">
+                            <option value="">Todas las horas</option>
+                            @foreach (var horas in HorasDisponibles)
+                            {
+                                <option value="@horas">@horas</option>
+                            }
+                        </select>
+                        <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedAnio">
+                            <option value="">Todos los años</option>
+                            @foreach (var anio in AniosDisponibles)
+                            {
+                                <option value="@anio">@anio</option>
+                            }
+                        </select>
+                        <input class="w-full border rounded-md px-3 py-2 text-sm" placeholder="Buscar curso..." @bind="searchTerm" />
+                        <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-3 py-2 rounded-md text-sm" @onclick="LimpiarFiltros" title="Limpiar filtros">
+                            Limpiar
+                        </button>
+                    </div>
                     <div class="border rounded-lg divide-y">
-                        @if (cursos != null && cursos.Any())
+                        @if (Filtrados != null && Filtrados.Any())
                         {
-                            @foreach (var course in cursos)
+                            @foreach (var course in Filtrados)
                             {
                                 <div class="p-4">
                                     <div class="font-medium">@course.Nombre</div>

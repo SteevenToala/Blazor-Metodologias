@@ -17,6 +17,27 @@
     [Parameter]
     public EventCallback OnImportarCompletado { get; set; }
 
+    private string searchTerm = string.Empty;
+    private string selectedTipo = "";
+    private string selectedAnio = "";
+    private IEnumerable<string> TiposDisponibles => PublicacionesAcademicas
+        .Select(p => p.Tipo)
+        .Where(t => !string.IsNullOrWhiteSpace(t))
+        .Distinct()
+        .OrderBy(t => t);
+    private IEnumerable<string> AniosDisponibles => PublicacionesAcademicas
+        .Select(p => p.Anio.ToString())
+        .Distinct()
+        .OrderByDescending(a => a);
+    private IEnumerable<PublicacionAcademicaDto> Filtradas =>
+        PublicacionesAcademicas
+            .Where(p =>
+                (string.IsNullOrWhiteSpace(searchTerm)
+                    || (p.Titulo?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+                && (string.IsNullOrWhiteSpace(selectedTipo) || p.Tipo == selectedTipo)
+                && (string.IsNullOrWhiteSpace(selectedAnio) || p.Anio.ToString() == selectedAnio)
+            );
+
     private void IrASubirPublicacion()
     {
         Navigation.NavigateTo("/subir-publicacion");
@@ -62,6 +83,13 @@
     {
         showModalImportar = false;
     }
+
+    private void LimpiarFiltros()
+    {
+        searchTerm = string.Empty;
+        selectedTipo = "";
+        selectedAnio = "";
+    }
 }
 
 <div class="space-y-4">
@@ -84,10 +112,30 @@
                     </button>
                 </div>
             </div>
+            <div class="flex flex-row gap-2 mb-4">
+                <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedTipo">
+                    <option value="">Todos los tipos</option>
+                    @foreach (var tipo in TiposDisponibles)
+                    {
+                        <option value="@tipo">@tipo</option>
+                    }
+                </select>
+                <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedAnio">
+                    <option value="">Todos los años</option>
+                    @foreach (var anio in AniosDisponibles)
+                    {
+                        <option value="@anio">@anio</option>
+                    }
+                </select>
+                <input class="w-full border rounded-md px-3 py-2 text-sm" placeholder="Buscar publicación..." @bind="searchTerm" />
+                <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-3 py-2 rounded-md text-sm" @onclick="LimpiarFiltros" title="Limpiar filtros">
+                    Limpiar
+                </button>
+            </div>
             <div class="border rounded-lg divide-y">
-                @if (PublicacionesAcademicas != null && PublicacionesAcademicas.Any())
+                @if (Filtradas != null && Filtradas.Any())
                 {
-                    @foreach (var pub in PublicacionesAcademicas)
+                    @foreach (var pub in Filtradas)
                     {
                         <div class="p-4">
                             <div class="font-medium">@pub.Titulo</div>
