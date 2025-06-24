@@ -5,6 +5,7 @@
 @inject EvaluacionService EvaluacionService
 @inject DocenteService DocenteService
 
+@page "/teacher-dashboard"
 
 @code {
     private void IrASubirPublicacion()
@@ -13,14 +14,31 @@
     }
     private LoginResponse? loginResponse;
     private DashBoardDocente? dashBoardDocente;
-private List<PublicacionAcademicaDto> publicacionesAcademicas = new();
-private List<ProyectoInvestigacionDto> proyectosInvestigacion = new();
+    private List<PublicacionAcademicaDto> publicacionesAcademicas = new();
+    private List<ProyectoInvestigacionDto> proyectosInvestigacion = new();
+    private List<Requirement> requirements = new();
+    private string nextLevel = string.Empty;
+    private string activeTab = "overview";
+    private List<(string id, string label)> Tabs = new()
+    {
+        ("overview", "Resumen"),
+        ("requirements", "Requisitos de Promoción"),
+        ("papers", "Publicaciones"),
+        ("training", "Capacitaciones"),
+        ("research", "Investigación")
+    };
+    private async Task RecargarPublicacionesAcademicas()
+    {
+        var publicaciones = await DocenteService.getPublicacionesAcademicas();
+        if (publicaciones != null)
+        {
+            publicacionesAcademicas = publicaciones.ToList();
+            StateHasChanged();
+        }
+    }
     protected override async Task OnInitializedAsync()
     {
-
-        
         loginResponse = await LocalStorage.ObtenerObjetoAsync<LoginResponse>("loginResponse");
-
         if (loginResponse != null && loginResponse.usuario != null)
         {
             var dashboard = await DocenteService.getDataDashBoard();
@@ -37,6 +55,70 @@ private List<ProyectoInvestigacionDto> proyectosInvestigacion = new();
                 {
                     proyectosInvestigacion = proyectos;
                 }
+                // Calcular meses de investigación sumando los meses de todos los proyectos
+                int mesesInvestigacion = 0;
+                if (proyectosInvestigacion != null && proyectosInvestigacion.Count > 0)
+                {
+                    foreach (var proyecto in proyectosInvestigacion)
+                    {
+                        var inicio = proyecto.FechaInicio;
+                        var fin = proyecto.FechaFin;
+                        int meses = (fin.Year - inicio.Year) * 12 + (fin.Month - inicio.Month);
+                        if (meses < 0) meses = 0;
+                        mesesInvestigacion += meses;
+                    }
+                }
+                // Calcular requisitos y siguiente nivel para pasar al componente
+                var requisitos = dashBoardDocente.requisitoNivel?.ToList() ?? new List<RequisitoNivel>();
+                requirements = requisitos.Select(r => new Requirement
+                {
+                    Name = r.Nombre switch
+                    {
+                        "Años en el rango" or "Años en nivel actual" => "Años en nivel actual",
+                        "Papers" or "Publicaciones académicas" => "Publicaciones académicas",
+                        "Puntaje Evaluación" or "Puntaje de evaluación" => "Puntaje de evaluación",
+                        "Horas Capacitación" or "Horas de capacitación" => "Horas de capacitación",
+                        "Investigaciones" or "Meses en investigación" => "Meses en investigación",
+                        _ => r.Nombre // Mostrar cualquier otro requisito tal como viene
+                    },
+                    Current = r.Nombre switch
+                    {
+                        "Años en el rango" or "Años en nivel actual" => dashBoardDocente.AniosEnNivel,
+                        "Papers" or "Publicaciones académicas" => dashBoardDocente.PublicacionesAcademicas,
+                        "Puntaje Evaluación" or "Puntaje de evaluación" => (int)dashBoardDocente.PuntajeEvaluacion,
+                        "Horas Capacitación" or "Horas de capacitación" => dashBoardDocente.HorasCapacitacion,
+                        "Investigaciones" or "Meses en investigación" => mesesInvestigacion, // <-- usa el valor calculado
+                        _ => 0 // Si hay un requisito nuevo, mostrar 0 o puedes mapearlo si tienes el dato
+                    },
+                    Required = r.ValorRequerido,
+                    Completed = r.Nombre switch
+                    {
+                        "Años en el rango" or "Años en nivel actual" => dashBoardDocente.AniosEnNivel >= r.ValorRequerido,
+                        "Papers" or "Publicaciones académicas" => dashBoardDocente.PublicacionesAcademicas >= r.ValorRequerido,
+                        "Puntaje Evaluación" or "Puntaje de evaluación" => dashBoardDocente.PuntajeEvaluacion >= r.ValorRequerido,
+                        "Horas Capacitación" or "Horas de capacitación" => dashBoardDocente.HorasCapacitacion >= r.ValorRequerido,
+                        "Investigaciones" or "Meses en investigación" => mesesInvestigacion >= r.ValorRequerido, // <-- unificado aquí
+                        _ => false // Si hay un requisito nuevo, por defecto no cumplido
+                    }
+                }).ToList();
+                // Asegurar que siempre haya un requisito de meses en investigación
+                if (!requirements.Any(r => r.Name.Contains("Meses") || r.Name.Contains("Investigación")))
+                {
+                    // Buscar el valor requerido real si existe
+                    int requerido = dashBoardDocente.GetValorRequerido("Investigaciones");
+                    if (requerido == -1 || requerido == 0) requerido = 4; // fallback
+                    requirements.Add(new Requirement {
+                        Name = "Meses en investigación",
+                        Current = mesesInvestigacion,
+                        Required = requerido,
+                        Completed = mesesInvestigacion >= requerido
+                    });
+                }
+                // Calcular siguiente nivel
+                var nivelActual = dashBoardDocente.NivelAcademico;
+                var prefijo = nivelActual.Substring(0, nivelActual.Length - 1);
+                var numero = int.TryParse(nivelActual.Substring(nivelActual.Length - 1), out var n) ? n : 1;
+                nextLevel = numero < 5 ? $"{prefijo}{numero + 1}" : nivelActual;
             }
             else
             {
@@ -48,9 +130,11 @@ private List<ProyectoInvestigacionDto> proyectosInvestigacion = new();
             Console.WriteLine("No login, redirigiendo...");
             Navigation.NavigateTo("/login", true);
         }
-    }   
+    }
+
+    private double progressPercentage => requirements.Count == 0 ? 0 : (requirements.Count(r => r.Completed) * 100.0 / requirements.Count);
 }
-@page "/teacher-dashboard"
+
 @if (dashBoardDocente == null)
 {
     <div class="text-center py-8 text-gray-500">Cargando datos...</div>
@@ -79,7 +163,6 @@ else
             </button>
         </div>
     </div>
-
     <div class="space-y-4">
         <div class="border-b border-gray-200">
             <nav class="-mb-px flex space-x-8">
@@ -92,7 +175,6 @@ else
                 }
             </nav>
         </div>
-
         @if (activeTab == "overview")
         {
             <div class="space-y-4">
@@ -116,41 +198,9 @@ else
                                     var numero = int.TryParse(nivelActual.Substring(nivelActual.Length - 1), out var n) ? n : 1;
                                     var siguienteNivel = numero < 5 ? $"{prefijo}{numero + 1}" : nivelActual;
 
-                                    // Calcular requisitos cumplidos de forma dinámica
-                                    var requisitos = dashBoardDocente.requisitoNivel?.ToList() ?? new List<RequisitoNivel>();
-                                    // Si no existe el requisito "Investigaciones", lo agregamos visualmente como cumplido
-                                    if (!requisitos.Any(r => r.Nombre == "Investigaciones"))
-                                    {
-                                        requisitos.Add(new RequisitoNivel
-                                        {
-                                            Nombre = "Investigaciones",
-                                            ValorRequerido = 0 // O el valor que consideres necesario
-                                        });
-                                    }
-                                    var requisitosCumplidos = 0;    
-                                    foreach (var req in requisitos)
-                                    {
-                                        int valorActual = req.Nombre switch
-                                        {
-                                            "Años en el rango" => dashBoardDocente.AniosEnNivel,
-                                            "Papers" => dashBoardDocente.PublicacionesAcademicas,
-                                            "Puntaje Evaluación" => (int)dashBoardDocente.PuntajeEvaluacion,
-                                            "Horas Capacitación" => dashBoardDocente.HorasCapacitacion,
-                                            "Investigaciones"=>dashBoardDocente.Investigaciones,
-                                            // Agrega aquí más casos si tienes nuevos requisitos con otros nombres
-                                            _ => 0
-                                        };
-                                        // Si es "Investigaciones" agregado manualmente, siempre lo marcas como cumplido
-                                        if (req.Nombre == "Investigaciones" && dashBoardDocente.requisitoNivel?.All(r => r.Nombre != "Investigaciones") == true)
-                                        {
-                                            requisitosCumplidos++;
-                                            continue;
-                                        }
-
-                                        if (valorActual >= req.ValorRequerido)
-                                            requisitosCumplidos++;
-                                    }
-                                    var totalRequisitos = requisitos.Count;
+                                    // Usar la lista unificada de requirements para el conteo
+                                    var requisitosCumplidos = requirements.Count(r => r.Completed);
+                                    var totalRequisitos = requirements.Count;
 
                                     var mensaje = requisitosCumplidos == totalRequisitos
                                         ? $"¡Felicidades! Cumples con todos los requisitos para avanzar a {siguienteNivel}"
@@ -265,11 +315,6 @@ else
                         </div>
                     </div>
 
-                    
-
-
-
-
                     <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
                         <div class="p-4 pb-2">
                             <div class="flex items-center text-sm font-medium text-gray-600">
@@ -279,34 +324,40 @@ else
                                           stroke-width="2"
                                           d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                Tiempo Investigación
+                                Meses en investigación
                             </div>
                         </div>
                         <div class="p-4 pt-0">
-                            @{
-                                // Calcular meses de investigación sumando los meses de todos los proyectos
-                                int mesesInvestigacion = 0;
-                                foreach (var proyecto in proyectosInvestigacion)
-                                {
-                                    var inicio = proyecto.FechaInicio;
-                                    var fin = proyecto.FechaFin;
-                                    int meses = (fin.Year - inicio.Year) * 12 + (fin.Month - inicio.Month);
-                                    if (meses < 0) meses = 0;
-                                    mesesInvestigacion += meses;
-                                }
-                                var requerido = dashBoardDocente.GetValorRequerido("Investigaciones");
-                                var requeridoBarra = (requerido == -1 || requerido == 0) ? 4 : requerido;
-                                var porcentajeInvestigacion = Math.Min((double)mesesInvestigacion / requeridoBarra * 100, 100);
-                            }
-                            <div class="text-2xl font-bold">
-                                @mesesInvestigacion / @requeridoBarra
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style="width: @porcentajeInvestigacion%;"></div>
-                            </div>
-                        </div>
-                    </div>
+@{
+    int mesesInvestigacion = 0;
+    if (proyectosInvestigacion != null && proyectosInvestigacion.Count > 0)
+    {
+        foreach (var proyecto in proyectosInvestigacion)
+        {
+            var inicio = proyecto.FechaInicio;
+            var fin = proyecto.FechaFin;
+            int meses = (fin.Year - inicio.Year) * 12 + (fin.Month - inicio.Month);
+            if (meses < 0) meses = 0;
+            mesesInvestigacion += meses;
+        }
+    }
+    int requerido = dashBoardDocente.GetValorRequerido("Investigaciones");
+    if (requerido == -1 || requerido == 0) requerido = 4;
+    double porcentajeInvestigacion = 0;
+    if (requerido > 0)
+    {
+        porcentajeInvestigacion = Math.Min((double)mesesInvestigacion / requerido * 100, 100);
+    }
+    
+    <div class="text-2xl font-bold">
+        @mesesInvestigacion / @requerido meses
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+        <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: @(porcentajeInvestigacion.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%;"></div>
+    </div>
+}
+    </div>
+</div>
                 </div>
 
             </div>  
@@ -314,7 +365,7 @@ else
 
         @if (activeTab == "requirements")
         {
-            <MyCleanApp.Client.components.TeacherDashboardRequirements/>
+            <TeacherDashboardRequirements Requirements="requirements" NextLevel="nextLevel" ProyectosInvestigacion="proyectosInvestigacion" />
         }
 
        @if (activeTab == "papers")
@@ -336,70 +387,4 @@ else
         }
     </div>
 </div>
-}
-
-@code {
-    public class Teacher
-    {
-        public string Name { get; set; } = string.Empty;
-        public string Level { get; set; } = string.Empty;
-        public int Years { get; set; }
-        public int Papers { get; set; }
-        public int EvaluationScore { get; set; }
-        public int TrainingHours { get; set; }
-        public int ResearchMonths { get; set; }
-        public string NextLevel { get; set; } = string.Empty;
-        public List<Requirement> Requirements { get; set; } = new();
-    }
-
-    public class Requirement
-    {
-        public string Name { get; set; } = string.Empty;
-        public int Current { get; set; }
-        public int Required { get; set; }
-        public bool Completed { get; set; }
-    }
-
-    private Teacher teacherData = new Teacher
-    {
-        Name = "Prof. María García",
-        Level = "DT.3",
-        Years = 3,
-        Papers = 1,
-        EvaluationScore = 82,
-        TrainingHours = 80,
-        ResearchMonths = 8,
-        NextLevel = "DT.4",
-        Requirements = new List<Requirement>
-        {
-            new Requirement { Name = "Años en nivel actual", Current = 3, Required = 4, Completed = false },
-            new Requirement { Name = "Publicaciones académicas", Current = 1, Required = 2, Completed = false },
-            new Requirement { Name = "Puntaje de evaluación", Current = 82, Required = 75, Completed = true },
-            new Requirement { Name = "Horas de capacitación", Current = 80, Required = 96, Completed = false },
-            new Requirement { Name = "Meses en investigación", Current = 8, Required = 12, Completed = false },
-        }
-    };
-
-    private string activeTab = "overview";
-    private List<(string id, string label)> Tabs = new()
-    {
-        ("overview", "Resumen"),
-        ("requirements", "Requisitos de Promoción"),
-        ("papers", "Publicaciones"),
-        ("training", "Capacitaciones"),
-        ("research", "Investigación")
-    };
-    private int completedRequirements => teacherData.Requirements.Count(req => req.Completed);
-    private int totalRequirements => teacherData.Requirements.Count;
-    private double progressPercentage => (double)completedRequirements / totalRequirements * 100;
-
-    private async Task RecargarPublicacionesAcademicas()
-    {
-        var publicaciones = await DocenteService.getPublicacionesAcademicas();
-        if (publicaciones != null)
-        {
-            publicacionesAcademicas = publicaciones.ToList();
-            StateHasChanged();
-        }
-    }
 }
