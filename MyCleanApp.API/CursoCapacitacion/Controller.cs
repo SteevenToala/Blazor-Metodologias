@@ -87,8 +87,11 @@ public class CursoCapacitacionController : ControllerBase
             {
                 Nombre = c.Nombre,
                 Horas = c.Horas,
+                FechaInicio = c.FechaInicio,
                 FechaFin = c.FechaFin,
-                Certificado = c.Certificado
+                Certificado = c.Certificado,
+                DocenteId = c.DocenteId,
+                Externo = c.Externo // <-- AGREGADO
             })
             .ToListAsync();
 

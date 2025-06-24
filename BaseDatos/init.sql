@@ -216,8 +216,8 @@ INSERT INTO ProyectoInvestigacion ( titulo, fechaInicio, fechaFin, rolEnProyecto
 ('IA en educación', '2024-03-01', '2024-06-30', 'Investigador Principal', 1, 0);
 
 -- Publicación Académica
-INSERT INTO PublicacionAcademica ( titulo, revista, volumen, anio, tipo, docenteId) VALUES
-('Nuevas metodologías', 'Revista EDUCA', 'Vol. 12', 2024, 'Artículo', 1);
+INSERT INTO PublicacionAcademica ( titulo, revista, volumen, anio, tipo, docenteId, Externo) VALUES
+('Nuevas metodologías', 'Revista EDUCA', 'Vol. 12', 2024, 'Artículo', 1, 0);
 
 -- Requisito de Promoción
 INSERT INTO RequisitoPromocion ( nombre, porcentajeAsignado) VALUES
@@ -270,3 +270,4 @@ INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorReq
 (4, 4, 160),   -- 160 horas capacitación
 (4, 5, 24);    -- 24 meses de investigación
 
+UPDATE PublicacionAcademica SET Externo = 0 WHERE Externo IS NULL;

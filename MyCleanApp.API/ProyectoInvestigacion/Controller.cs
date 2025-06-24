@@ -86,4 +86,29 @@ public class ProyectoInvestigacionController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok();
     }
+
+    [HttpGet("usuario/{usuarioId}")]
+    public async Task<ActionResult<IEnumerable<ProyectoInvestigacionDto>>> GetProyectosByUsuarioId(int usuarioId)
+    {
+        var docente = await _context.Docente.FirstOrDefaultAsync(d => d.UsuarioId == usuarioId);
+        if (docente == null)
+            return NotFound("Docente no encontrado para el usuario dado.");
+
+        var proyectos = await _context.ProyectoInvestigacion
+            .Where(p => p.DocenteId == docente.Id)
+            .Select(p => new ProyectoInvestigacionDto
+            {
+                Id = p.Id,
+                Titulo = p.Titulo,
+                FechaInicio = p.FechaInicio,
+                FechaFin = p.FechaFin,
+                RolEnProyecto = p.RolEnProyecto,
+                DocenteId = p.DocenteId,
+                Documento = p.Documento,
+                Externo = p.Externo // <-- AGREGADO
+            })
+            .ToListAsync();
+
+        return Ok(proyectos);
+    }
 }

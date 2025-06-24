@@ -137,7 +137,17 @@
                     @foreach (var proyecto in Filtrados)
                     {
                         <div class="p-4">
-                            <div class="font-medium">@proyecto.Titulo</div>
+                            <div class="font-medium flex items-center gap-2">
+                                @proyecto.Titulo
+                                @if (proyecto.Externo == true)
+                                {
+                                    <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300" title="Importado de fuente externa">Externo</span>
+                                }
+                                else if (proyecto.Externo == false)
+                                {
+                                    <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-300" title="Registrado localmente">Local</span>
+                                }
+                            </div>
                             <div class="text-sm text-gray-500 mt-1">
                                 @proyecto.FechaInicio.ToString("yyyy-MM-dd") - @proyecto.FechaFin.ToString("yyyy-MM-dd")
                             </div>

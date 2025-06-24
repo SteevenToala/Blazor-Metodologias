@@ -86,7 +86,8 @@ public class PublicacionAcademicaController : ControllerBase
                 p.Volumen,
                 p.Anio,
                 p.Tipo,
-                p.Archivo
+                p.Archivo,
+                p.Externo // <-- AGREGADO
             })
             .ToListAsync();
 
