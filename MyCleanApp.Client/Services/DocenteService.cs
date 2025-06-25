@@ -245,4 +245,34 @@ public class DocenteService
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<bool> SolicitarAvanceRangoAsync(SolicitudAvanceRangoDto solicitud)
+    {
+        var response = await _http.PostAsJsonAsync("http://localhost:5015/api/SolicitudAvanceRango", solicitud);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<LoginResponse?> GetLoginResponseAsync()
+    {
+        return await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+    }
+
+    public async Task<int?> ObtenerNivelAcademicoIdPorNombreAsync(string nombre)
+    {
+        var response = await _http.GetAsync("http://localhost:5015/api/NivelAcademico");
+        if (!response.IsSuccessStatusCode)
+            return null;
+        var niveles = await response.Content.ReadFromJsonAsync<List<NivelAcademicoDto>>();
+        var nivel = niveles?.FirstOrDefault(n => n.Nombre.Trim().Equals(nombre.Trim(), StringComparison.OrdinalIgnoreCase));
+        return nivel?.Id;
+    }
+
+    public async Task<List<SolicitudAvanceRangoDto>?> ObtenerSolicitudesAvancePorDocenteIdAsync(int docenteId)
+    {
+        var response = await _http.GetAsync($"http://localhost:5015/api/SolicitudAvanceRango");
+        if (!response.IsSuccessStatusCode)
+            return null;
+        var solicitudes = await response.Content.ReadFromJsonAsync<List<SolicitudAvanceRangoDto>>();
+        return solicitudes?.Where(s => s.DocenteId == docenteId).ToList();
+    }
+
 }

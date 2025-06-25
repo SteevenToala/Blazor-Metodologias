@@ -1,5 +1,6 @@
 @using MyCleanApp.Client.DTOs
 @inject DocenteService DocenteService
+@inject NavigationManager NavigationManager
 
 @code {
     [Parameter]
@@ -44,14 +45,83 @@
         }
     }
 
-    private void SolicitarPromocion()
+    private bool showSolicitudModal = false;
+    private string solicitudMensaje = string.Empty;
+    private bool solicitudEnviada = false;
+    private bool solicitudLoading = false;
+    private List<SolicitudAvanceRangoDto> solicitudesAvance = new();
+    private bool tieneSolicitudPendiente => solicitudesAvance.Any(s => s.Estado == "PENDIENTE");
+    private bool showExitoModal = false;
+
+    protected override async Task OnInitializedAsync()
     {
-        // Aquí puedes implementar la lógica para enviar la solicitud de promoción
-        // Por ejemplo, mostrar un mensaje, llamar a un servicio, etc.
-        // Por ahora solo mostramos un mensaje de ejemplo
-        var mensaje = $"Solicitud enviada para promocionarse de {NivelActual} a {NextLevel}";
-        Console.WriteLine(mensaje);
-        // Puedes agregar lógica adicional aquí
+        await CargarSolicitudesAvance();
+    }
+
+    private async Task CargarSolicitudesAvance()
+    {
+        var loginResponse = await DocenteService.GetLoginResponseAsync();
+        if (loginResponse == null || loginResponse.usuario == null)
+            return;
+        var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+        if (docenteId == null)
+            return;
+        solicitudesAvance = await DocenteService.ObtenerSolicitudesAvancePorDocenteIdAsync(docenteId.Value) ?? new List<SolicitudAvanceRangoDto>();
+    }
+
+    private async Task SolicitarPromocionAsync()
+    {
+        solicitudLoading = true;
+        solicitudMensaje = string.Empty;
+        solicitudEnviada = false;
+        try
+        {
+            var loginResponse = await DocenteService.GetLoginResponseAsync();
+            if (loginResponse == null || loginResponse.usuario == null)
+            {
+                solicitudMensaje = "No se pudo obtener el usuario actual.";
+                solicitudLoading = false;
+                return;
+            }
+            var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+            if (docenteId == null)
+            {
+                solicitudMensaje = "No se pudo obtener el ID del docente.";
+                solicitudLoading = false;
+                return;
+            }
+            var nextLevelId = await DocenteService.ObtenerNivelAcademicoIdPorNombreAsync(NextLevel);
+            if (nextLevelId == null)
+            {
+                solicitudMensaje = "No se pudo obtener el ID del nuevo nivel académico.";
+                solicitudLoading = false;
+                return;
+            }
+            var solicitud = new SolicitudAvanceRangoDto
+            {
+                DocenteId = docenteId.Value,
+                FechaSolicitud = DateTime.Now,
+                Estado = "PENDIENTE",
+                NuevoNivelAcademicoId = nextLevelId.Value
+            };
+            var exito = await DocenteService.SolicitarAvanceRangoAsync(solicitud);
+            if (exito)
+            {
+                solicitudMensaje = $"Solicitud enviada para promocionarse de {NivelActual} a {NextLevel}.";
+                solicitudEnviada = true;
+                showExitoModal = true;
+                await CargarSolicitudesAvance();
+            }
+            else
+            {
+                solicitudMensaje = "Error al enviar la solicitud. Intente nuevamente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            solicitudMensaje = $"Error: {ex.Message}";
+        }
+        solicitudLoading = false;
     }
 }
 
@@ -131,10 +201,39 @@ else
                     {
                         <div class="flex justify-end mt-4">
                             <button class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-md shadow transition-colors"
-                                    @onclick="SolicitarPromocion">
+                                    @onclick="() => showSolicitudModal = true" disabled="@tieneSolicitudPendiente">
                                 Solicitar promoción de @NivelActual a @NextLevel
                             </button>
                         </div>
+                        @if (tieneSolicitudPendiente)
+                        {
+                            <div class="text-amber-600 text-sm mt-2">Ya tienes una solicitud de avance de rango pendiente. Debes esperar una respuesta antes de enviar otra.</div>
+                        }
+                        @if (showSolicitudModal && !tieneSolicitudPendiente)
+                        {
+                            <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                                <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md relative">
+                                    <button class="absolute top-2 right-2 text-gray-400 hover:text-gray-600" @onclick="() => showSolicitudModal = false">&times;</button>
+                                    <h2 class="text-lg font-semibold mb-4">Confirmar solicitud de promoción</h2>
+                                    <p class="mb-4">¿Está seguro que desea solicitar la promoción de <b>@NivelActual</b> a <b>@NextLevel</b>?</p>
+                                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-md shadow transition-colors mr-2" @onclick="SolicitarPromocionAsync" disabled="@solicitudLoading">
+                                        @if (solicitudLoading)
+                                        {
+                                            <span class="animate-spin mr-2">⏳ Enviando...</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Confirmar solicitud</span>
+                                        }
+                                    </button>
+                                    <button class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-6 rounded-md shadow transition-colors" @onclick="() => showSolicitudModal = false" disabled="@solicitudLoading">Cancelar</button>
+                                    @if (!string.IsNullOrEmpty(solicitudMensaje))
+                                    {
+                                        <div class="mt-4 text-sm @(solicitudEnviada ? "text-green-600" : "text-red-600")">@solicitudMensaje</div>
+                                    }
+                                </div>
+                            </div>
+                        }
                     }
                     else
                     {
@@ -160,4 +259,22 @@ else
             </div>
         </div>
     </div>
+}
+
+@if (showExitoModal)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md relative text-center">
+            <h2 class="text-2xl font-bold text-green-600 mb-4">¡Solicitud enviada!</h2>
+            <p class="mb-6">Tu solicitud de avance de rango fue enviada correctamente.</p>
+            <button class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-md shadow transition-colors" @onclick="RecargarPagina">Aceptar</button>
+        </div>
+    </div>
+}
+
+@code {
+    private void RecargarPagina()
+    {
+        NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+    }
 }
