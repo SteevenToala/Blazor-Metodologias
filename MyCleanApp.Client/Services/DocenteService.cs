@@ -233,4 +233,16 @@ public class DocenteService
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<bool> EditarPublicacionAsync(PublicacionAcademicaDto publicacion)
+    {
+        var response = await _http.PutAsJsonAsync($"http://localhost:5015/api/PublicacionAcademica/{publicacion.Id}", publicacion);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> EliminarPublicacionAsync(int publicacionId)
+    {
+        var response = await _http.DeleteAsync($"http://localhost:5015/api/PublicacionAcademica/{publicacionId}");
+        return response.IsSuccessStatusCode;
+    }
+
 }

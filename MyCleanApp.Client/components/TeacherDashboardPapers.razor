@@ -90,6 +90,86 @@
         selectedTipo = "";
         selectedAnio = "";
     }
+
+    private bool showPdfModal = false;
+    private string? pdfUrl;
+    private bool showEditModal = false;
+    private PublicacionAcademicaDto? publicacionEditando;
+    private string editTitulo = string.Empty;
+    private string editRevista = string.Empty;
+    private string editVolumen = string.Empty;
+    private int editAnio;
+    private string editTipo = string.Empty;
+    private IBrowserFile? editArchivoFile;
+
+    private void VerArchivo(int publicacionId)
+    {
+        pdfUrl = $"http://localhost:5015/api/PublicacionAcademica/archivo/{publicacionId}";
+        showPdfModal = true;
+    }
+    private void CerrarPdfModal()
+    {
+        showPdfModal = false;
+        pdfUrl = null;
+    }
+    private void EditarPublicacion(PublicacionAcademicaDto pub)
+    {
+        publicacionEditando = pub;
+        editTitulo = pub.Titulo;
+        editRevista = pub.Revista;
+        editVolumen = pub.Volumen;
+        editAnio = pub.Anio;
+        editTipo = pub.Tipo;
+        showEditModal = true;
+    }
+    private async Task OnArchivoFileChanged(InputFileChangeEventArgs e)
+    {
+        editArchivoFile = e.File;
+        if (editArchivoFile != null && publicacionEditando != null)
+        {
+            using var stream = editArchivoFile.OpenReadStream(5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            publicacionEditando.Archivo = ms.ToArray();
+        }
+    }
+    private async Task GuardarEdicionPublicacion()
+    {
+        if (publicacionEditando == null) return;
+        publicacionEditando.Titulo = editTitulo;
+        publicacionEditando.Revista = editRevista;
+        publicacionEditando.Volumen = editVolumen;
+        publicacionEditando.Anio = editAnio;
+        publicacionEditando.Tipo = editTipo;
+        var response = await DocenteService.EditarPublicacionAsync(publicacionEditando);
+        if (!response)
+        {
+            modalMessageImportar = "No se pudo editar la publicación.";
+            showModalImportar = true;
+        }
+        showEditModal = false;
+        if (OnImportarCompletado.HasDelegate)
+            await OnImportarCompletado.InvokeAsync();
+    }
+    private void CancelarEdicionPublicacion()
+    {
+        showEditModal = false;
+        publicacionEditando = null;
+    }
+    private async Task EliminarPublicacion(int publicacionId)
+    {
+        var response = await DocenteService.EliminarPublicacionAsync(publicacionId);
+        if (response)
+        {
+            if (OnImportarCompletado.HasDelegate)
+                await OnImportarCompletado.InvokeAsync();
+        }
+        else
+        {
+            modalMessageImportar = "No se pudo eliminar la publicación.";
+            showModalImportar = true;
+        }
+    }
 }
 
 <div class="space-y-4">
@@ -147,6 +227,8 @@
                                 else if (pub.Externo == false)
                                 {
                                     <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-300" title="Registrada localmente">Local</span>
+                                    <button class="ml-2 text-yellow-600 underline text-xs" @onclick="() => EditarPublicacion(pub)">Editar</button>
+                                    <button class="ml-2 text-red-600 underline text-xs" @onclick="() => EliminarPublicacion(pub.Id)">Eliminar</button>
                                 }
                             </div>
                             <div class="text-sm text-gray-500 mt-1">
@@ -162,11 +244,7 @@
                                 <span class="text-sm text-blue-500">@pub.Tipo</span>
                                 @if (pub.Archivo != null)
                                 {
-                                    <a class="ml-4 text-blue-600 underline text-xs"
-                                        href="@($"data:application/pdf;base64,{Convert.ToBase64String(pub.Archivo)}")"
-                                        download="Publicacion_@pub.Id .pdf">
-                                            Descargar archivo
-                                    </a>
+                                    <button class="ml-4 text-blue-600 underline text-xs" @onclick="() => VerArchivo(pub.Id)">Ver archivo</button>
                                 }
                             </div>
                         </div>
@@ -191,6 +269,56 @@
                 <div class="text-lg font-semibold mb-4">Importación de Publicaciones</div>
                 <div class="mb-6">@modalMessageImportar</div>
                 <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md" @onclick="CerrarModalImportar">Cerrar</button>
+            </div>
+        </div>
+    }
+    @if (showPdfModal && pdfUrl != null)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-4 max-w-3xl w-full relative">
+                <button class="absolute top-2 right-2 text-gray-600" @onclick="CerrarPdfModal">✕</button>
+                <iframe src="@pdfUrl" width="100%" height="600px"></iframe>
+            </div>
+        </div>
+    }
+    @if (showEditModal && publicacionEditando != null)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-6 max-w-md w-full relative">
+                <button class="absolute top-2 right-2 text-gray-600" @onclick="CancelarEdicionPublicacion">✕</button>
+                <h3 class="text-lg font-semibold mb-4">Editar Publicación</h3>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Título</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editTitulo" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Revista</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editRevista" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Volumen</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editVolumen" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Año</label>
+                    <input type="number" class="w-full border rounded-md px-3 py-2 text-sm" @bind="editAnio" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Tipo</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editTipo" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Archivo PDF</label>
+                    <InputFile OnChange="OnArchivoFileChanged" accept="application/pdf" />
+                    @if (publicacionEditando.Archivo != null)
+                    {
+                        <span class="ml-2 text-green-600 text-xs">Archivo cargado</span>
+                    }
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-4 py-2 rounded-md" @onclick="CancelarEdicionPublicacion">Cancelar</button>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-md" @onclick="GuardarEdicionPublicacion">Guardar</button>
+                </div>
             </div>
         </div>
     }

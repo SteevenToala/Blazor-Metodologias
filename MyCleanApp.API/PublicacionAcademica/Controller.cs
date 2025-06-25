@@ -49,11 +49,17 @@ public class PublicacionAcademicaController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Put(int id, [FromBody] PublicacionAcademica publicacion)
+    public async Task<IActionResult> Put(int id, [FromBody] PublicacionAcademicaDto dto)
     {
-        if (id != publicacion.Id) return BadRequest();
-
-        _context.Entry(publicacion).State = EntityState.Modified;
+        var publicacion = await _context.PublicacionAcademica.FirstOrDefaultAsync(p => p.Id == id);
+        if (publicacion == null) return NotFound();
+        publicacion.Titulo = dto.Titulo;
+        publicacion.Revista = dto.Revista;
+        publicacion.Volumen = dto.Volumen;
+        publicacion.Anio = dto.Anio;
+        publicacion.Tipo = dto.Tipo;
+        publicacion.Archivo = dto.Archivo;
+        // No se permite cambiar DocenteId ni Externo por seguridad
         await _context.SaveChangesAsync();
         return NoContent();
     }
@@ -124,5 +130,15 @@ public class PublicacionAcademicaController : ControllerBase
         _context.PublicacionAcademica.Add(entidad);
         await _context.SaveChangesAsync();
         return Ok();
+    }
+
+    [HttpGet("archivo/{id}")]
+    public async Task<IActionResult> GetArchivo(int id)
+    {
+        var publicacion = await _context.PublicacionAcademica.FirstOrDefaultAsync(p => p.Id == id);
+        if (publicacion == null || publicacion.Archivo == null)
+            return NotFound();
+        Response.Headers["Content-Disposition"] = "inline; filename=publicacion.pdf";
+        return File(publicacion.Archivo, "application/pdf");
     }
 }
