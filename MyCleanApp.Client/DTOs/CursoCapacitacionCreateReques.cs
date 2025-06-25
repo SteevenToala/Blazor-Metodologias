@@ -5,4 +5,5 @@ public class CursoCapacitacionCreateReques
     public DateTime FechaFin { get; set; }
     public string Certificado { get; set; } = string.Empty;
     public int Horas { get; set; }
+    public bool Externo { get; set; } = false;
 }

@@ -71,6 +71,7 @@ CREATE TABLE CursoCapacitacion (
     fechaFin DATE,
     docenteId INT,
     externo BIT DEFAULT 0,
+    certificado VARBINARY(MAX) NULL, -- Para guardar PDF
     FOREIGN KEY (docenteId) REFERENCES Docente(id)
 );
 

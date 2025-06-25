@@ -85,6 +85,7 @@ public class CursoCapacitacionController : ControllerBase
             .Where(c => c.DocenteId == docente.Id)
             .Select(c => new CursoCapacitacionDto
             {
+                Id = c.Id, // <-- Agregado para exponer el Id
                 Nombre = c.Nombre,
                 Horas = c.Horas,
                 FechaInicio = c.FechaInicio,
@@ -125,5 +126,16 @@ public class CursoCapacitacionController : ControllerBase
         _context.CursoCapacitacion.Add(entidad);
         await _context.SaveChangesAsync();
         return Ok();
+    }
+
+    [HttpGet("certificado/{id}")]
+    public async Task<IActionResult> GetCertificado(int id)
+    {
+        var curso = await _context.CursoCapacitacion.FirstOrDefaultAsync(c => c.Id == id);
+        if (curso == null || curso.Certificado == null)
+            return NotFound();
+
+        Response.Headers["Content-Disposition"] = "inline; filename=certificado.pdf";
+        return File(curso.Certificado, "application/pdf");
     }
 }

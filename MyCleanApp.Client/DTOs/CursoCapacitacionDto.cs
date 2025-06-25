@@ -2,6 +2,7 @@ namespace MyCleanApp.Application.DTOs
 {
     public class CursoCapacitacionDto
     {
+        public int Id { get; set; } // <-- Agregado para identificar el curso
         public string Nombre { get; set; } = string.Empty;
         public int Horas { get; set; }
         public DateTime FechaInicio { get; set; }

@@ -209,4 +209,16 @@ public class DocenteService
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<bool> EditarCursoAsync(CursoCapacitacionDto curso)
+    {
+        var response = await _http.PutAsJsonAsync($"http://localhost:5015/api/CursoCapacitacion/{curso.Id}", curso);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> EliminarCursoAsync(int cursoId)
+    {
+        var response = await _http.DeleteAsync($"http://localhost:5015/api/CursoCapacitacion/{cursoId}");
+        return response.IsSuccessStatusCode;
+    }
+
 }
