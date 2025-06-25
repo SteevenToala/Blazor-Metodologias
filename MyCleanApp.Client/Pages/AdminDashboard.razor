@@ -12,13 +12,166 @@
     }
     protected override async Task OnInitializedAsync()
     {
-        var response = await Http.GetStringAsync("http://localhost:3000/totalDocentes");
-        var result = JsonSerializer.Deserialize<TotalDocentesResponse>(response);
+        await base.OnInitializedAsync();
+        await CargarTotalDocentes();
+        await CargarSolicitudesAvance();
+    }
 
-if (result != null)
+    private async Task CargarTotalDocentes()
+    {
+        try
         {
-            totalDocentes = result.totalDocentes;
+            var response = await Http.GetAsync("http://localhost:5015/api/Docente/total");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<TotalDocentesResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (result != null)
+                {
+                    totalDocentes = result.totalDocentes;
+                }
+            }
         }
+        catch { }
+    }
+
+    // Model for Teacher Data
+    public class AdminTeacher
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Level { get; set; } = string.Empty;
+        public int Years { get; set; }
+        public int Papers { get; set; }
+        public int Evaluation { get; set; }
+        public int Training { get; set; }
+        public int Research { get; set; }
+        public bool PromotionReady { get; set; }
+    }
+
+    // Model for Level Requirements
+    public class AdminLevelRequirement
+    {
+        public string NextLevel { get; set; } = string.Empty;
+        public int Years { get; set; }
+        public int Papers { get; set; }
+        public int Evaluation { get; set; }
+        public int Training { get; set; }
+        public int Research { get; set; }
+    }
+
+    // Mock data for demonstration purposes
+    private List<AdminTeacher> _teachersData = new List<AdminTeacher>
+    {
+        new AdminTeacher { Id = 1, Name = "María García", Level = "DT.2", Years = 3, Papers = 1, Evaluation = 82, Training = 80, Research = 8, PromotionReady = false },
+        new AdminTeacher { Id = 2, Name = "Juan Pérez", Level = "DT.3", Years = 4, Papers = 3, Evaluation = 88, Training = 128, Research = 24, PromotionReady = true },
+        new AdminTeacher { Id = 3, Name = "Ana Rodríguez", Level = "DT.1", Years = 4, Papers = 1, Evaluation = 90, Training = 96, Research = 0, PromotionReady = true },
+        new AdminTeacher { Id = 4, Name = "Carlos López", Level = "DT.4", Years = 2, Papers = 3, Evaluation = 75, Training = 120, Research = 18, PromotionReady = false },
+        new AdminTeacher { Id = 5, Name = "Laura Martínez", Level = "DT.2", Years = 4, Papers = 2, Evaluation = 85, Training = 96, Research = 12, PromotionReady = true },
+    };
+
+    private Dictionary<string, AdminLevelRequirement> _levelRequirements = new Dictionary<string, AdminLevelRequirement>
+    {
+        { "DT.1", new AdminLevelRequirement { NextLevel = "DT.2", Years = 4, Papers = 1, Evaluation = 75, Training = 96, Research = 0 } },
+        { "DT.2", new AdminLevelRequirement { NextLevel = "DT.3", Years = 4, Papers = 2, Evaluation = 75, Training = 96, Research = 12 } },
+        { "DT.3", new AdminLevelRequirement { NextLevel = "DT.4", Years = 4, Papers = 3, Evaluation = 75, Training = 128, Research = 24 } },
+        { "DT.4", new AdminLevelRequirement { NextLevel = "DT.5", Years = 4, Papers = 5, Evaluation = 75, Training = 160, Research = 24 } },
+    };
+
+    private string _searchQuery { get; set; } = string.Empty;
+    private string _levelFilter { get; set; } = "all";
+    private string _activeTab { get; set; } = "teachers";
+    private bool _showLevelDropdown { get; set; } = false;
+
+    private List<AdminTeacher> _filteredTeachers => _teachersData
+        .Where(teacher =>
+            teacher.Name.ToLower().Contains(_searchQuery.ToLower()) &&
+            (_levelFilter == "all" || teacher.Level == _levelFilter)
+        )
+        .ToList();
+
+    private int _promotionEligibleCount => _teachersData.Count(t => t.PromotionReady);
+
+    // Solicitudes de Avance de Rango
+    public class SolicitudAvanceRangoAdminDto
+    {
+        public int Id { get; set; }
+        public string DocenteNombre { get; set; } = string.Empty;
+        public string NivelActual { get; set; } = string.Empty;
+        public string NivelSolicitado { get; set; } = string.Empty;
+        public DateTime FechaSolicitud { get; set; }
+        public string Estado { get; set; } = string.Empty;
+        public string Observaciones { get; set; } = string.Empty;
+    }
+    private List<SolicitudAvanceRangoAdminDto> _solicitudesAvance = new();
+    private bool _loadingSolicitudes = true;
+    private string _solicitudesError = string.Empty;
+
+    private async Task CargarSolicitudesAvance()
+    {
+        try
+        {
+            _loadingSolicitudes = true;
+            _solicitudesError = string.Empty;
+            var response = await Http.GetAsync("http://localhost:5015/api/SolicitudAvanceRango");
+            if (!response.IsSuccessStatusCode)
+            {
+                _solicitudesError = "Error al cargar solicitudes.";
+                return;
+            }
+            var json = await response.Content.ReadAsStringAsync();
+            var solicitudes = JsonSerializer.Deserialize<List<SolicitudAvanceRangoAdminDto>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            _solicitudesAvance = solicitudes ?? new List<SolicitudAvanceRangoAdminDto>();
+        }
+        catch (Exception ex)
+        {
+            _solicitudesError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _loadingSolicitudes = false;
+        }
+    }
+
+    private async Task AprobarSolicitud(int id)
+    {
+        var solicitud = _solicitudesAvance.FirstOrDefault(s => s.Id == id);
+        if (solicitud == null) return;
+        solicitud.Estado = "APROBADA";
+        var content = new StringContent(JsonSerializer.Serialize(solicitud), System.Text.Encoding.UTF8, "application/json");
+        var response = await Http.PutAsync($"http://localhost:5015/api/SolicitudAvanceRango/{id}", content);
+        if (response.IsSuccessStatusCode)
+        {
+            await CargarSolicitudesAvance();
+        }
+    }
+    private async Task RechazarSolicitud(int id)
+    {
+        var solicitud = _solicitudesAvance.FirstOrDefault(s => s.Id == id);
+        if (solicitud == null) return;
+        solicitud.Estado = "RECHAZADA";
+        var content = new StringContent(JsonSerializer.Serialize(solicitud), System.Text.Encoding.UTF8, "application/json");
+        var response = await Http.PutAsync($"http://localhost:5015/api/SolicitudAvanceRango/{id}", content);
+        if (response.IsSuccessStatusCode)
+        {
+            await CargarSolicitudesAvance();
+        }
+    }
+
+    // Métodos para tabs y filtros
+    private void SetActiveTab(string tabId)
+    {
+        _activeTab = tabId;
+        _showLevelDropdown = false;
+    }
+    private void ToggleLevelDropdown()
+    {
+        _showLevelDropdown = !_showLevelDropdown;
+    }
+    private void SetLevelFilter(string level)
+    {
+        _levelFilter = level;
+        _showLevelDropdown = false;
     }
 }
 <div class="container mx-auto px-4 py-8">
@@ -339,124 +492,43 @@ if (result != null)
                     <div class="space-y-4">
                         <div class="border rounded-lg overflow-hidden">
                             <div class="bg-blue-50 p-4">
-                                <h3 class="font-medium">Docentes Elegibles para Promoción</h3>
+                                <h3 class="font-medium">Solicitudes de Avance de Rango</h3>
                             </div>
-
                             <div class="divide-y">
-                                @foreach (var teacher in _teachersData.Where(t => t.PromotionReady))
+                                @if (_loadingSolicitudes)
                                 {
-                                    <div class="p-4">
-                                        <div class="flex flex-col md:flex-row justify-between gap-4">
+                                    <div class="p-4 text-gray-500">Cargando solicitudes...</div>
+                                }
+                                else if (!string.IsNullOrEmpty(_solicitudesError))
+                                {
+                                    <div class="p-4 text-red-600">@_solicitudesError</div>
+                                }
+                                else if (_solicitudesAvance.Count == 0)
+                                {
+                                    <div class="p-4 text-gray-500">No hay solicitudes de avance de rango.</div>
+                                }
+                                else
+                                {
+                                    @foreach (var solicitud in _solicitudesAvance.OrderByDescending(s => s.FechaSolicitud))
+                                    {
+                                        <div class="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                             <div>
-                                                <div class="font-medium flex items-center">
-                                                    @teacher.Name
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50">
-                                                        @teacher.Level
-                                                    </span>
-                                                    <span class="mx-2 text-gray-400">→</span>
-                                                    @if (_levelRequirements.ContainsKey(teacher.Level))
-                                                    {
-                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 border-green-200 text-green-700">
-                                                            @_levelRequirements[teacher.Level].NextLevel
-                                                        </span>
-                                                    }
-                                                </div>
-
-                                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                                                    <div class="flex items-center">
-                                                        <svg
-                                                            class="h-4 w-4 text-blue-500 mr-2"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                                            />
-                                                        </svg>
-                                                        <div>
-                                                            <div class="text-xs text-gray-500">Años</div>
-                                                            <div class="font-medium">
-                                                                @teacher.Years/
-                                                                @(_levelRequirements.ContainsKey(teacher.Level) ? _levelRequirements[teacher.Level].Years.ToString() : "N/A")
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="flex items-center">
-                                                        <svg
-                                                            class="h-4 w-4 text-blue-500 mr-2"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                                                            />
-                                                        </svg>
-                                                        <div>
-                                                            <div class="text-xs text-gray-500">Papers</div>
-                                                            <div class="font-medium">
-                                                                @teacher.Papers/
-                                                                @(_levelRequirements.ContainsKey(teacher.Level) ? _levelRequirements[teacher.Level].Papers.ToString() : "N/A")
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="flex items-center">
-                                                        <svg
-                                                            class="h-4 w-4 text-blue-500 mr-2"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M12 14l9-5-9-5-9 5 9 5z"
-                                                            />
-                                                        </svg>
-                                                        <div>
-                                                            <div class="text-xs text-gray-500">Evaluación</div>
-                                                            <div class="font-medium">@teacher.Evaluation%</div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="flex items-center">
-                                                        <svg
-                                                            class="h-4 w-4 text-blue-500 mr-2"
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                                            />
-                                                        </svg>
-                                                        <div>
-                                                            <div class="text-xs text-gray-500">Horas capacitación</div>
-                                                            <div class="font-medium">
-                                                                @teacher.Training/
-                                                                @(_levelRequirements.ContainsKey(teacher.Level) ? _levelRequirements[teacher.Level].Training.ToString() : "N/A")
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <div class="font-medium">@solicitud.DocenteNombre</div>
+                                                <div class="text-sm text-gray-500">De <b>@solicitud.NivelActual</b> a <b>@solicitud.NivelSolicitado</b></div>
+                                                <div class="text-xs text-gray-400">Solicitado el @solicitud.FechaSolicitud.ToString("dd/MM/yyyy")</div>
                                             </div>
-                                            <div class="flex items-center">
-                                                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-                                                    Iniciar Proceso
-                                                </button>
+                                            <div class="flex gap-2 items-center">
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @(solicitud.Estado == "PENDIENTE" ? "bg-amber-100 text-amber-800" : solicitud.Estado == "APROBADA" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")">
+                                                    @solicitud.Estado
+                                                </span>
+                                                @if (solicitud.Estado == "PENDIENTE")
+                                                {
+                                                    <button class="bg-green-600 hover:bg-green-700 text-white font-semibold py-1 px-4 rounded-md text-xs" @onclick="() => AprobarSolicitud(solicitud.Id)">Aprobar</button>
+                                                    <button class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1 px-4 rounded-md text-xs" @onclick="() => RechazarSolicitud(solicitud.Id)">Rechazar</button>
+                                                }
                                             </div>
                                         </div>
-                                    </div>
+                                    }
                                 }
                             </div>
                         </div>
@@ -528,78 +600,3 @@ if (result != null)
         }
     </div>
 </div>
-
-@code {
-    // Model for Teacher Data
-    public class AdminTeacher
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string Level { get; set; } = string.Empty;
-        public int Years { get; set; }
-        public int Papers { get; set; }
-        public int Evaluation { get; set; }
-        public int Training { get; set; }
-        public int Research { get; set; }
-        public bool PromotionReady { get; set; }
-    }
-
-    // Model for Level Requirements
-    public class AdminLevelRequirement
-    {
-        public string NextLevel { get; set; } = string.Empty;
-        public int Years { get; set; }
-        public int Papers { get; set; }
-        public int Evaluation { get; set; }
-        public int Training { get; set; }
-        public int Research { get; set; }
-    }
-
-    // Mock data for demonstration purposes
-    private List<AdminTeacher> _teachersData = new List<AdminTeacher>
-    {
-        new AdminTeacher { Id = 1, Name = "María García", Level = "DT.2", Years = 3, Papers = 1, Evaluation = 82, Training = 80, Research = 8, PromotionReady = false },
-        new AdminTeacher { Id = 2, Name = "Juan Pérez", Level = "DT.3", Years = 4, Papers = 3, Evaluation = 88, Training = 128, Research = 24, PromotionReady = true },
-        new AdminTeacher { Id = 3, Name = "Ana Rodríguez", Level = "DT.1", Years = 4, Papers = 1, Evaluation = 90, Training = 96, Research = 0, PromotionReady = true },
-        new AdminTeacher { Id = 4, Name = "Carlos López", Level = "DT.4", Years = 2, Papers = 3, Evaluation = 75, Training = 120, Research = 18, PromotionReady = false },
-        new AdminTeacher { Id = 5, Name = "Laura Martínez", Level = "DT.2", Years = 4, Papers = 2, Evaluation = 85, Training = 96, Research = 12, PromotionReady = true },
-    };
-
-    private Dictionary<string, AdminLevelRequirement> _levelRequirements = new Dictionary<string, AdminLevelRequirement>
-    {
-        { "DT.1", new AdminLevelRequirement { NextLevel = "DT.2", Years = 4, Papers = 1, Evaluation = 75, Training = 96, Research = 0 } },
-        { "DT.2", new AdminLevelRequirement { NextLevel = "DT.3", Years = 4, Papers = 2, Evaluation = 75, Training = 96, Research = 12 } },
-        { "DT.3", new AdminLevelRequirement { NextLevel = "DT.4", Years = 4, Papers = 3, Evaluation = 75, Training = 128, Research = 24 } },
-        { "DT.4", new AdminLevelRequirement { NextLevel = "DT.5", Years = 4, Papers = 5, Evaluation = 75, Training = 160, Research = 24 } },
-    };
-
-    private string _searchQuery { get; set; } = string.Empty;
-    private string _levelFilter { get; set; } = "all";
-    private string _activeTab { get; set; } = "teachers";
-    private bool _showLevelDropdown { get; set; } = false;
-
-    private List<AdminTeacher> _filteredTeachers => _teachersData
-        .Where(teacher =>
-            teacher.Name.ToLower().Contains(_searchQuery.ToLower()) &&
-            (_levelFilter == "all" || teacher.Level == _levelFilter)
-        )
-        .ToList();
-
-    private int _promotionEligibleCount => _teachersData.Count(t => t.PromotionReady);
-
-    // Métodos para tabs y filtros
-    private void SetActiveTab(string tabId)
-    {
-        _activeTab = tabId;
-        _showLevelDropdown = false;
-    }
-    private void ToggleLevelDropdown()
-    {
-        _showLevelDropdown = !_showLevelDropdown;
-    }
-    private void SetLevelFilter(string level)
-    {
-        _levelFilter = level;
-        _showLevelDropdown = false;
-    }
-}
