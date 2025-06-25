@@ -365,7 +365,7 @@ else
 
         @if (activeTab == "requirements")
         {
-            <TeacherDashboardRequirements Requirements="requirements" NextLevel="nextLevel" ProyectosInvestigacion="proyectosInvestigacion" />
+            <TeacherDashboardRequirements Requirements="@requirements" NextLevel="@nextLevel" NivelActual="@((dashBoardDocente != null ? dashBoardDocente.NivelAcademico : "-"))" ProyectosInvestigacion="@proyectosInvestigacion" />
         }
 
        @if (activeTab == "papers")
