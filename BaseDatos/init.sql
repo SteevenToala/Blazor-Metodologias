@@ -84,6 +84,7 @@ CREATE TABLE ProyectoInvestigacion (
     rolEnProyecto VARCHAR(100),
     docenteId INT,
     externo BIT DEFAULT 0,
+    documento VARBINARY(MAX) NULL, -- Para guardar PDF u otro archivo
     FOREIGN KEY (docenteId) REFERENCES Docente(id)
 );
 

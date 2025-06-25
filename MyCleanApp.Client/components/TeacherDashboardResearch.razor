@@ -90,6 +90,81 @@
         // Asegúrate de que este método obtenga los proyectos desde el backend real
         ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
     }
+
+    private bool showPdfModal = false;
+    private string? pdfUrl;
+    private bool showEditModal = false;
+    private ProyectoInvestigacionDto? proyectoEditando;
+    private string editTitulo = string.Empty;
+    private string editRol = string.Empty;
+    private DateTime editFechaInicio;
+    private DateTime editFechaFin;
+    private IBrowserFile? editDocumentoFile;
+
+    private void VerDocumento(int proyectoId)
+    {
+        pdfUrl = $"http://localhost:5015/api/ProyectoInvestigacion/documento/{proyectoId}";
+        showPdfModal = true;
+    }
+    private void CerrarPdfModal()
+    {
+        showPdfModal = false;
+        pdfUrl = null;
+    }
+    private void EditarProyecto(ProyectoInvestigacionDto proyecto)
+    {
+        proyectoEditando = proyecto;
+        editTitulo = proyecto.Titulo;
+        editRol = proyecto.RolEnProyecto;
+        editFechaInicio = proyecto.FechaInicio;
+        editFechaFin = proyecto.FechaFin;
+        showEditModal = true;
+    }
+    private async Task OnDocumentoFileChanged(InputFileChangeEventArgs e)
+    {
+        editDocumentoFile = e.File;
+        if (editDocumentoFile != null && proyectoEditando != null)
+        {
+            using var stream = editDocumentoFile.OpenReadStream(5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            proyectoEditando.Documento = ms.ToArray();
+        }
+    }
+    private async Task GuardarEdicionProyecto()
+    {
+        if (proyectoEditando == null) return;
+        proyectoEditando.Titulo = editTitulo;
+        proyectoEditando.RolEnProyecto = editRol;
+        proyectoEditando.FechaInicio = editFechaInicio;
+        proyectoEditando.FechaFin = editFechaFin;
+        var response = await DocenteService.EditarProyectoAsync(proyectoEditando);
+        if (!response)
+        {
+            modalMessageImportar = "No se pudo editar el proyecto.";
+            showModalImportar = true;
+        }
+        showEditModal = false;
+        ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
+    }
+    private void CancelarEdicionProyecto()
+    {
+        showEditModal = false;
+        proyectoEditando = null;
+    }
+    private async Task EliminarProyecto(int proyectoId)
+    {
+        var response = await DocenteService.EliminarProyectoAsync(proyectoId);
+        if (response)
+        {
+            ProyectosInvestigacion = ProyectosInvestigacion.Where(p => p.Id != proyectoId).ToList();
+        }
+        else
+        {
+            modalMessageImportar = "No se pudo eliminar el proyecto.";
+            showModalImportar = true;
+        }
+    }
 }
 
 <div class="space-y-4">
@@ -146,6 +221,8 @@
                                 else if (proyecto.Externo == false)
                                 {
                                     <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-300" title="Registrado localmente">Local</span>
+                                    <button class="ml-2 text-yellow-600 underline text-xs" @onclick="() => EditarProyecto(proyecto)">Editar</button>
+                                    <button class="ml-2 text-red-600 underline text-xs" @onclick="() => EliminarProyecto(proyecto.Id)">Eliminar</button>
                                 }
                             </div>
                             <div class="text-sm text-gray-500 mt-1">
@@ -158,11 +235,7 @@
                                 <span class="text-sm text-blue-500">@proyecto.RolEnProyecto</span>
                                 @if (proyecto.Documento != null)
                                 {
-                                    <a class="ml-4 text-blue-600 underline text-xs"
-                                    href="@($"data:application/pdf;base64,{Convert.ToBase64String(proyecto.Documento)}")"
-                                    download="@($"Proyecto_{proyecto.Id}.pdf")">
-                                        Descargar documento
-                                    </a>
+                                    <button class="ml-4 text-blue-600 underline text-xs" @onclick="() => VerDocumento(proyecto.Id)">Ver documento</button>
                                 }
                             </div>
                         </div>
@@ -187,6 +260,52 @@
                 <div class="text-lg font-semibold mb-4">Importación de Proyectos</div>
                 <div class="mb-6">@modalMessageImportar</div>
                 <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md" @onclick="CerrarModalImportar">Cerrar</button>
+            </div>
+        </div>
+    }
+    @if (showPdfModal && pdfUrl != null)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-4 max-w-3xl w-full relative">
+                <button class="absolute top-2 right-2 text-gray-600" @onclick="CerrarPdfModal">✕</button>
+                <iframe src="@pdfUrl" width="100%" height="600px"></iframe>
+            </div>
+        </div>
+    }
+    @if (showEditModal && proyectoEditando != null)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-6 max-w-md w-full relative">
+                <button class="absolute top-2 right-2 text-gray-600" @onclick="CancelarEdicionProyecto">✕</button>
+                <h3 class="text-lg font-semibold mb-4">Editar Proyecto</h3>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Título</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editTitulo" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Rol en Proyecto</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editRol" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Fecha Inicio</label>
+                    <input type="date" class="w-full border rounded-md px-3 py-2 text-sm" @bind="editFechaInicio" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Fecha Fin</label>
+                    <input type="date" class="w-full border rounded-md px-3 py-2 text-sm" @bind="editFechaFin" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Documento PDF</label>
+                    <InputFile OnChange="OnDocumentoFileChanged" accept="application/pdf" />
+                    @if (proyectoEditando.Documento != null)
+                    {
+                        <span class="ml-2 text-green-600 text-xs">Documento cargado</span>
+                    }
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-4 py-2 rounded-md" @onclick="CancelarEdicionProyecto">Cancelar</button>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-md" @onclick="GuardarEdicionProyecto">Guardar</button>
+                </div>
             </div>
         </div>
     }

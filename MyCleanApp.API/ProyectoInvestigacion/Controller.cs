@@ -111,4 +111,14 @@ public class ProyectoInvestigacionController : ControllerBase
 
         return Ok(proyectos);
     }
+
+    [HttpGet("documento/{id}")]
+    public async Task<IActionResult> GetDocumento(int id)
+    {
+        var proyecto = await _context.ProyectoInvestigacion.FirstOrDefaultAsync(p => p.Id == id);
+        if (proyecto == null || proyecto.Documento == null)
+            return NotFound();
+        Response.Headers["Content-Disposition"] = "inline; filename=documento.pdf";
+        return File(proyecto.Documento, "application/pdf");
+    }
 }

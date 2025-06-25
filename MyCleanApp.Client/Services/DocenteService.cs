@@ -221,4 +221,16 @@ public class DocenteService
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<bool> EditarProyectoAsync(ProyectoInvestigacionDto proyecto)
+    {
+        var response = await _http.PutAsJsonAsync($"http://localhost:5015/api/ProyectoInvestigacion/{proyecto.Id}", proyecto);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> EliminarProyectoAsync(int proyectoId)
+    {
+        var response = await _http.DeleteAsync($"http://localhost:5015/api/ProyectoInvestigacion/{proyectoId}");
+        return response.IsSuccessStatusCode;
+    }
+
 }
