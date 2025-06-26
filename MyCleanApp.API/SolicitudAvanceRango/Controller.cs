@@ -172,6 +172,17 @@ public class SolicitudAvanceRangoController : ControllerBase
                 docente.NivelAcademicoId = solicitud.NuevoNivelAcademicoId;
                 docente.FechaInicioNivel = DateTime.Now;
                 _context.Entry(docente).State = EntityState.Modified;
+
+                // Resetear la evaluación del docente a 0 al ser promovido
+                var evaluacionDocente = await _context.EvaluacionDocente
+                    .FirstOrDefaultAsync(e => e.DocenteId == docente.Id);
+                
+                if (evaluacionDocente != null)
+                {
+                    evaluacionDocente.Puntaje = 0;
+                    evaluacionDocente.Periodo = $"{DateTime.Now.Year}{(DateTime.Now.Month <= 6 ? "A" : "B")}";
+                    _context.Entry(evaluacionDocente).State = EntityState.Modified;
+                }
             }
 
             await _context.SaveChangesAsync();
