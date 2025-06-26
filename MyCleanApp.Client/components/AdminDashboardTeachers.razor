@@ -181,9 +181,19 @@
                         <div class="space-y-2 text-sm max-h-32 overflow-y-auto">
                             @foreach (var capacitacion in capacitacionesDocente)
                             {
-                                <div class="border-l-2 border-blue-300 pl-2">
-                                    <p class="font-medium">@capacitacion.Nombre</p>
-                                    <p class="text-gray-600">@capacitacion.Horas horas - @capacitacion.FechaInicio.ToString("yyyy")</p>
+                                <div class="border-l-2 border-blue-300 pl-2 flex justify-between items-start">
+                                    <div>
+                                        <p class="font-medium">@capacitacion.Nombre</p>
+                                        <p class="text-gray-600">@capacitacion.Horas horas - @capacitacion.FechaInicio.ToString("yyyy")</p>
+                                    </div>
+                                    @if (capacitacion.Certificado != null)
+                                    {
+                                        <button 
+                                            class="text-blue-600 hover:text-blue-800 text-xs underline ml-2"
+                                            @onclick="() => VerCertificadoCapacitacion(capacitacion.Id)">
+                                            Ver PDF
+                                        </button>
+                                    }
                                 </div>
                             }
                         </div>
@@ -205,9 +215,19 @@
                         <div class="space-y-2 text-sm max-h-32 overflow-y-auto">
                             @foreach (var publicacion in publicacionesDocente)
                             {
-                                <div class="border-l-2 border-green-300 pl-2">
-                                    <p class="font-medium">@publicacion.Titulo</p>
-                                    <p class="text-gray-600">@publicacion.Revista (@publicacion.Anio)</p>
+                                <div class="border-l-2 border-green-300 pl-2 flex justify-between items-start">
+                                    <div>
+                                        <p class="font-medium">@publicacion.Titulo</p>
+                                        <p class="text-gray-600">@publicacion.Revista (@publicacion.Anio)</p>
+                                    </div>
+                                    @if (publicacion.Archivo != null)
+                                    {
+                                        <button 
+                                            class="text-green-600 hover:text-green-800 text-xs underline ml-2"
+                                            @onclick="() => VerArchivoPublicacion(publicacion.Id)">
+                                            Ver PDF
+                                        </button>
+                                    }
                                 </div>
                             }
                         </div>
@@ -229,9 +249,19 @@
                         <div class="space-y-2 text-sm max-h-32 overflow-y-auto">
                             @foreach (var proyecto in proyectosDocente)
                             {
-                                <div class="border-l-2 border-purple-300 pl-2">
-                                    <p class="font-medium">@proyecto.Titulo</p>
-                                    <p class="text-gray-600">@proyecto.RolEnProyecto - @proyecto.FechaInicio.ToString("yyyy")</p>
+                                <div class="border-l-2 border-purple-300 pl-2 flex justify-between items-start">
+                                    <div>
+                                        <p class="font-medium">@proyecto.Titulo</p>
+                                        <p class="text-gray-600">@proyecto.RolEnProyecto - @proyecto.FechaInicio.ToString("yyyy")</p>
+                                    </div>
+                                    @if (proyecto.Documento != null)
+                                    {
+                                        <button 
+                                            class="text-purple-600 hover:text-purple-800 text-xs underline ml-2"
+                                            @onclick="() => VerDocumentoProyecto(proyecto.Id)">
+                                            Ver PDF
+                                        </button>
+                                    }
                                 </div>
                             }
                         </div>
@@ -258,6 +288,27 @@
     </div>
 }
 
+@* Modal para visualizar PDFs *@
+@if (showPdfModal && pdfUrl != null)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-4 max-w-4xl w-full h-5/6 relative">
+            <button 
+                class="absolute top-2 right-2 text-gray-600 hover:text-gray-800 text-xl font-bold z-10"
+                @onclick="CerrarPdfModal">
+                ✕
+            </button>
+            <iframe 
+                src="@pdfUrl" 
+                width="100%" 
+                height="100%" 
+                class="rounded border-0"
+                style="min-height: 600px;">
+            </iframe>
+        </div>
+    </div>
+}
+
 @code {
     private List<DocenteDetalladoDto> docentes = new();
     private List<CursoCapacitacionDto> capacitacionesDocente = new();
@@ -270,6 +321,10 @@
     // Modal variables
     private bool showModalDocumentos = false;
     private DocenteDetalladoDto? docenteSeleccionado;
+    
+    // PDF Modal variables
+    private bool showPdfModal = false;
+    private string? pdfUrl;
 
     private IEnumerable<DocenteDetalladoDto> DocentesFiltrados =>
         docentes.Where(d =>
@@ -382,5 +437,30 @@
         return puntaje >= 85 ? "bg-green-100 text-green-800" :
                puntaje >= 75 ? "bg-yellow-100 text-yellow-800" :
                "bg-red-100 text-red-800";
+    }
+
+    // Métodos para visualización de PDFs
+    private void VerCertificadoCapacitacion(int capacitacionId)
+    {
+        pdfUrl = $"http://localhost:5015/api/CursoCapacitacion/certificado/{capacitacionId}";
+        showPdfModal = true;
+    }
+
+    private void VerArchivoPublicacion(int publicacionId)
+    {
+        pdfUrl = $"http://localhost:5015/api/PublicacionAcademica/archivo/{publicacionId}";
+        showPdfModal = true;
+    }
+
+    private void VerDocumentoProyecto(int proyectoId)
+    {
+        pdfUrl = $"http://localhost:5015/api/ProyectoInvestigacion/documento/{proyectoId}";
+        showPdfModal = true;
+    }
+
+    private void CerrarPdfModal()
+    {
+        showPdfModal = false;
+        pdfUrl = null;
     }
 }
