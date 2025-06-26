@@ -133,6 +133,7 @@ public class DocenteService
         return response.IsSuccessStatusCode;
     }
 
+
     public async Task<int?> ObtenerDocenteIdPorUsuarioId(int usuarioId)
     {
         var response = await _http.GetAsync($"http://localhost:5015/api/Docente");
@@ -161,10 +162,12 @@ public class DocenteService
     }
 
     public async Task<List<ProyectoInvestigacionDto>> GetProyectosInvestigacionAsync()
+
     {
         var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
         if (loginResponse == null || loginResponse.usuario == null)
         {
+
             return new List<ProyectoInvestigacionDto>();
         }
         var docenteId = await ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
@@ -741,9 +744,11 @@ public class DocenteService
         catch (Exception ex)
         {
             Console.WriteLine($"Excepción al obtener requisitos de promoción: {ex.Message}");
+
             return null;
         }
     }
+
 
     public async Task<bool> SolicitarPromocionAsync()
     {
@@ -1080,4 +1085,5 @@ public class DocenteDetalladoDto
     public List<CursoCapacitacionDto> Capacitaciones { get; set; } = new();
     public List<PublicacionAcademicaDto> Publicaciones { get; set; } = new();
     public List<ProyectoInvestigacionDto> Proyectos { get; set; } = new();
+
 }

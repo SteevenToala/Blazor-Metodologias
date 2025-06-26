@@ -1,3 +1,4 @@
+
 namespace MyCleanApp.API.DTOs
 {
     public class ProyectoInvestigacionDto
@@ -12,3 +13,4 @@ namespace MyCleanApp.API.DTOs
         public bool Externo { get; set; }
     }
 }
+

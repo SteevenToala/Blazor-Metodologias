@@ -58,6 +58,7 @@ public class ProyectoInvestigacionController : ControllerBase
         return NoContent();
     }
 
+
     [HttpPost("importar")]
     public async Task<IActionResult> ImportarProyectoExterno([FromBody] ProyectoInvestigacionDto proyecto)
     {
@@ -90,6 +91,7 @@ public class ProyectoInvestigacionController : ControllerBase
     [HttpGet("usuario/{usuarioId}")]
     public async Task<ActionResult<IEnumerable<ProyectoInvestigacionDto>>> GetProyectosByUsuarioId(int usuarioId)
     {
+
         var docente = await _context.Docente.FirstOrDefaultAsync(d => d.UsuarioId == usuarioId);
         if (docente == null)
             return NotFound("Docente no encontrado para el usuario dado.");
@@ -98,19 +100,24 @@ public class ProyectoInvestigacionController : ControllerBase
             .Where(p => p.DocenteId == docente.Id)
             .Select(p => new ProyectoInvestigacionDto
             {
+
                 Id = p.Id,
+
                 Titulo = p.Titulo,
                 FechaInicio = p.FechaInicio,
                 FechaFin = p.FechaFin,
                 RolEnProyecto = p.RolEnProyecto,
+
                 DocenteId = p.DocenteId,
                 Documento = p.Documento,
                 Externo = p.Externo // <-- AGREGADO
+
             })
             .ToListAsync();
 
         return Ok(proyectos);
     }
+
 
     [HttpGet("documento/{id}")]
     public async Task<IActionResult> GetDocumento(int id)
@@ -139,4 +146,5 @@ public class ProyectoInvestigacionController : ControllerBase
             return StatusCode(500, $"Error interno del servidor: {ex.Message}");
         }
     }
+
 }
