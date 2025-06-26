@@ -94,4 +94,18 @@ public class DocenteController : ControllerBase
             HorasCapacitacion = horasCapacitacion
         });
     }
+
+    [HttpGet("total")]
+    public async Task<ActionResult<object>> GetTotalDocentes()
+    {
+        try
+        {
+            var total = await _context.Docente.CountAsync();
+            return Ok(new { totalDocentes = total });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+        }
+    }
 }

@@ -66,6 +66,11 @@
       "id": 1,
       "nombre": "DT3",
       "descripcion": "Docente con experiencia media"
+    },
+    {
+      "id": 2,
+      "nombre": "DT4", 
+      "descripcion": "Docente con experiencia avanzada"
     }
   ],
   "EvaluacionDocente": [

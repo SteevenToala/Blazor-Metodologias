@@ -1,6 +1,7 @@
 @using System
 @using System.Collections.Generic
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
 @using MyCleanApp.Client.DTOs
 
 @inject NavigationManager Navigation
@@ -15,6 +16,17 @@
     private string searchTerm = string.Empty;
     private string selectedRol = "";
     private string selectedAnio = "";
+    
+    private bool showPdfModal = false;
+    private string? pdfUrl;
+    private bool showEditModal = false;
+    private ProyectoInvestigacionDto? proyectoEditando;
+    private string editTitulo = string.Empty;
+    private string editRol = string.Empty;
+    private DateTime editFechaInicio;
+    private DateTime editFechaFin;
+    private IBrowserFile? editDocumentoFile;
+    
     private IEnumerable<string> RolesDisponibles => ProyectosInvestigacion
         .Select(p => p.RolEnProyecto)
         .Where(r => !string.IsNullOrWhiteSpace(r))
@@ -32,6 +44,12 @@
                 && (string.IsNullOrWhiteSpace(selectedRol) || p.RolEnProyecto == selectedRol)
                 && (string.IsNullOrWhiteSpace(selectedAnio) || p.FechaInicio.Year.ToString() == selectedAnio)
             );
+
+    protected override async Task OnInitializedAsync()
+    {
+        ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
+    }
+
     private void LimpiarFiltros()
     {
         searchTerm = string.Empty;
@@ -46,38 +64,51 @@
 
     private async Task ImportarProyectosExternos()
     {
-        var http = new HttpClient();
-        var proyectosExternos = await http.GetFromJsonAsync<List<ProyectoInvestigacionDto>>("http://localhost:3000/ProyectoInvestigacion");
-        var soloExternos = proyectosExternos?.Where(p => p.Externo).ToList() ?? new List<ProyectoInvestigacionDto>();
-        // Recarga la lista real desde el backend antes de comparar
-        ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
-        var proyectosActuales = ProyectosInvestigacion
-            .Select(p => (p.Titulo.Trim().ToLower(), p.FechaInicio.Date, p.FechaFin.Date))
-            .ToHashSet();
-        int importados = 0, duplicados = 0;
-        foreach (var proyecto in soloExternos)
+        try
         {
-            var key = (proyecto.Titulo.Trim().ToLower(), proyecto.FechaInicio.Date, proyecto.FechaFin.Date);
-            if (!proyectosActuales.Contains(key))
+            var http = new HttpClient();
+            var proyectosExternos = await http.GetFromJsonAsync<List<ProyectoInvestigacionDto>>("http://localhost:3000/ProyectoInvestigacion");
+            var soloExternos = proyectosExternos?.Where(p => p.Externo).ToList() ?? new List<ProyectoInvestigacionDto>();
+            
+            // Crear conjunto de proyectos actuales para comparar duplicados
+            var proyectosActuales = ProyectosInvestigacion
+                .Select(p => (p.Titulo.Trim().ToLower(), p.FechaInicio.Date, p.FechaFin.Date, p.RolEnProyecto.Trim().ToLower()))
+                .ToHashSet();
+                
+            int importados = 0, duplicados = 0;
+            
+            foreach (var proyecto in soloExternos)
             {
-                var response = await DocenteService.ImportarProyectoExternoAsync(proyecto);
-                if (response)
-                    importados++;
+                var key = (proyecto.Titulo.Trim().ToLower(), proyecto.FechaInicio.Date, proyecto.FechaFin.Date, proyecto.RolEnProyecto.Trim().ToLower());
+                if (!proyectosActuales.Contains(key))
+                {
+                    var response = await DocenteService.ImportarProyectoExternoAsync(proyecto);
+                    if (response)
+                        importados++;
+                    else
+                        duplicados++;
+                }
                 else
+                {
                     duplicados++;
+                }
             }
+            
+            // Recarga la lista después de importar
+            ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
+            
+            if (importados > 0)
+                modalMessageImportar = $"Se importaron {importados} proyecto(s) nuevo(s).";
             else
-            {
-                duplicados++;
-            }
+                modalMessageImportar = "No se importaron proyectos porque ya existen.";
+                
+            showModalImportar = true;
         }
-        // Recarga la lista después de importar
-        ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
-        if (importados > 0)
-            modalMessageImportar = $"Se importaron {importados} proyecto(s) nuevo(s).";
-        else
-            modalMessageImportar = "No se importaron proyectos porque ya existen.";
-        showModalImportar = true;
+        catch (Exception ex)
+        {
+            modalMessageImportar = $"Error al importar proyectos: {ex.Message}";
+            showModalImportar = true;
+        }
     }
 
     private void CerrarModalImportar()
@@ -85,32 +116,18 @@
         showModalImportar = false;
     }
 
-    protected override async Task OnInitializedAsync()
-    {
-        // Asegúrate de que este método obtenga los proyectos desde el backend real
-        ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
-    }
-
-    private bool showPdfModal = false;
-    private string? pdfUrl;
-    private bool showEditModal = false;
-    private ProyectoInvestigacionDto? proyectoEditando;
-    private string editTitulo = string.Empty;
-    private string editRol = string.Empty;
-    private DateTime editFechaInicio;
-    private DateTime editFechaFin;
-    private IBrowserFile? editDocumentoFile;
-
     private void VerDocumento(int proyectoId)
     {
         pdfUrl = $"http://localhost:5015/api/ProyectoInvestigacion/documento/{proyectoId}";
         showPdfModal = true;
     }
+    
     private void CerrarPdfModal()
     {
         showPdfModal = false;
         pdfUrl = null;
     }
+    
     private void EditarProyecto(ProyectoInvestigacionDto proyecto)
     {
         proyectoEditando = proyecto;
@@ -120,6 +137,7 @@
         editFechaFin = proyecto.FechaFin;
         showEditModal = true;
     }
+    
     private async Task OnDocumentoFileChanged(InputFileChangeEventArgs e)
     {
         editDocumentoFile = e.File;
@@ -131,27 +149,33 @@
             proyectoEditando.Documento = ms.ToArray();
         }
     }
+    
     private async Task GuardarEdicionProyecto()
     {
         if (proyectoEditando == null) return;
+        
         proyectoEditando.Titulo = editTitulo;
         proyectoEditando.RolEnProyecto = editRol;
         proyectoEditando.FechaInicio = editFechaInicio;
         proyectoEditando.FechaFin = editFechaFin;
+        
         var response = await DocenteService.EditarProyectoAsync(proyectoEditando);
         if (!response)
         {
             modalMessageImportar = "No se pudo editar el proyecto.";
             showModalImportar = true;
         }
+        
         showEditModal = false;
         ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
     }
+    
     private void CancelarEdicionProyecto()
     {
         showEditModal = false;
         proyectoEditando = null;
     }
+    
     private async Task EliminarProyecto(int proyectoId)
     {
         var response = await DocenteService.EliminarProyectoAsync(proyectoId);

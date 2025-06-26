@@ -21,8 +21,8 @@ public class UsuariosController : ControllerBase
             {
                 Id = u.Id,
                 Correo = u.Correo,
-                NombreCompleto = u.Persona.Nombres + " " + u.Persona.Apellidos,
-                Rol = u.Rol
+                NombreCompleto = (u.Persona != null ? u.Persona.Nombres + " " + u.Persona.Apellidos : ""),
+                Rol = u.Rol ?? ""
             }).ToListAsync();
     }
 
@@ -36,8 +36,8 @@ public class UsuariosController : ControllerBase
             {
                 Id = u.Id,
                 Correo = u.Correo,
-                NombreCompleto = u.Persona.Nombres + " " + u.Persona.Apellidos,
-                Rol = u.Rol
+                NombreCompleto = (u.Persona != null ? u.Persona.Nombres + " " + u.Persona.Apellidos : ""),
+                Rol = u.Rol ?? ""
             }).FirstOrDefaultAsync();
 
         return usuario == null ? NotFound() : Ok(usuario);
@@ -50,7 +50,7 @@ public class UsuariosController : ControllerBase
         {
             Correo = dto.Correo,
             PasswordHash = passwordHasher.Hash(dto.Contraseña),
-            Rol = dto.Rol,
+            Rol = dto.Rol, // Directly assign the role string
             PersonaId = dto.PersonaId,
             Activo = true
         };
@@ -69,7 +69,7 @@ public class UsuariosController : ControllerBase
 
         usuario.Correo = dto.Correo;
         usuario.PasswordHash = passwordHasher.Hash(dto.Contraseña);
-        usuario.Rol = dto.Rol;
+        usuario.Rol = dto.Rol; // Directly assign the role string
         usuario.PersonaId = dto.PersonaId;
 
         await _context.SaveChangesAsync();

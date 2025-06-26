@@ -6,10 +6,10 @@ namespace MyCleanApp.Domain.Entities
         public required string Correo { get; set; }
         public required string PasswordHash { get; set; }
 
-        public string Rol { get; set; }
+        public string Rol { get; set; } = string.Empty;
 
         public int PersonaId { get; set; }
-        public Persona Persona { get; set; } = null!;
+        public virtual Persona? Persona { get; set; }
 
         public bool Activo { get; set; }
     }

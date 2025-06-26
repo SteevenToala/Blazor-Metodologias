@@ -23,10 +23,13 @@ EXPOSE 1433
 
 CMD /bin/bash -c "\
 /opt/mssql/bin/sqlservr & \
+echo 'Esperando a que SQL Server se inicie...' && \
 for i in {1..60}; do \
-  /usr/bin/sqlcmd -S localhost -U SA -P \"$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' && break; \
-  echo Esperando SQL Server...; \
-  sleep 2; \
+  /usr/bin/sqlcmd -S localhost -U SA -P \"$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' > /dev/null 2>&1 && break; \
+  echo \"Intento $i de 60: Esperando SQL Server...\"; \
+  sleep 3; \
 done && \
-/usr/bin/sqlcmd -S localhost -U SA -P \"$MSSQL_SA_PASSWORD\" -i /var/opt/mssql/scripts/init.sql && \
+echo 'SQL Server iniciado. Ejecutando script de inicialización...' && \
+/usr/bin/sqlcmd -S localhost -U SA -P \"$MSSQL_SA_PASSWORD\" -i /var/opt/mssql/scripts/init.sql -o /var/opt/mssql/scripts/init.log && \
+echo 'Script ejecutado exitosamente. Ver log en /var/opt/mssql/scripts/init.log' && \
 tail -f /dev/null"

@@ -68,57 +68,83 @@
                         mesesInvestigacion += meses;
                     }
                 }
-                // Calcular requisitos y siguiente nivel para pasar al componente
-                var requisitos = dashBoardDocente.requisitoNivel?.ToList() ?? new List<RequisitoNivel>();
-                requirements = requisitos.Select(r => new Requirement
-                {
-                    Name = r.Nombre switch
-                    {
-                        "Años en el rango" or "Años en nivel actual" => "Años en nivel actual",
-                        "Papers" or "Publicaciones académicas" => "Publicaciones académicas",
-                        "Puntaje Evaluación" or "Puntaje de evaluación" => "Puntaje de evaluación",
-                        "Horas Capacitación" or "Horas de capacitación" => "Horas de capacitación",
-                        "Investigaciones" or "Meses en investigación" => "Meses en investigación",
-                        _ => r.Nombre // Mostrar cualquier otro requisito tal como viene
-                    },
-                    Current = r.Nombre switch
-                    {
-                        "Años en el rango" or "Años en nivel actual" => dashBoardDocente.AniosEnNivel,
-                        "Papers" or "Publicaciones académicas" => dashBoardDocente.PublicacionesAcademicas,
-                        "Puntaje Evaluación" or "Puntaje de evaluación" => (int)dashBoardDocente.PuntajeEvaluacion,
-                        "Horas Capacitación" or "Horas de capacitación" => dashBoardDocente.HorasCapacitacion,
-                        "Investigaciones" or "Meses en investigación" => mesesInvestigacion, // <-- usa el valor calculado
-                        _ => 0 // Si hay un requisito nuevo, mostrar 0 o puedes mapearlo si tienes el dato
-                    },
-                    Required = r.ValorRequerido,
-                    Completed = r.Nombre switch
-                    {
-                        "Años en el rango" or "Años en nivel actual" => dashBoardDocente.AniosEnNivel >= r.ValorRequerido,
-                        "Papers" or "Publicaciones académicas" => dashBoardDocente.PublicacionesAcademicas >= r.ValorRequerido,
-                        "Puntaje Evaluación" or "Puntaje de evaluación" => dashBoardDocente.PuntajeEvaluacion >= r.ValorRequerido,
-                        "Horas Capacitación" or "Horas de capacitación" => dashBoardDocente.HorasCapacitacion >= r.ValorRequerido,
-                        "Investigaciones" or "Meses en investigación" => mesesInvestigacion >= r.ValorRequerido, // <-- unificado aquí
-                        _ => false // Si hay un requisito nuevo, por defecto no cumplido
-                    }
-                }).ToList();
-                // Asegurar que siempre haya un requisito de meses en investigación
-                if (!requirements.Any(r => r.Name.Contains("Meses") || r.Name.Contains("Investigación")))
-                {
-                    // Buscar el valor requerido real si existe
-                    int requerido = dashBoardDocente.GetValorRequerido("Investigaciones");
-                    if (requerido == -1 || requerido == 0) requerido = 4; // fallback
-                    requirements.Add(new Requirement {
-                        Name = "Meses en investigación",
-                        Current = mesesInvestigacion,
-                        Required = requerido,
-                        Completed = mesesInvestigacion >= requerido
-                    });
-                }
-                // Calcular siguiente nivel
+                // Get next academic level ID for requirements calculation
                 var nivelActual = dashBoardDocente.NivelAcademico;
                 var prefijo = nivelActual.Substring(0, nivelActual.Length - 1);
                 var numero = int.TryParse(nivelActual.Substring(nivelActual.Length - 1), out var n) ? n : 1;
                 nextLevel = numero < 5 ? $"{prefijo}{numero + 1}" : nivelActual;
+                
+                Console.WriteLine($"Nivel actual: {nivelActual}, Siguiente nivel: {nextLevel}");
+                
+                // Get docente ID for requirements calculation
+                var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                var siguienteNivelId = await DocenteService.ObtenerNivelAcademicoIdPorNombreAsync(nextLevel);
+                
+                Console.WriteLine($"DocenteId: {docenteId}, SiguienteNivelId: {siguienteNivelId}");
+                
+                if (docenteId.HasValue && siguienteNivelId.HasValue)
+                {
+                    // Calculate requirements dynamically from backend
+                    Console.WriteLine($"Llamando CalcularRequisitosPorNivelAsync con docenteId={docenteId.Value}, nivelId={siguienteNivelId.Value}");
+                    requirements = await DocenteService.CalcularRequisitosPorNivelAsync(docenteId.Value, siguienteNivelId.Value);
+                    Console.WriteLine($"Requisitos calculados: {requirements?.Count ?? 0}");
+                    
+                    if (requirements != null && requirements.Count > 0)
+                    {
+                        foreach (var req in requirements)
+                        {
+                            Console.WriteLine($"Requisito: {req.Name}, Actual: {req.Current}, Requerido: {req.Required}, Cumplido: {req.Completed}");
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"No se pudo obtener docenteId o siguienteNivelId. DocenteId: {docenteId}, SiguienteNivelId: {siguienteNivelId}");
+                }
+                
+                // Si no hay requisitos, crear algunos de fallback para testing
+                if (requirements == null || requirements.Count == 0)
+                {
+                    Console.WriteLine("No se encontraron requisitos, creando fallback...");
+                    requirements = new List<Requirement>
+                    {
+                        new Requirement 
+                        { 
+                            Name = "Años en nivel actual", 
+                            Current = dashBoardDocente.AniosEnNivel, 
+                            Required = 3, 
+                            Completed = dashBoardDocente.AniosEnNivel >= 3 
+                        },
+                        new Requirement 
+                        { 
+                            Name = "Publicaciones académicas", 
+                            Current = dashBoardDocente.PublicacionesAcademicas, 
+                            Required = 2, 
+                            Completed = dashBoardDocente.PublicacionesAcademicas >= 2 
+                        },
+                        new Requirement 
+                        { 
+                            Name = "Puntaje de evaluación", 
+                            Current = (int)dashBoardDocente.PuntajeEvaluacion, 
+                            Required = 85, 
+                            Completed = dashBoardDocente.PuntajeEvaluacion >= 85 
+                        },
+                        new Requirement 
+                        { 
+                            Name = "Horas de capacitación", 
+                            Current = dashBoardDocente.HorasCapacitacion, 
+                            Required = 40, 
+                            Completed = dashBoardDocente.HorasCapacitacion >= 40 
+                        },
+                        new Requirement 
+                        { 
+                            Name = "Meses en investigación", 
+                            Current = 0, // Se calculará en el componente
+                            Required = 6, 
+                            Completed = false 
+                        }
+                    };
+                }
             }
             else
             {

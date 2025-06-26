@@ -1,0 +1,688 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+    <div class="mb-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">🏛️ Panel de Comisión Académica</h3>
+        <p class="text-sm text-gray-600">Evaluación y votación de solicitudes de promoción según Art. 7-9 del Reglamento UTA</p>
+    </div>
+
+    <!-- Pestañas de la Comisión -->
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-8">
+            @foreach (var tab in new[] { 
+                (Id: "pendientes", Label: "Solicitudes Pendientes", Icon: "📋"), 
+                (Id: "evaluacion", Label: "En Evaluación", Icon: "🔍"), 
+                (Id: "votacion", Label: "Votaciones", Icon: "🗳️"), 
+                (Id: "actas", Label: "Actas", Icon: "📄"),
+                (Id: "resoluciones", Label: "Resoluciones", Icon: "⚖️")
+            })
+            {
+                <button
+                    @onclick="() => SetActiveTab(tab.Id)"
+                    class="py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 @(activeTab == tab.Id ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300")"
+                >
+                    <span>@tab.Icon</span>
+                    <span>@tab.Label</span>
+                    @if (tab.Id == "pendientes" && solicitudesPendientes.Count > 0)
+                    {
+                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">@solicitudesPendientes.Count</span>
+                    }
+                </button>
+            }
+        </nav>
+    </div>
+
+    @if (loading)
+    {
+        <div class="flex items-center justify-center p-8">
+            <div class="text-gray-500">🔄 Cargando información de la comisión...</div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <div class="text-red-800">❌ Error: @errorMessage</div>
+        </div>
+    }
+    else
+    {
+        @switch (activeTab)
+        {
+            case "pendientes":
+                @RenderSolicitudesPendientes()
+                break;
+            case "evaluacion":
+                @RenderEvaluacionEnCurso()
+                break;
+            case "votacion":
+                @RenderVotaciones()
+                break;
+            case "actas":
+                @RenderActas()
+                break;
+            case "resoluciones":
+                @RenderResoluciones()
+                break;
+        }
+    }
+</div>
+
+<!-- Modal de Evaluación Detallada -->
+@if (mostrarModalEvaluacion && solicitudEnEvaluacion != null)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-medium">🔍 Evaluación Detallada</h3>
+                    <button @onclick="CerrarModalEvaluacion" class="text-gray-400 hover:text-gray-600">
+                        <span class="text-xl">×</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6 space-y-6">
+                <!-- Información del Solicitante -->
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h4 class="font-medium mb-2">👤 Información del Solicitante</h4>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div><span class="font-medium">Docente:</span> @solicitudEnEvaluacion.DocenteNombre</div>
+                        <div><span class="font-medium">Promoción:</span> @solicitudEnEvaluacion.NivelActual → @solicitudEnEvaluacion.NivelSolicitado</div>
+                        <div><span class="font-medium">Fecha Solicitud:</span> @solicitudEnEvaluacion.FechaSolicitud.ToString("dd/MM/yyyy")</div>
+                        <div><span class="font-medium">Estado:</span> @solicitudEnEvaluacion.Estado</div>
+                    </div>
+                </div>
+
+                <!-- Criterios de Evaluación -->
+                <div class="border rounded-lg">
+                    <div class="bg-gray-50 p-4 border-b">
+                        <h4 class="font-medium">📊 Criterios de Evaluación</h4>
+                    </div>
+                    <div class="p-4 space-y-4">
+                        @foreach (var criterio in criteriosEvaluacion)
+                        {
+                            <div class="border rounded-lg p-4">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h5 class="font-medium">@criterio.Nombre</h5>
+                                        <p class="text-sm text-gray-600">@criterio.Descripcion</p>
+                                        <p class="text-xs text-gray-500 mt-1">Peso: @criterio.Peso% | Puntaje Máximo: @criterio.PuntajeMaximo</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <input 
+                                            type="number" 
+                                            @bind="criterio.PuntajeAsignado" 
+                                            min="0" 
+                                            max="@criterio.PuntajeMaximo" 
+                                            step="0.1"
+                                            class="w-20 px-2 py-1 border rounded text-center" />
+                                        <div class="text-xs text-gray-500 mt-1">/ @criterio.PuntajeMaximo</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <label class="block text-sm font-medium mb-1">Observaciones:</label>
+                                    <textarea 
+                                        @bind="criterio.Observaciones"
+                                        class="w-full px-3 py-2 border rounded-lg text-sm resize-none"
+                                        rows="2"
+                                        placeholder="Comentarios sobre este criterio..."></textarea>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Resumen de Puntuación -->
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 class="font-medium mb-3">📊 Resumen de Evaluación</h4>
+                    <div class="grid grid-cols-3 gap-4 text-sm">
+                        <div class="text-center">
+                            <div class="font-bold text-lg">@PuntajeTotal.ToString("F1")</div>
+                            <div class="text-gray-600">Puntaje Total</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-bold text-lg">@PorcentajeTotal.ToString("F1")%</div>
+                            <div class="text-gray-600">Porcentaje</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-bold text-lg @(PorcentajeTotal >= 75 ? "text-green-600" : "text-red-600")">
+                                @(PorcentajeTotal >= 75 ? "APROBADO" : "NO APROBADO")
+                            </div>
+                            <div class="text-gray-600">Resultado</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comentario Final -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">💬 Comentario Final de la Comisión:</label>
+                    <textarea 
+                        @bind="comentarioFinalComision"
+                        class="w-full px-3 py-2 border rounded-lg resize-none"
+                        rows="4"
+                        placeholder="Escriba el comentario final que aparecerá en el acta..."></textarea>
+                </div>
+            </div>
+
+            <div class="p-6 border-t bg-gray-50 flex justify-end space-x-3">
+                <button 
+                    @onclick="CerrarModalEvaluacion"
+                    class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                    Cancelar
+                </button>
+                <button 
+                    @onclick="GuardarEvaluacion"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    💾 Guardar Evaluación
+                </button>
+                <button 
+                    @onclick="EnviarAVotacion"
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    disabled="@(PorcentajeTotal < 50)">
+                    🗳️ Enviar a Votación
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string activeTab = "pendientes";
+    private bool loading = false;
+    private string? errorMessage;
+    
+    // Datos de la comisión
+    private List<SolicitudComisionDto> solicitudesPendientes = new();
+    private List<SolicitudComisionDto> solicitudesEnEvaluacion = new();
+    private List<VotacionDto> votacionesActivas = new();
+    private List<ActaComisionDto> actas = new();
+    
+    // Modal de evaluación
+    private bool mostrarModalEvaluacion = false;
+    private SolicitudComisionDto? solicitudEnEvaluacion;
+    private List<CriterioEvaluacionDto> criteriosEvaluacion = new();
+    private string comentarioFinalComision = "";
+
+    public class SolicitudComisionDto
+    {
+        public int Id { get; set; }
+        public string DocenteNombre { get; set; } = "";
+        public string NivelActual { get; set; } = "";
+        public string NivelSolicitado { get; set; } = "";
+        public DateTime FechaSolicitud { get; set; }
+        public DateTime FechaRecepcionComision { get; set; }
+        public string Estado { get; set; } = "";
+        public int DiasEnComision => (DateTime.Now - FechaRecepcionComision).Days;
+        public bool RequiereAtencionUrgente => DiasEnComision >= 8; // Art. 8: máximo 10 días
+    }
+
+    public class CriterioEvaluacionDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = "";
+        public string Descripcion { get; set; } = "";
+        public int Peso { get; set; }
+        public decimal PuntajeMaximo { get; set; }
+        public decimal PuntajeAsignado { get; set; }
+        public string Observaciones { get; set; } = "";
+    }
+
+    public class VotacionDto
+    {
+        public int Id { get; set; }
+        public int SolicitudId { get; set; }
+        public string DocenteNombre { get; set; } = "";
+        public DateTime FechaInicio { get; set; }
+        public DateTime? FechaFin { get; set; }
+        public List<VotoDto> Votos { get; set; } = new();
+        public string Estado { get; set; } = "ACTIVA";
+        public string Resultado => CalcularResultado();
+        
+        private string CalcularResultado()
+        {
+            if (Estado != "FINALIZADA") return "En proceso";
+            
+            var votos = Votos.Where(v => !string.IsNullOrEmpty(v.Voto)).ToList();
+            if (votos.Count == 0) return "Sin votos";
+            
+            var aprobados = votos.Count(v => v.Voto == "APROBADO");
+            var rechazados = votos.Count(v => v.Voto == "RECHAZADO");
+            
+            return aprobados > rechazados ? "APROBADO" : "RECHAZADO";
+        }
+    }
+
+    public class VotoDto
+    {
+        public string MiembroNombre { get; set; } = "";
+        public string Voto { get; set; } = ""; // APROBADO, RECHAZADO, ABSTENCIÓN
+        public DateTime? FechaVoto { get; set; }
+        public string Observaciones { get; set; } = "";
+    }
+
+    public class ActaComisionDto
+    {
+        public int Id { get; set; }
+        public DateTime Fecha { get; set; }
+        public string Numero { get; set; } = "";
+        public List<string> AsistentesNombres { get; set; } = new();
+        public List<string> CasosRevisados { get; set; } = new();
+        public string Estado { get; set; } = "";
+    }
+
+    private decimal PuntajeTotal => criteriosEvaluacion.Sum(c => c.PuntajeAsignado);
+    private decimal PuntajeTotalMaximo => criteriosEvaluacion.Sum(c => c.PuntajeMaximo);
+    private decimal PorcentajeTotal => PuntajeTotalMaximo > 0 ? (PuntajeTotal / PuntajeTotalMaximo * 100) : 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatosComision();
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task CargarDatosComision()
+    {
+        loading = true;
+        try
+        {
+            // Cargar solicitudes desde el backend
+            var response = await Http.GetAsync("http://localhost:5015/api/ComisionAcademica/solicitudes-pendientes");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                solicitudesPendientes = JsonSerializer.Deserialize<List<SolicitudComisionDto>>(json, 
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<SolicitudComisionDto>();
+            }
+
+            // Cargar solicitudes en evaluación
+            var evaluacionResponse = await Http.GetAsync("http://localhost:5015/api/ComisionAcademica/solicitudes-en-evaluacion");
+            if (evaluacionResponse.IsSuccessStatusCode)
+            {
+                var evaluacionJson = await evaluacionResponse.Content.ReadAsStringAsync();
+                solicitudesEnEvaluacion = JsonSerializer.Deserialize<List<SolicitudComisionDto>>(evaluacionJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<SolicitudComisionDto>();
+            }
+
+            // Cargar votaciones activas
+            var votacionesResponse = await Http.GetAsync("http://localhost:5015/api/ComisionAcademica/votaciones-activas");
+            if (votacionesResponse.IsSuccessStatusCode)
+            {
+                var votacionesJson = await votacionesResponse.Content.ReadAsStringAsync();
+                votacionesActivas = JsonSerializer.Deserialize<List<VotacionDto>>(votacionesJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<VotacionDto>();
+            }
+
+            // Cargar actas
+            var actasResponse = await Http.GetAsync("http://localhost:5015/api/ComisionAcademica/actas");
+            if (actasResponse.IsSuccessStatusCode)
+            {
+                var actasJson = await actasResponse.Content.ReadAsStringAsync();
+                actas = JsonSerializer.Deserialize<List<ActaComisionDto>>(actasJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<ActaComisionDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al cargar datos: {ex.Message}";
+            // En caso de error, inicializar listas vacías
+            solicitudesPendientes = new List<SolicitudComisionDto>();
+            solicitudesEnEvaluacion = new List<SolicitudComisionDto>();
+            votacionesActivas = new List<VotacionDto>();
+            actas = new List<ActaComisionDto>();
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private RenderFragment RenderSolicitudesPendientes() => __builder =>
+    {
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <h4 class="font-medium">📋 Solicitudes Pendientes de Evaluación</h4>
+                <span class="text-sm text-gray-500">Plazo máximo: 10 días hábiles (Art. 8)</span>
+            </div>
+            
+            @if (solicitudesPendientes.Count == 0)
+            {
+                <div class="text-center p-8 text-gray-500">
+                    No hay solicitudes pendientes de evaluación por la comisión.
+                </div>
+            }
+            else
+            {
+                <div class="space-y-3">
+                    @foreach (var solicitud in solicitudesPendientes)
+                    {
+                        <div class="border rounded-lg p-4 @(solicitud.RequiereAtencionUrgente ? "border-red-300 bg-red-50" : "border-gray-200")">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="font-medium">@solicitud.DocenteNombre</div>
+                                    <div class="text-sm text-gray-600">@solicitud.NivelActual → @solicitud.NivelSolicitado</div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        Recibida: @solicitud.FechaRecepcionComision.ToString("dd/MM/yyyy") 
+                                        (@solicitud.DiasEnComision días en comisión)
+                                    </div>
+                                    @if (solicitud.RequiereAtencionUrgente)
+                                    {
+                                        <div class="text-xs text-red-600 mt-1">⚠️ Requiere atención urgente - Cerca del límite de 10 días</div>
+                                    }
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button 
+                                        @onclick="() => IniciarEvaluacion(solicitud)"
+                                        class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                                        🔍 Evaluar
+                                    </button>
+                                    <button class="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200">
+                                        📄 Ver Documentos
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    };
+
+    private RenderFragment RenderEvaluacionEnCurso() => __builder =>
+    {
+        <div class="space-y-4">
+            <h4 class="font-medium">🔍 Solicitudes en Evaluación</h4>
+            
+            @if (solicitudesEnEvaluacion.Count == 0)
+            {
+                <div class="text-center p-8 text-gray-500">
+                    No hay solicitudes en proceso de evaluación.
+                </div>
+            }
+            else
+            {
+                @foreach (var solicitud in solicitudesEnEvaluacion)
+                {
+                    <div class="border rounded-lg p-4 border-yellow-300 bg-yellow-50">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-medium">@solicitud.DocenteNombre</div>
+                                <div class="text-sm text-gray-600">@solicitud.NivelActual → @solicitud.NivelSolicitado</div>
+                                <div class="text-xs text-gray-500 mt-1">En evaluación desde: @solicitud.FechaRecepcionComision.ToString("dd/MM/yyyy")</div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button 
+                                    @onclick="() => ContinuarEvaluacion(solicitud)"
+                                    class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded text-sm hover:bg-yellow-200">
+                                    ✏️ Continuar Evaluación
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    };
+
+    private RenderFragment RenderVotaciones() => __builder =>
+    {
+        <div class="space-y-4">
+            <h4 class="font-medium">🗳️ Votaciones Activas</h4>
+            
+            @if (votacionesActivas.Count == 0)
+            {
+                <div class="text-center p-8 text-gray-500">
+                    No hay votaciones activas.
+                </div>
+            }
+            else
+            {
+                @foreach (var votacion in votacionesActivas)
+                {
+                    <div class="border rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <div class="font-medium">@votacion.DocenteNombre</div>
+                                <div class="text-sm text-gray-600">Votación iniciada: @votacion.FechaInicio.ToString("dd/MM/yyyy HH:mm")</div>
+                            </div>
+                            <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">@votacion.Estado</span>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            @foreach (var voto in votacion.Votos)
+                            {
+                                <div class="flex justify-between items-center text-sm">
+                                    <span>@voto.MiembroNombre</span>
+                                    <div class="flex items-center space-x-2">
+                                        @if (!string.IsNullOrEmpty(voto.Voto))
+                                        {
+                                            <span class="px-2 py-1 rounded text-xs @(voto.Voto == "APROBADO" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")">
+                                                @voto.Voto
+                                            </span>
+                                            <span class="text-gray-500">@voto.FechaVoto?.ToString("dd/MM HH:mm")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-gray-500">Pendiente</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        
+                        <div class="mt-3 pt-3 border-t">
+                            <div class="text-sm">
+                                <span class="font-medium">Progreso:</span> 
+                                @votacion.Votos.Count(v => !string.IsNullOrEmpty(v.Voto)) / @votacion.Votos.Count votos
+                                | <span class="font-medium">Resultado actual:</span> @votacion.Resultado
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    };
+
+    private RenderFragment RenderActas() => __builder =>
+    {
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <h4 class="font-medium">📄 Actas de Comisión</h4>
+                <button class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                    ➕ Nueva Acta
+                </button>
+            </div>
+            
+            @if (actas.Count == 0)
+            {
+                <div class="text-center p-8 text-gray-500">
+                    No hay actas registradas.
+                </div>
+            }
+            else
+            {
+                @foreach (var acta in actas)
+                {
+                    <div class="border rounded-lg p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-medium">@acta.Numero</div>
+                                <div class="text-sm text-gray-600">@acta.Fecha.ToString("dd/MM/yyyy")</div>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    Asistentes: @string.Join(", ", acta.AsistentesNombres.Take(2))@(acta.AsistentesNombres.Count > 2 ? $" y {acta.AsistentesNombres.Count - 2} más" : "")
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    Casos: @acta.CasosRevisados.Count revisados
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">@acta.Estado</span>
+                                <button class="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200">
+                                    👁️ Ver
+                                </button>
+                                <button class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                                    📥 Descargar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    };
+
+    private RenderFragment RenderResoluciones() => __builder =>
+    {
+        <div class="space-y-4">
+            <h4 class="font-medium">⚖️ Resoluciones de Comisión</h4>
+            <div class="text-center p-8 text-gray-500">
+                Función en desarrollo - Próximamente disponible
+            </div>
+        </div>
+    };
+
+    private void IniciarEvaluacion(SolicitudComisionDto solicitud)
+    {
+        solicitudEnEvaluacion = solicitud;
+        CargarCriteriosEvaluacion(solicitud.NivelActual, solicitud.NivelSolicitado);
+        mostrarModalEvaluacion = true;
+    }
+
+    private void ContinuarEvaluacion(SolicitudComisionDto solicitud)
+    {
+        IniciarEvaluacion(solicitud);
+    }
+
+    private void CargarCriteriosEvaluacion(string nivelActual, string nivelSolicitado)
+    {
+        // Criterios según el reglamento UTA
+        criteriosEvaluacion = new List<CriterioEvaluacionDto>
+        {
+            new() 
+            { 
+                Id = 1, 
+                Nombre = "Formación Académica", 
+                Descripcion = "Títulos, certificaciones y formación continua",
+                Peso = 25, 
+                PuntajeMaximo = 25 
+            },
+            new() 
+            { 
+                Id = 2, 
+                Nombre = "Experiencia Docente", 
+                Descripcion = "Años de servicio, evaluaciones estudiantiles, innovación pedagógica",
+                Peso = 20, 
+                PuntajeMaximo = 20 
+            },
+            new() 
+            { 
+                Id = 3, 
+                Nombre = "Producción Científica", 
+                Descripcion = "Publicaciones, investigaciones, proyectos dirigidos",
+                Peso = 30, 
+                PuntajeMaximo = 30 
+            },
+            new() 
+            { 
+                Id = 4, 
+                Nombre = "Vinculación con la Sociedad", 
+                Descripcion = "Proyectos comunitarios, consultoría, transferencia tecnológica",
+                Peso = 15, 
+                PuntajeMaximo = 15 
+            },
+            new() 
+            { 
+                Id = 5, 
+                Nombre = "Gestión Académica", 
+                Descripcion = "Cargos administrativos, participación en comisiones",
+                Peso = 10, 
+                PuntajeMaximo = 10 
+            }
+        };
+
+        comentarioFinalComision = "";
+    }
+
+    private void CerrarModalEvaluacion()
+    {
+        mostrarModalEvaluacion = false;
+        solicitudEnEvaluacion = null;
+        criteriosEvaluacion.Clear();
+        comentarioFinalComision = "";
+    }
+
+    private Task GuardarEvaluacion()
+    {
+        try
+        {
+            // Aquí se guardaría la evaluación en la base de datos
+            // await Http.PostAsJsonAsync("/api/ComisionAcademica/evaluacion", evaluacionData);
+            
+            if (solicitudEnEvaluacion != null)
+            {
+                // Mover a solicitudes en evaluación si no estaba ya
+                if (!solicitudesEnEvaluacion.Any(s => s.Id == solicitudEnEvaluacion.Id))
+                {
+                    solicitudesPendientes.Remove(solicitudEnEvaluacion);
+                    solicitudEnEvaluacion.Estado = "EN_EVALUACION_COMISION";
+                    solicitudesEnEvaluacion.Add(solicitudEnEvaluacion);
+                }
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al guardar evaluación: {ex.Message}";
+        }
+        
+        return Task.CompletedTask;
+    }
+
+    private Task EnviarAVotacion()
+    {
+        try
+        {
+            if (solicitudEnEvaluacion != null)
+            {
+                // Crear nueva votación
+                var nuevaVotacion = new VotacionDto
+                {
+                    Id = votacionesActivas.Count + 1,
+                    SolicitudId = solicitudEnEvaluacion.Id,
+                    DocenteNombre = solicitudEnEvaluacion.DocenteNombre,
+                    FechaInicio = DateTime.Now,
+                    Estado = "ACTIVA",
+                    Votos = new List<VotoDto>
+                    {
+                        new() { MiembroNombre = "Dr. Roberto Silva", Voto = "", FechaVoto = null },
+                        new() { MiembroNombre = "Dra. Carmen Flores", Voto = "", FechaVoto = null },
+                        new() { MiembroNombre = "Dr. Luis Morales", Voto = "", FechaVoto = null }
+                    }
+                };
+
+                votacionesActivas.Add(nuevaVotacion);
+                
+                // Remover de evaluación
+                solicitudesEnEvaluacion.Remove(solicitudEnEvaluacion);
+                
+                CerrarModalEvaluacion();
+                SetActiveTab("votacion");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al enviar a votación: {ex.Message}";
+        }
+        
+        return Task.CompletedTask;
+    }
+}

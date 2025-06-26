@@ -1,0 +1,636 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+    <div class="mb-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">⚖️ Sistema de Apelaciones</h3>
+        <p class="text-sm text-gray-600">Gestión de apelaciones según Art. 11 del Reglamento UTA - Plazos de 3 días hábiles</p>
+    </div>
+
+    <!-- Alertas de Plazos Críticos -->
+    @if (apelacionesVenciendo.Count > 0)
+    {
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div class="flex items-center space-x-2 mb-2">
+                <span class="text-red-600 text-lg">⚠️</span>
+                <h4 class="font-medium text-red-900">Apelaciones con Plazos Críticos</h4>
+            </div>
+            <div class="space-y-2">
+                @foreach (var apelacion in apelacionesVenciendo)
+                {
+                    <div class="text-sm text-red-800">
+                        • <strong>@apelacion.DocenteNombre</strong> - Plazo vence en @apelacion.HorasRestantes horas
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Pestañas del Sistema de Apelaciones -->
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-8">
+            @foreach (var tab in new[] { 
+                (Id: "recibidas", Label: "Apelaciones Recibidas", Icon: "📨"), 
+                (Id: "proceso", Label: "En Proceso", Icon: "⏳"), 
+                (Id: "resueltas", Label: "Resueltas", Icon: "✅"), 
+                (Id: "historial", Label: "Historial", Icon: "📜")
+            })
+            {
+                <button
+                    @onclick="() => SetActiveTab(tab.Id)"
+                    class="py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 @(activeTab == tab.Id ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300")"
+                >
+                    <span>@tab.Icon</span>
+                    <span>@tab.Label</span>
+                    @if (tab.Id == "recibidas" && apelacionesRecibidas.Count > 0)
+                    {
+                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">@apelacionesRecibidas.Count</span>
+                    }
+                    @if (tab.Id == "proceso" && apelacionesEnProceso.Count > 0)
+                    {
+                        <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">@apelacionesEnProceso.Count</span>
+                    }
+                </button>
+            }
+        </nav>
+    </div>
+
+    @if (loading)
+    {
+        <div class="flex items-center justify-center p-8">
+            <div class="text-gray-500">🔄 Cargando apelaciones...</div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <div class="text-red-800">❌ Error: @errorMessage</div>
+        </div>
+    }
+    else
+    {
+        @switch (activeTab)
+        {
+            case "recibidas":
+                @RenderApelacionesRecibidas()
+                break;
+            case "proceso":
+                @RenderApelacionesEnProceso()
+                break;
+            case "resueltas":
+                @RenderApelacionesResueltas()
+                break;
+            case "historial":
+                @RenderHistorialApelaciones()
+                break;
+        }
+    }
+</div>
+
+<!-- Modal de Proceso de Apelación -->
+@if (mostrarModalProcesamiento && apelacionSeleccionada != null)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-medium">⚖️ Procesamiento de Apelación</h3>
+                    <button @onclick="CerrarModalProcesamiento" class="text-gray-400 hover:text-gray-600">
+                        <span class="text-xl">×</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6 space-y-6">
+                <!-- Información de la Apelación -->
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h4 class="font-medium mb-3">📋 Información de la Apelación</h4>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div><span class="font-medium">Docente:</span> @apelacionSeleccionada.DocenteNombre</div>
+                        <div><span class="font-medium">Promoción Solicitada:</span> @apelacionSeleccionada.PromocionSolicitada</div>
+                        <div><span class="font-medium">Fecha Presentación:</span> @apelacionSeleccionada.FechaPresentacion.ToString("dd/MM/yyyy HH:mm")</div>
+                        <div><span class="font-medium">Plazo Límite:</span> 
+                            <span class="@(apelacionSeleccionada.HorasRestantes <= 24 ? "text-red-600 font-bold" : "text-gray-900")">
+                                @apelacionSeleccionada.FechaLimite.ToString("dd/MM/yyyy HH:mm")
+                            </span>
+                        </div>
+                        <div><span class="font-medium">Motivo Principal:</span> @apelacionSeleccionada.MotivoApelacion</div>
+                        <div><span class="font-medium">Estado:</span> 
+                            <span class="px-2 py-1 rounded text-xs @GetEstadoClasses(apelacionSeleccionada.Estado)">
+                                @apelacionSeleccionada.Estado
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documentos de la Apelación -->
+                <div class="border rounded-lg">
+                    <div class="bg-gray-50 p-4 border-b">
+                        <h4 class="font-medium">📎 Documentos Adjuntos</h4>
+                    </div>
+                    <div class="p-4">
+                        @if (apelacionSeleccionada.DocumentosAdjuntos.Count == 0)
+                        {
+                            <div class="text-gray-500 text-sm">No hay documentos adjuntos.</div>
+                        }
+                        else
+                        {
+                            <div class="space-y-2">
+                                @foreach (var documento in apelacionSeleccionada.DocumentosAdjuntos)
+                                {
+                                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-blue-600">📄</span>
+                                            <span class="text-sm">@documento.Nombre</span>
+                                            <span class="text-xs text-gray-500">(@documento.Tamano)</span>
+                                        </div>
+                                        <button class="text-blue-600 hover:text-blue-800 text-sm">Ver</button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Fundamentos de la Apelación -->
+                <div class="border rounded-lg">
+                    <div class="bg-gray-50 p-4 border-b">
+                        <h4 class="font-medium">📝 Fundamentos de la Apelación</h4>
+                    </div>
+                    <div class="p-4">
+                        <div class="bg-gray-50 p-3 rounded text-sm whitespace-pre-wrap">@apelacionSeleccionada.Fundamentos</div>
+                    </div>
+                </div>
+
+                <!-- Análisis y Respuesta -->
+                <div class="border rounded-lg">
+                    <div class="bg-yellow-50 p-4 border-b">
+                        <h4 class="font-medium">🔍 Análisis y Respuesta de la Comisión</h4>
+                    </div>
+                    <div class="p-4 space-y-4">
+                        <!-- Análisis de Fundamentos -->
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Análisis de los Fundamentos:</label>
+                            <textarea 
+                                @bind="analisisFundamentos"
+                                class="w-full px-3 py-2 border rounded-lg resize-none"
+                                rows="3"
+                                placeholder="Analice punto por punto los fundamentos presentados por el docente..."></textarea>
+                        </div>
+
+                        <!-- Verificación de Procedimiento -->
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Verificación de Procedimiento:</label>
+                            <div class="space-y-2">
+                                @foreach (var item in verificacionesProcedimiento)
+                                {
+                                    <div class="flex items-center space-x-2">
+                                        <input type="checkbox" @bind="item.Verificado" class="rounded" />
+                                        <span class="text-sm">@item.Descripcion</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Decisión de la Comisión -->
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Decisión de la Comisión:</label>
+                            <select @bind="decisionComision" class="w-full px-3 py-2 border rounded-lg">
+                                <option value="">-- Seleccione una decisión --</option>
+                                <option value="APELACION_ACEPTADA">APELACIÓN ACEPTADA - Revisar evaluación</option>
+                                <option value="APELACION_RECHAZADA">APELACIÓN RECHAZADA - Mantener decisión original</option>
+                                <option value="APELACION_PARCIAL">APELACIÓN PARCIALMENTE ACEPTADA - Revisar aspectos específicos</option>
+                            </select>
+                        </div>
+
+                        <!-- Fundamentos de la Decisión -->
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Fundamentos de la Decisión:</label>
+                            <textarea 
+                                @bind="fundamentosDecision"
+                                class="w-full px-3 py-2 border rounded-lg resize-none"
+                                rows="4"
+                                placeholder="Explique detalladamente los fundamentos de la decisión tomada..."></textarea>
+                        </div>
+
+                        <!-- Acciones Correctivas (si aplican) -->
+                        @if (decisionComision == "APELACION_ACEPTADA" || decisionComision == "APELACION_PARCIAL")
+                        {
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Acciones Correctivas:</label>
+                                <textarea 
+                                    @bind="accionesCorrectivas"
+                                    class="w-full px-3 py-2 border rounded-lg resize-none"
+                                    rows="3"
+                                    placeholder="Especifique las acciones que se tomarán para corregir la situación..."></textarea>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 border-t bg-gray-50 flex justify-between">
+                <div class="text-sm text-gray-600">
+                    ⏰ Tiempo restante: @apelacionSeleccionada.HorasRestantes horas
+                </div>
+                <div class="flex space-x-3">
+                    <button 
+                        @onclick="CerrarModalProcesamiento"
+                        class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                        Cancelar
+                    </button>
+                    <button 
+                        @onclick="GuardarBorrador"
+                        class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">
+                        💾 Guardar Borrador
+                    </button>
+                    <button 
+                        @onclick="FinalizarApelacion"
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                        disabled="@(string.IsNullOrEmpty(decisionComision) || string.IsNullOrEmpty(fundamentosDecision))">
+                        ✅ Finalizar Apelación
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string activeTab = "recibidas";
+    private bool loading = false;
+    private string? errorMessage;
+    
+    // Datos de apelaciones
+    private List<ApelacionDto> apelacionesRecibidas = new();
+    private List<ApelacionDto> apelacionesEnProceso = new();
+    private List<ApelacionDto> apelacionesResueltas = new();
+    private List<ApelacionDto> apelacionesVenciendo = new();
+    
+    // Modal de procesamiento
+    private bool mostrarModalProcesamiento = false;
+    private ApelacionDto? apelacionSeleccionada;
+    private string analisisFundamentos = "";
+    private string decisionComision = "";
+    private string fundamentosDecision = "";
+    private string accionesCorrectivas = "";
+    private List<VerificacionProcedimientoDto> verificacionesProcedimiento = new();
+
+    public class ApelacionDto
+    {
+        public int Id { get; set; }
+        public string DocenteNombre { get; set; } = "";
+        public string PromocionSolicitada { get; set; } = "";
+        public DateTime FechaPresentacion { get; set; }
+        public DateTime FechaLimite { get; set; }
+        public string MotivoApelacion { get; set; } = "";
+        public string Fundamentos { get; set; } = "";
+        public string Estado { get; set; } = "";
+        public List<DocumentoDto> DocumentosAdjuntos { get; set; } = new();
+        public string? DecisionFinal { get; set; }
+        public string? FundamentosDecision { get; set; }
+        public DateTime? FechaResolucion { get; set; }
+        
+        public int HorasRestantes => Math.Max(0, (int)(FechaLimite - DateTime.Now).TotalHours);
+        public bool EsCritico => HorasRestantes <= 24;
+    }
+
+    public class DocumentoDto
+    {
+        public string Nombre { get; set; } = "";
+        public string Tamano { get; set; } = "";
+        public string Tipo { get; set; } = "";
+    }
+
+    public class VerificacionProcedimientoDto
+    {
+        public string Descripcion { get; set; } = "";
+        public bool Verificado { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarApelaciones();
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task CargarApelaciones()
+    {
+        loading = true;
+        try
+        {
+            // Cargar apelaciones desde el backend
+            var response = await Http.GetAsync("http://localhost:5015/api/Apelaciones");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var todasLasApelaciones = JsonSerializer.Deserialize<List<ApelacionDto>>(json, 
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<ApelacionDto>();
+
+                // Filtrar por estado
+                apelacionesRecibidas = todasLasApelaciones.Where(a => a.Estado == "RECIBIDA" || a.Estado == "PENDIENTE").ToList();
+                apelacionesEnProceso = todasLasApelaciones.Where(a => a.Estado == "EN_PROCESO" || a.Estado == "EN_REVISION").ToList();
+                apelacionesResueltas = todasLasApelaciones.Where(a => a.Estado == "RESUELTA" || a.Estado == "APROBADA" || a.Estado == "RECHAZADA").ToList();
+
+                // Identificar apelaciones con plazos críticos
+                apelacionesVenciendo = apelacionesRecibidas
+                    .Concat(apelacionesEnProceso)
+                    .Where(a => a.EsCritico)
+                    .OrderBy(a => a.FechaLimite)
+                    .ToList();
+            }
+
+            // Cargar verificaciones de procedimiento desde el backend
+            var verificacionesResponse = await Http.GetAsync("http://localhost:5015/api/Apelaciones/verificaciones-procedimiento");
+            if (verificacionesResponse.IsSuccessStatusCode)
+            {
+                var verificacionesJson = await verificacionesResponse.Content.ReadAsStringAsync();
+                verificacionesProcedimiento = JsonSerializer.Deserialize<List<VerificacionProcedimientoDto>>(verificacionesJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<VerificacionProcedimientoDto>
+                {
+                    new() { Descripcion = "Apelación presentada dentro del plazo de 3 días hábiles", Verificado = false },
+                    new() { Descripcion = "Documentos de respaldo adjuntos y completos", Verificado = false },
+                    new() { Descripcion = "Fundamentos claramente expresados", Verificado = false },
+                    new() { Descripcion = "Firma del docente y fecha de presentación", Verificado = false },
+                    new() { Descripcion = "Competencia de la Comisión Académica confirmada", Verificado = false }
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al cargar apelaciones: {ex.Message}";
+            // En caso de error, inicializar listas vacías
+            apelacionesRecibidas = new List<ApelacionDto>();
+            apelacionesEnProceso = new List<ApelacionDto>();
+            apelacionesResueltas = new List<ApelacionDto>();
+            apelacionesVenciendo = new List<ApelacionDto>();
+            verificacionesProcedimiento = new List<VerificacionProcedimientoDto>();
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private RenderFragment RenderApelacionesRecibidas() => __builder =>
+    {
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <h4 class="font-medium">📨 Apelaciones Recibidas - Pendientes de Procesamiento</h4>
+                <span class="text-sm text-gray-500">Plazo máximo de resolución: 3 días hábiles</span>
+            </div>
+            
+            @if (apelacionesRecibidas.Count == 0)
+            {
+                <div class="text-center p-8 text-gray-500">
+                    No hay apelaciones recibidas pendientes.
+                </div>
+            }
+            else
+            {
+                <div class="space-y-3">
+                    @foreach (var apelacion in apelacionesRecibidas.OrderBy(a => a.FechaLimite))
+                    {
+                        <div class="border rounded-lg p-4 @(apelacion.EsCritico ? "border-red-300 bg-red-50" : "border-gray-200")">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="font-medium">@apelacion.DocenteNombre</div>
+                                    <div class="text-sm text-gray-600">@apelacion.PromocionSolicitada</div>
+                                    <div class="text-sm text-gray-600 mt-1">Motivo: @apelacion.MotivoApelacion</div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        Presentada: @apelacion.FechaPresentacion.ToString("dd/MM/yyyy HH:mm")
+                                        | Límite: @apelacion.FechaLimite.ToString("dd/MM/yyyy HH:mm")
+                                    </div>
+                                    <div class="text-xs mt-1 @(apelacion.EsCritico ? "text-red-600 font-bold" : "text-gray-600")">
+                                        ⏰ @apelacion.HorasRestantes horas restantes
+                                        @if (apelacion.EsCritico)
+                                        {
+                                            <span> - ¡CRÍTICO!</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button 
+                                        @onclick="() => ProcesarApelacion(apelacion)"
+                                        class="px-3 py-1 @(apelacion.EsCritico ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700") rounded text-sm hover:bg-opacity-75">
+                                        ⚖️ Procesar
+                                    </button>
+                                    <button class="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200">
+                                        👁️ Ver Documentos
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    };
+
+    private RenderFragment RenderApelacionesEnProceso() => __builder =>
+    {
+        <div class="space-y-4">
+            <h4 class="font-medium">⏳ Apelaciones en Proceso de Evaluación</h4>
+            
+            @if (apelacionesEnProceso.Count == 0)
+            {
+                <div class="text-center p-8 text-gray-500">
+                    No hay apelaciones en proceso.
+                </div>
+            }
+            else
+            {
+                @foreach (var apelacion in apelacionesEnProceso)
+                {
+                    <div class="border rounded-lg p-4 border-yellow-300 bg-yellow-50">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-medium">@apelacion.DocenteNombre</div>
+                                <div class="text-sm text-gray-600">@apelacion.PromocionSolicitada</div>
+                                <div class="text-sm text-gray-600 mt-1">Motivo: @apelacion.MotivoApelacion</div>
+                                <div class="text-xs text-yellow-700 mt-1">⏰ @apelacion.HorasRestantes horas para resolución</div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button 
+                                    @onclick="() => ProcesarApelacion(apelacion)"
+                                    class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded text-sm hover:bg-yellow-200">
+                                    ✏️ Continuar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    };
+
+    private RenderFragment RenderApelacionesResueltas() => __builder =>
+    {
+        <div class="space-y-4">
+            <h4 class="font-medium">✅ Apelaciones Resueltas</h4>
+            
+            @if (apelacionesResueltas.Count == 0)
+            {
+                <div class="text-center p-8 text-gray-500">
+                    No hay apelaciones resueltas.
+                </div>
+            }
+            else
+            {
+                @foreach (var apelacion in apelacionesResueltas.OrderByDescending(a => a.FechaResolucion))
+                {
+                    <div class="border rounded-lg p-4 border-green-300 bg-green-50">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-medium">@apelacion.DocenteNombre</div>
+                                <div class="text-sm text-gray-600">@apelacion.PromocionSolicitada</div>
+                                <div class="text-sm text-gray-600 mt-1">Motivo: @apelacion.MotivoApelacion</div>
+                                <div class="text-xs text-green-700 mt-1">
+                                    Resuelta: @apelacion.FechaResolucion?.ToString("dd/MM/yyyy") 
+                                    | Decisión: @apelacion.DecisionFinal
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">RESUELTA</span>
+                                <button class="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200">
+                                    📄 Ver Resolución
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    };
+
+    private RenderFragment RenderHistorialApelaciones() => __builder =>
+    {
+        <div class="space-y-4">
+            <h4 class="font-medium">📜 Historial Completo de Apelaciones</h4>
+            <div class="text-center p-8 text-gray-500">
+                Función en desarrollo - Próximamente disponible
+            </div>
+        </div>
+    };
+
+    private void ProcesarApelacion(ApelacionDto apelacion)
+    {
+        apelacionSeleccionada = apelacion;
+        
+        // Cargar datos previos si está en proceso
+        if (apelacion.Estado == "EN_PROCESO")
+        {
+            // Cargar borrador guardado
+        }
+        else
+        {
+            // Limpiar formulario para nueva evaluación
+            analisisFundamentos = "";
+            decisionComision = "";
+            fundamentosDecision = "";
+            accionesCorrectivas = "";
+            
+            // Resetear verificaciones
+            foreach (var verificacion in verificacionesProcedimiento)
+            {
+                verificacion.Verificado = false;
+            }
+        }
+        
+        mostrarModalProcesamiento = true;
+    }
+
+    private void CerrarModalProcesamiento()
+    {
+        mostrarModalProcesamiento = false;
+        apelacionSeleccionada = null;
+    }
+
+    private Task GuardarBorrador()
+    {
+        try
+        {
+            if (apelacionSeleccionada != null)
+            {
+                // Guardar progreso como borrador
+                apelacionSeleccionada.Estado = "EN_PROCESO";
+                
+                // Mover de recibidas a en proceso si no estaba ya
+                if (apelacionesRecibidas.Contains(apelacionSeleccionada))
+                {
+                    apelacionesRecibidas.Remove(apelacionSeleccionada);
+                    apelacionesEnProceso.Add(apelacionSeleccionada);
+                }
+                
+                // Aquí se haría la llamada real a la API para guardar el borrador
+                // await Http.PostAsJsonAsync("/api/Apelaciones/borrador", borradorData);
+                
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al guardar borrador: {ex.Message}";
+        }
+        
+        return Task.CompletedTask;
+    }
+
+    private Task FinalizarApelacion()
+    {
+        try
+        {
+            if (apelacionSeleccionada != null)
+            {
+                // Finalizar apelación
+                apelacionSeleccionada.Estado = "RESUELTA";
+                apelacionSeleccionada.DecisionFinal = decisionComision;
+                apelacionSeleccionada.FundamentosDecision = fundamentosDecision;
+                apelacionSeleccionada.FechaResolucion = DateTime.Now;
+                
+                // Mover a resueltas
+                apelacionesRecibidas.Remove(apelacionSeleccionada);
+                apelacionesEnProceso.Remove(apelacionSeleccionada);
+                apelacionesResueltas.Add(apelacionSeleccionada);
+                
+                // Actualizar lista de críticas
+                apelacionesVenciendo = apelacionesRecibidas
+                    .Concat(apelacionesEnProceso)
+                    .Where(a => a.EsCritico)
+                    .OrderBy(a => a.FechaLimite)
+                    .ToList();
+                
+                // Aquí se haría la llamada real a la API
+                // await Http.PostAsJsonAsync("/api/Apelaciones/finalizar", resolucionData);
+                
+                CerrarModalProcesamiento();
+                SetActiveTab("resueltas");
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al finalizar apelación: {ex.Message}";
+        }
+        
+        return Task.CompletedTask;
+    }
+
+    private string GetEstadoClasses(string estado)
+    {
+        return estado switch
+        {
+            "RECIBIDA" => "bg-blue-100 text-blue-800",
+            "EN_PROCESO" => "bg-yellow-100 text-yellow-800",
+            "RESUELTA" => "bg-green-100 text-green-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+}

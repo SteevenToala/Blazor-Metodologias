@@ -68,32 +68,50 @@
 
     private async Task ImportarCursosExternos()
     {
-        var http = new HttpClient();
-        var cursosExternos = await http.GetFromJsonAsync<List<CursoCapacitacionDto>>("http://localhost:3000/CursoCapacitacion");
-        var soloExternos = cursosExternos?.Where(c => c.Externo).ToList() ?? new List<CursoCapacitacionDto>();
-        var cursosActuales = cursos.Select(c => (c.Nombre, c.FechaInicio, c.FechaFin)).ToHashSet();
-        int importados = 0, duplicados = 0;
-        foreach (var curso in soloExternos)
+        try
         {
-            if (!cursosActuales.Contains((curso.Nombre, curso.FechaInicio, curso.FechaFin)))
+            var http = new HttpClient();
+            var cursosExternos = await http.GetFromJsonAsync<List<CursoCapacitacionDto>>("http://localhost:3000/CursoCapacitacion");
+            var soloExternos = cursosExternos?.Where(c => c.Externo).ToList() ?? new List<CursoCapacitacionDto>();
+            
+            // Crear conjunto de cursos actuales para comparar duplicados
+            var cursosActuales = cursos
+                .Select(c => (c.Nombre.Trim().ToLower(), c.FechaInicio.Date, c.FechaFin.Date, c.Horas))
+                .ToHashSet();
+            
+            int importados = 0, duplicados = 0;
+            
+            foreach (var curso in soloExternos)
             {
-                var response = await DocenteService.ImportarCursoExternoAsync(curso);
-                if (response)
-                    importados++;
+                var key = (curso.Nombre.Trim().ToLower(), curso.FechaInicio.Date, curso.FechaFin.Date, curso.Horas);
+                if (!cursosActuales.Contains(key))
+                {
+                    var response = await DocenteService.ImportarCursoExternoAsync(curso);
+                    if (response)
+                        importados++;
+                    else
+                        duplicados++;
+                }
                 else
+                {
                     duplicados++;
+                }
             }
+            
+            await OnInitializedAsync();
+            
+            if (importados > 0)
+                modalMessage = $"Se importaron {importados} curso(s) nuevo(s).";
             else
-            {
-                duplicados++;
-            }
+                modalMessage = "No se importaron cursos porque ya existen.";
+                
+            showModal = true;
         }
-        await OnInitializedAsync();
-        if (importados > 0)
-            modalMessage = $"Se importaron {importados} curso(s) nuevo(s).";
-        else
-            modalMessage = "No se importaron cursos porque ya existen.";
-        showModal = true;
+        catch (Exception ex)
+        {
+            modalMessage = $"Error al importar cursos: {ex.Message}";
+            showModal = true;
+        }
     }
 
     private void CerrarModal()
