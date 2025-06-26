@@ -36,6 +36,60 @@
             StateHasChanged();
         }
     }
+
+    private async Task RecargarProyectosInvestigacion()
+    {
+        var proyectos = await DocenteService.GetProyectosInvestigacionAsync();
+        if (proyectos != null)
+        {
+            proyectosInvestigacion = proyectos;
+            // Recargar requisitos desde el backend para obtener el cálculo correcto
+            await CargarRequisitos();
+            StateHasChanged();
+        }
+    }
+
+    private async Task RecargarRequisitos()
+    {
+        // Recargar proyectos de investigación para tener datos actualizados
+        var proyectosActualizados = await DocenteService.GetProyectosInvestigacionAsync();
+        if (proyectosActualizados != null)
+        {
+            proyectosInvestigacion = proyectosActualizados;
+        }
+        
+        await CargarRequisitos();
+        StateHasChanged();
+    }
+
+    private async Task CargarRequisitos()
+    {
+        try
+        {
+            var requisitosResponse = await DocenteService.ObtenerRequisitosPromocionAsync();
+            if (requisitosResponse != null && requisitosResponse.Requisitos != null)
+            {
+                requirements = requisitosResponse.Requisitos.Select(r => new Requirement
+                {
+                    Name = r.TipoRequisito,
+                    Current = (int)r.ValorActual,
+                    Required = (int)r.ValorRequerido,
+                    Completed = r.Cumple
+                }).ToList();
+
+                Console.WriteLine($"Requisitos cargados del backend: {requirements.Count}");
+                foreach (var req in requirements)
+                {
+                    Console.WriteLine($"Requisito: {req.Name}, Actual: {req.Current}, Requerido: {req.Required}, Cumplido: {req.Completed}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar requisitos: {ex.Message}");
+            // Mantener los requisitos de fallback si hay error
+        }
+    }
     protected override async Task OnInitializedAsync()
     {
         loginResponse = await LocalStorage.ObtenerObjetoAsync<LoginResponse>("loginResponse");
@@ -55,57 +109,20 @@
                 {
                     proyectosInvestigacion = proyectos;
                 }
-                // Calcular meses de investigación sumando los meses de todos los proyectos
-                int mesesInvestigacion = 0;
-                if (proyectosInvestigacion != null && proyectosInvestigacion.Count > 0)
-                {
-                    foreach (var proyecto in proyectosInvestigacion)
-                    {
-                        var inicio = proyecto.FechaInicio;
-                        var fin = proyecto.FechaFin;
-                        int meses = (fin.Year - inicio.Year) * 12 + (fin.Month - inicio.Month);
-                        if (meses < 0) meses = 0;
-                        mesesInvestigacion += meses;
-                    }
-                }
-                // Get next academic level ID for requirements calculation
+                // Calcular el siguiente nivel para mostrar en la UI
                 var nivelActual = dashBoardDocente.NivelAcademico;
                 var prefijo = nivelActual.Substring(0, nivelActual.Length - 1);
                 var numero = int.TryParse(nivelActual.Substring(nivelActual.Length - 1), out var n) ? n : 1;
                 nextLevel = numero < 5 ? $"{prefijo}{numero + 1}" : nivelActual;
                 
-                Console.WriteLine($"Nivel actual: {nivelActual}, Siguiente nivel: {nextLevel}");
-                
-                // Get docente ID for requirements calculation
-                var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
-                var siguienteNivelId = await DocenteService.ObtenerNivelAcademicoIdPorNombreAsync(nextLevel);
-                
-                Console.WriteLine($"DocenteId: {docenteId}, SiguienteNivelId: {siguienteNivelId}");
-                
-                if (docenteId.HasValue && siguienteNivelId.HasValue)
-                {
-                    // Calculate requirements dynamically from backend
-                    Console.WriteLine($"Llamando CalcularRequisitosPorNivelAsync con docenteId={docenteId.Value}, nivelId={siguienteNivelId.Value}");
-                    requirements = await DocenteService.CalcularRequisitosPorNivelAsync(docenteId.Value, siguienteNivelId.Value);
-                    Console.WriteLine($"Requisitos calculados: {requirements?.Count ?? 0}");
-                    
-                    if (requirements != null && requirements.Count > 0)
-                    {
-                        foreach (var req in requirements)
-                        {
-                            Console.WriteLine($"Requisito: {req.Name}, Actual: {req.Current}, Requerido: {req.Required}, Cumplido: {req.Completed}");
-                        }
-                    }
-                }
-                else
-                {
-                    Console.WriteLine($"No se pudo obtener docenteId o siguienteNivelId. DocenteId: {docenteId}, SiguienteNivelId: {siguienteNivelId}");
-                }
+                // Cargar requisitos usando el nuevo método
+                await CargarRequisitos();
                 
                 // Si no hay requisitos, crear algunos de fallback para testing
                 if (requirements == null || requirements.Count == 0)
                 {
                     Console.WriteLine("No se encontraron requisitos, creando fallback...");
+                    
                     requirements = new List<Requirement>
                     {
                         new Requirement 
@@ -138,10 +155,10 @@
                         },
                         new Requirement 
                         { 
-                            Name = "Meses en investigación", 
-                            Current = 0, // Se calculará en el componente
-                            Required = 6, 
-                            Completed = false 
+                            Name = "Investigaciones", 
+                            Current = proyectosInvestigacion?.Count ?? 0, 
+                            Required = 2, 
+                            Completed = (proyectosInvestigacion?.Count ?? 0) >= 2 
                         }
                     };
                 }
@@ -179,14 +196,6 @@ else
                     @dashBoardDocente.NivelAcademico
                 </span>
             </p>
-        </div>
-        <div class="flex gap-2">
-            <button class="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors">
-                Mi Perfil
-            </button>
-            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-                Mis Documentos
-            </button>
         </div>
     </div>
     <div class="space-y-4">
@@ -242,148 +251,59 @@ else
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                        <div class="p-4 pb-2">
-                            <div class="flex items-center text-sm font-medium text-gray-600">
-                                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round"
-                                          stroke-linejoin="round"
-                                          stroke-width="2"
-                                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                Años en nivel actual
+                    @foreach (var requirement in requirements)
+                    {
+                        <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+                            <div class="p-4 pb-2">
+                                <div class="flex items-center text-sm font-medium text-gray-600">
+                                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        @switch (requirement.Name.ToLower())
+                                        {
+                                            case "años en el rango":
+                                            case "años en nivel actual":
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                break;
+                                            case "papers":
+                                            case "publicaciones académicas":
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                break;
+                                            case "puntaje evaluación":
+                                            case "puntaje de evaluación":
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                                                break;
+                                            case "horas capacitación":
+                                            case "horas de capacitación":
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                break;
+                                            case "investigaciones":
+                                            case "meses en investigación":
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                                break;
+                                            default:
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                break;
+                                        }
+                                    </svg>
+                                    @requirement.Name
+                                </div>
+                            </div>
+                            <div class="p-4 pt-0">
+                                <div class="text-2xl font-bold">
+                                    @requirement.Current / @requirement.Required
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                    @{
+                                        var percentage = requirement.Required > 0 
+                                            ? Math.Min((double)requirement.Current / requirement.Required * 100, 100) 
+                                            : 0;
+                                        var colorClass = requirement.Completed ? "bg-green-600" : "bg-blue-600";
+                                    }
+                                    <div class="@colorClass h-2 rounded-full transition-all duration-300"
+                                        style="width: @(percentage.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%;"></div>
+                                </div>
                             </div>
                         </div>
-                        <div class="p-4 pt-0">
-                            <div class="text-2xl font-bold">
-                                @dashBoardDocente.AniosEnNivel / @dashBoardDocente.GetValorRequerido("Años en el rango")
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style="width: @(Math.Min((double)dashBoardDocente.AniosEnNivel / dashBoardDocente.GetValorRequerido("Años en el rango") * 100, 100))%;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                        <div class="p-4 pb-2">
-                            <div class="flex items-center text-sm font-medium text-gray-600">
-                                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round"
-                                          stroke-linejoin="round"
-                                          stroke-width="2"
-                                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                Publicaciones académicas
-                            </div>
-                        </div>
-                        <div class="p-4 pt-0">
-                            <div class="text-2xl font-bold">
-                                @dashBoardDocente.PublicacionesAcademicas / @dashBoardDocente.GetValorRequerido("Papers")
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style="width: @(Math.Min((double)dashBoardDocente.PublicacionesAcademicas / dashBoardDocente.GetValorRequerido("Papers") * 100, 100))%;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                        <div class="p-4 pb-2">
-                            <div class="flex items-center text-sm font-medium text-gray-600">
-                                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round"
-                                          stroke-linejoin="round"
-                                          stroke-width="2"
-                                          d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                                </svg>
-                                Puntaje de evaluación
-                            </div>
-                        </div>
-                        <div class="p-4 pt-0">
-                            @{
-                                var puntajeActual = dashBoardDocente.PuntajeEvaluacion==0?1:dashBoardDocente.PuntajeEvaluacion;
-                                Console.Write("el puntaje actual es :"+puntajeActual);
-                                var puntajeRequerido = dashBoardDocente.GetValorRequerido("Puntaje Evaluación");
-                                Console.Write("el puntaje es :"+puntajeRequerido);
-                                var porcentaje = puntajeRequerido == 0 ? 1 : Math.Min(puntajeActual / puntajeRequerido* 100, 100);
-                            }
-                            <div class="text-2xl font-bold">
-                                @puntajeActual% / @puntajeRequerido%
-                            </div>
-                            <div class="w-full bg-green-100 rounded-full h-2 mt-2">
-                                <div class="bg-green-600 h-2 rounded-full transition-all duration-300"
-                                    style="width: @porcentaje%;"></div>
-                            </div>
-                       </div>
-                    </div>
-
-                    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                        <div class="p-4 pb-2">
-                            <div class="flex items-center text-sm font-medium text-gray-600">
-                                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round"
-                                          stroke-linejoin="round"
-                                          stroke-width="2"
-                                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Horas de capacitación
-                            </div>
-                        </div>
-                        <div class="p-4 pt-0">
-                            <div class="text-2xl font-bold">
-                                @dashBoardDocente.HorasCapacitacion / @dashBoardDocente.GetValorRequerido("Horas Capacitación")
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style="width: @(Math.Min((double)dashBoardDocente.HorasCapacitacion / dashBoardDocente.GetValorRequerido("Horas Capacitación") * 100, 100))%;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                        <div class="p-4 pb-2">
-                            <div class="flex items-center text-sm font-medium text-gray-600">
-                                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round"
-                                          stroke-linejoin="round"
-                                          stroke-width="2"
-                                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Meses en investigación
-                            </div>
-                        </div>
-                        <div class="p-4 pt-0">
-@{
-    int mesesInvestigacion = 0;
-    if (proyectosInvestigacion != null && proyectosInvestigacion.Count > 0)
-    {
-        foreach (var proyecto in proyectosInvestigacion)
-        {
-            var inicio = proyecto.FechaInicio;
-            var fin = proyecto.FechaFin;
-            int meses = (fin.Year - inicio.Year) * 12 + (fin.Month - inicio.Month);
-            if (meses < 0) meses = 0;
-            mesesInvestigacion += meses;
-        }
-    }
-    int requerido = dashBoardDocente.GetValorRequerido("Investigaciones");
-    if (requerido == -1 || requerido == 0) requerido = 4;
-    double porcentajeInvestigacion = 0;
-    if (requerido > 0)
-    {
-        porcentajeInvestigacion = Math.Min((double)mesesInvestigacion / requerido * 100, 100);
-    }
-    
-    <div class="text-2xl font-bold">
-        @mesesInvestigacion / @requerido meses
-    </div>
-    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-        <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: @(porcentajeInvestigacion.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%;"></div>
-    </div>
-}
-    </div>
-</div>
+                    }
                 </div>
 
             </div>  
@@ -409,7 +329,9 @@ else
         {
             <div class="flex justify-end mb-4">
         </div>
-    <MyCleanApp.Client.components.TeacherDashboardResearch ProyectosInvestigacion="proyectosInvestigacion" />
+    <MyCleanApp.Client.components.TeacherDashboardResearch 
+        ProyectosInvestigacion="proyectosInvestigacion" 
+        OnProyectosActualizados="RecargarProyectosInvestigacion" />
         }
     </div>
 </div>
