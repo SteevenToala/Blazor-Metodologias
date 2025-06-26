@@ -266,7 +266,8 @@ namespace MyCleanApp.Infrastructure.Persistence
                     .HasMaxLength(20);
 
                 entity.Property(e => e.Puntaje)
-                    .IsRequired();
+                    .IsRequired()
+                    .HasColumnType("float");
 
                 entity.HasOne(e => e.Docente)
                     .WithMany()

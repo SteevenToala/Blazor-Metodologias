@@ -762,6 +762,163 @@ public class DocenteService
             return false;
         }
     }
+
+    // ========== MÉTODOS PARA GESTIÓN DE EVALUACIONES ==========
+    
+    /// <summary>
+    /// Obtiene todas las evaluaciones de docentes para el panel de administración
+    /// </summary>
+    public async Task<List<MyCleanApp.Client.DTOs.EvaluacionDocenteDto>> ObtenerTodasLasEvaluacionesAsync()
+    {
+        try
+        {
+            var response = await _http.GetAsync("http://localhost:5015/api/EvaluacionDocente");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var evaluaciones = await response.Content.ReadFromJsonAsync<List<MyCleanApp.Client.DTOs.EvaluacionDocenteDto>>();
+                return evaluaciones ?? new List<MyCleanApp.Client.DTOs.EvaluacionDocenteDto>();
+            }
+            else
+            {
+                Console.WriteLine($"Error al obtener evaluaciones: {response.StatusCode}");
+                return new List<MyCleanApp.Client.DTOs.EvaluacionDocenteDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción al obtener evaluaciones: {ex.Message}");
+            return new List<MyCleanApp.Client.DTOs.EvaluacionDocenteDto>();
+        }
+    }
+
+    /// <summary>
+    /// Obtiene las evaluaciones de un docente específico
+    /// </summary>
+    public async Task<List<MyCleanApp.Client.DTOs.EvaluacionDocenteDto>> ObtenerEvaluacionesPorDocenteAsync(int docenteId)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"http://localhost:5015/api/EvaluacionDocente/docente/{docenteId}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var evaluaciones = await response.Content.ReadFromJsonAsync<List<MyCleanApp.Client.DTOs.EvaluacionDocenteDto>>();
+                return evaluaciones ?? new List<MyCleanApp.Client.DTOs.EvaluacionDocenteDto>();
+            }
+            else
+            {
+                Console.WriteLine($"Error al obtener evaluaciones del docente {docenteId}: {response.StatusCode}");
+                return new List<MyCleanApp.Client.DTOs.EvaluacionDocenteDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción al obtener evaluaciones del docente {docenteId}: {ex.Message}");
+            return new List<MyCleanApp.Client.DTOs.EvaluacionDocenteDto>();
+        }
+    }
+
+    /// <summary>
+    /// Actualiza una evaluación de docente
+    /// </summary>
+    public async Task<bool> ActualizarEvaluacionAsync(MyCleanApp.Client.DTOs.EvaluacionDocenteUpdateDto evaluacionUpdate)
+    {
+        try
+        {
+            Console.WriteLine($"ActualizarEvaluacionAsync called with ID: {evaluacionUpdate.Id}");
+            Console.WriteLine($"Puntaje: {evaluacionUpdate.Puntaje}, Periodo: {evaluacionUpdate.Periodo}");
+            
+            var json = JsonSerializer.Serialize(evaluacionUpdate, _jsonOptions);
+            Console.WriteLine($"JSON to send: {json}");
+            
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            var url = $"http://localhost:5015/api/EvaluacionDocente/{evaluacionUpdate.Id}";
+            Console.WriteLine($"Making PUT request to: {url}");
+            
+            var response = await _http.PutAsync(url, content);
+            
+            Console.WriteLine($"Response status: {response.StatusCode}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Evaluación {evaluacionUpdate.Id} actualizada exitosamente");
+                return true;
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error al actualizar evaluación: {response.StatusCode} - {error}");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción al actualizar evaluación: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Crea una nueva evaluación de docente
+    /// </summary>
+    public async Task<bool> CrearEvaluacionAsync(MyCleanApp.Client.DTOs.EvaluacionDocenteDto evaluacion)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(evaluacion, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            var response = await _http.PostAsync("http://localhost:5015/api/EvaluacionDocente", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Evaluación creada exitosamente");
+                return true;
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error al crear evaluación: {error}");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción al crear evaluación: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Elimina una evaluación
+    /// </summary>
+    public async Task<bool> EliminarEvaluacionAsync(int evaluacionId)
+    {
+        try
+        {
+            var response = await _http.DeleteAsync($"http://localhost:5015/api/EvaluacionDocente/{evaluacionId}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Evaluación {evaluacionId} eliminada exitosamente");
+                return true;
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error al eliminar evaluación: {error}");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción al eliminar evaluación: {ex.Message}");
+            return false;
+        }
+    }
 }
 
 // DTOs para promociones
@@ -788,4 +945,22 @@ public class ResumenCumplimiento
     public int RequisitosCumplidos { get; set; }
     public int TotalRequisitos { get; set; }
     public float PorcentajeGeneral { get; set; }
+}
+
+public class EvaluacionDocenteDto
+{
+    public int Id { get; set; }
+    public int DocenteId { get; set; }
+    public string Periodo { get; set; } = string.Empty;
+    public float Puntaje { get; set; }
+    public string Observaciones { get; set; } = string.Empty;
+    public DateTime FechaCreacion { get; set; }
+    public DateTime FechaModificacion { get; set; }
+}
+
+public class EvaluacionDocenteUpdateDto
+{
+    public int Id { get; set; }
+    public float Puntaje { get; set; }
+    public string Observaciones { get; set; } = string.Empty;
 }

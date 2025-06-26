@@ -1,37 +1,343 @@
 @using MyCleanApp.Client.DTOs
-@using System.Text.Json
-@inject HttpClient Http
+@using MyCleanApp.Client.Services
+@using Microsoft.JSInterop
+@inject DocenteService DocenteService
+@inject IJSRuntime JSRuntime
 
-<div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-    <div class="p-6">
-        <h3 class="text-lg font-medium mb-2">Evaluaciones</h3>
-        <p class="text-sm text-gray-600 mb-4">Gestiona las evaluaciones de desempeño docente</p>
-        <div class="border rounded-lg p-8 text-center">
-            <svg
-                class="h-16 w-16 mx-auto mb-4 text-blue-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-            >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z" />
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"
-                />
-            </svg>
-            <h3 class="text-lg font-medium">Módulo de evaluaciones</h3>
-            <p class="text-sm text-gray-500 mb-4 max-w-md mx-auto">
-                Aquí podrás gestionar las evaluaciones de desempeño docente, configurar criterios y generar informes.
-            </p>
-            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-                Acceder a Evaluaciones
-            </button>
-        </div>
+<div class="space-y-6">
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+        <h3 class="font-medium text-green-900 mb-2">📊 Gestión de Evaluaciones Docentes</h3>
+        <p class="text-sm text-green-700">
+            Sistema para administrar y editar las evaluaciones de desempeño docente
+        </p>
     </div>
+
+    @if (isLoading)
+    {
+        <div class="flex justify-center items-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span class="ml-2 text-gray-600">Cargando evaluaciones...</span>
+        </div>
+    }
+    else
+    {
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium">Lista de Evaluaciones Docentes</h3>
+                    <div class="flex space-x-2">
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre o cédula..."
+                            @oninput="OnSearchChanged"
+                            class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                            @onclick="CargarEvaluaciones"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                            Actualizar
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-auto">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Docente
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Cédula
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Nivel Académico
+                                </th>
+                                
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Puntaje
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Acciones
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach (var evaluacion in EvaluacionesFiltradas)
+                            {
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                                <span class="text-white text-sm font-medium">
+                                                    @(evaluacion.DocenteNombre.Split(' ').FirstOrDefault()?.Substring(0, 1))
+                                                </span>
+                                            </div>
+                                            <div class="ml-3">
+                                                <div class="text-sm font-medium text-gray-900">@evaluacion.DocenteNombre</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        @evaluacion.DocenteCedula
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        @evaluacion.NivelAcademico
+                                    </td>
+                                
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full @GetPuntajeColor(evaluacion.Puntaje)">
+                                            @evaluacion.Puntaje.ToString("F1")
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <button
+                                            @onclick="() => AbrirModalEvaluacion(evaluacion)"
+                                            class="text-blue-600 hover:text-blue-900"
+                                        >
+                                            Editar
+                                        </button>
+                                        
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @if (!EvaluacionesFiltradas.Any())
+                    {
+                        <div class="text-center py-8">
+                            <p class="text-gray-500">No se encontraron evaluaciones.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
+@* Modal para editar evaluación *@
+@if (showModalEvaluacion)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @onclick:stopPropagation="true">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md" @onclick:stopPropagation="true">
+            <h3 class="text-lg font-medium mb-4">Editar Evaluación - @evaluacionSeleccionada?.DocenteNombre</h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Puntaje de Evaluación</label>
+                    <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        @bind="nuevoPuntaje"
+                        @bind:event="oninput"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Ingrese el puntaje (0-100)"
+                    />
+                    <p class="text-xs text-gray-500 mt-1">Valor actual: @nuevoPuntaje</p>
+                </div>
+                
+                <div>
+                    
+                    
+                    
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 mt-6">
+                <button
+                    type="button"
+                    @onclick="CerrarModalEvaluacion"
+                    @onclick:stopPropagation="true"
+                    class="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="button"
+                    @onclick="GuardarEvaluacion"
+                    @onclick:stopPropagation="true"
+                    disabled="@isSaving"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    @if (isSaving)
+                    {
+                        <span>Guardando...</span>
+                    }
+                    else
+                    {
+                        <span>Guardar</span>
+                    }
+                </button>
+            </div>
+            
+            <div class="mt-4 p-2 bg-gray-100 rounded text-xs">
+                <p>Debug: Modal: @showModalEvaluacion</p>
+                <p>Debug: Saving: @isSaving</p>
+                <p>Debug: ID: @evaluacionSeleccionada?.Id</p>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
-    // Este componente se puede expandir en el futuro para incluir funcionalidad completa de evaluaciones
+    private List<EvaluacionDocenteDto> evaluaciones = new();
+    private bool isLoading = true;
+    private string searchTerm = string.Empty;
+    
+    // Modal variables
+    private bool showModalEvaluacion = false;
+    private bool isSaving = false;
+    private EvaluacionDocenteDto? evaluacionSeleccionada;
+    private double nuevoPuntaje = 0;
+    private string nuevoPeriodo = string.Empty;
+
+    private IEnumerable<EvaluacionDocenteDto> EvaluacionesFiltradas =>
+        evaluaciones.Where(e =>
+            string.IsNullOrWhiteSpace(searchTerm) ||
+            (e.DocenteNombre?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (e.DocenteCedula?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
+        );
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarEvaluaciones();
+    }
+
+    private async Task CargarEvaluaciones()
+    {
+        isLoading = true;
+        try
+        {
+            evaluaciones = await DocenteService.ObtenerTodasLasEvaluacionesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar evaluaciones: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al cargar las evaluaciones");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        StateHasChanged();
+    }
+
+    private void AbrirModalEvaluacion(EvaluacionDocenteDto evaluacion)
+    {
+        Console.WriteLine($"AbrirModalEvaluacion called for: {evaluacion.DocenteNombre}");
+        evaluacionSeleccionada = evaluacion;
+        nuevoPuntaje = evaluacion.Puntaje;
+        nuevoPeriodo = evaluacion.Periodo;
+        showModalEvaluacion = true;
+        Console.WriteLine($"Modal opened. Puntaje: {nuevoPuntaje}, Periodo: {nuevoPeriodo}");
+        StateHasChanged();
+    }
+
+    private void CerrarModalEvaluacion()
+    {
+        showModalEvaluacion = false;
+        evaluacionSeleccionada = null;
+    }
+
+    private async Task GuardarEvaluacion()
+    {
+        Console.WriteLine("GuardarEvaluacion called");
+        await JSRuntime.InvokeVoidAsync("console.log", "GuardarEvaluacion called from Blazor");
+        
+        if (evaluacionSeleccionada == null) 
+        {
+            Console.WriteLine("evaluacionSeleccionada is null");
+            return;
+        }
+
+        isSaving = true;
+        StateHasChanged();
+        
+        try
+        {
+            Console.WriteLine($"Updating evaluation ID: {evaluacionSeleccionada.Id}, Puntaje: {nuevoPuntaje}, Periodo: {nuevoPeriodo}");
+            
+            var evaluacionUpdate = new EvaluacionDocenteUpdateDto
+            {
+                Id = evaluacionSeleccionada.Id,
+                Puntaje = nuevoPuntaje,
+                Periodo = nuevoPeriodo
+            };
+
+            Console.WriteLine("Calling DocenteService.ActualizarEvaluacionAsync");
+            bool resultado = await DocenteService.ActualizarEvaluacionAsync(evaluacionUpdate);
+            Console.WriteLine($"Service call result: {resultado}");
+
+            if (resultado)
+            {
+                // Actualizar la evaluación en la lista local
+                evaluacionSeleccionada.Puntaje = nuevoPuntaje;
+                evaluacionSeleccionada.Periodo = nuevoPeriodo;
+
+                await JSRuntime.InvokeVoidAsync("alert", "Evaluación actualizada exitosamente");
+                CerrarModalEvaluacion();
+                
+                // Recargar la lista para obtener datos actualizados
+                await CargarEvaluaciones();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Error al actualizar la evaluación - El servicio devolvió false");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al guardar evaluación: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar la evaluación: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task VerHistorialEvaluaciones(EvaluacionDocenteDto evaluacion)
+    {
+        try
+        {
+            var historial = await DocenteService.ObtenerEvaluacionesPorDocenteAsync(evaluacion.DocenteId);
+            if (historial.Any())
+            {
+                var mensaje = $"Historial de evaluaciones para {evaluacion.DocenteNombre}:\\n";
+                foreach (var eval in historial.OrderByDescending(e => e.Periodo))
+                {
+                    mensaje += $"- {eval.Periodo}: {eval.Puntaje} puntos\\n";
+                }
+                await JSRuntime.InvokeVoidAsync("alert", mensaje);
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"No se encontraron evaluaciones para {evaluacion.DocenteNombre}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener historial: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al obtener el historial de evaluaciones");
+        }
+    }
+
+    private string GetPuntajeColor(double puntaje)
+    {
+        return puntaje >= 85 ? "bg-green-100 text-green-800" :
+               puntaje >= 75 ? "bg-yellow-100 text-yellow-800" :
+               "bg-red-100 text-red-800";
+    }
 }
