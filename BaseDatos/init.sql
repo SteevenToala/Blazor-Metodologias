@@ -273,3 +273,167 @@ INSERT INTO RequisitoNivelAcademico (nivelAcademicoId, tipoRequisitoId, valorReq
 (4, 5, 24);    -- 24 meses de investigación
 
 UPDATE PublicacionAcademica SET Externo = 0 WHERE Externo IS NULL;
+
+-- Tabla para la Comisión Académica de Escalafón y Promoción
+CREATE TABLE ComisionAcademica (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    nombre VARCHAR(100),
+    cargo VARCHAR(100), -- Presidente, Miembro, Secretario, Asesor
+    usuarioId INT,
+    activo BIT DEFAULT 1,
+    fechaDesignacion DATE,
+    fechaFinPeriodo DATE,
+    FOREIGN KEY (usuarioId) REFERENCES Usuario(id)
+);
+
+-- Tabla para Lista de Verificación (Anexo 1)
+CREATE TABLE ListaVerificacion (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    nivelAcademicoId INT,
+    nombreDocumento VARCHAR(200),
+    descripcion VARCHAR(500),
+    obligatorio BIT DEFAULT 1,
+    orden INT,
+    activo BIT DEFAULT 1,
+    FOREIGN KEY (nivelAcademicoId) REFERENCES NivelAcademico(id)
+);
+
+-- Tabla para el seguimiento de verificación de documentos por solicitud
+CREATE TABLE VerificacionDocumentos (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    solicitudId INT,
+    listaVerificacionId INT,
+    verificado BIT DEFAULT 0,
+    observaciones VARCHAR(300),
+    fechaVerificacion DATE,
+    verificadoPor INT, -- usuarioId quien verificó
+    FOREIGN KEY (solicitudId) REFERENCES SolicitudAvanceRango(id),
+    FOREIGN KEY (listaVerificacionId) REFERENCES ListaVerificacion(id),
+    FOREIGN KEY (verificadoPor) REFERENCES Usuario(id)
+);
+
+-- Tabla para Apelaciones
+CREATE TABLE ApelacionPromocion (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    solicitudId INT,
+    fechaApelacion DATE,
+    motivoApelacion VARCHAR(1000),
+    documentosRespaldo VARCHAR(500), -- Lista de documentos adjuntos
+    estado VARCHAR(20) DEFAULT 'PENDIENTE', -- PENDIENTE, APROBADA, RECHAZADA
+    fechaRespuesta DATE,
+    respuestaComision VARCHAR(1000),
+    resuelto BIT DEFAULT 0,
+    FOREIGN KEY (solicitudId) REFERENCES SolicitudAvanceRango(id)
+);
+
+-- Tabla para seguimiento de plazos
+CREATE TABLE SeguimientoPlazos (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    solicitudId INT,
+    tipoEvento VARCHAR(100), -- 'NOTIFICACION_RESULTADO', 'PLAZO_RESPUESTA', 'APELACION', 'RESPUESTA_APELACION'
+    fechaEvento DATE,
+    fechaLimite DATE,
+    cumplido BIT DEFAULT 0,
+    observaciones VARCHAR(300),
+    FOREIGN KEY (solicitudId) REFERENCES SolicitudAvanceRango(id)
+);
+
+-- Tabla para Informes Finales
+CREATE TABLE InformeFinalPromocion (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    solicitudId INT,
+    fechaGeneracion DATE,
+    contenido TEXT,
+    estado VARCHAR(20) DEFAULT 'GENERADO', -- GENERADO, ENVIADO_CONSEJO, APROBADO
+    fechaEnvioConsejo DATE,
+    fechaAprobacionConsejo DATE,
+    generadoPor INT, -- usuarioId quien generó
+    FOREIGN KEY (solicitudId) REFERENCES SolicitudAvanceRango(id),
+    FOREIGN KEY (generadoPor) REFERENCES Usuario(id)
+);
+
+-- Tabla para Planificación Institucional
+CREATE TABLE PlanificacionInstitucional (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    anio INT,
+    fechaInicioConvocatoria DATE,
+    fechaFinConvocatoria DATE,
+    fechaInicioEvaluacion DATE,
+    fechaFinEvaluacion DATE,
+    fechaNotificacionResultados DATE,
+    presupuestoDisponible DECIMAL(15,2),
+    activo BIT DEFAULT 1,
+    aprobadoConsejo BIT DEFAULT 0,
+    fechaAprobacion DATE
+);
+
+-- Agregar campos adicionales a SolicitudAvanceRango para seguimiento completo
+ALTER TABLE SolicitudAvanceRango 
+ADD fechaPresentacion DATE,
+    fechaRecepcionTalentoHumano DATE,
+    fechaEnvioComision DATE,
+    documentosVerificados BIT DEFAULT 0,
+    verificadoPor INT,
+    planificacionId INT;
+
+-- Agregar foreign keys
+ALTER TABLE SolicitudAvanceRango 
+ADD CONSTRAINT FK_SolicitudAvanceRango_VerificadoPor FOREIGN KEY (verificadoPor) REFERENCES Usuario(id);
+
+ALTER TABLE SolicitudAvanceRango 
+ADD CONSTRAINT FK_SolicitudAvanceRango_Planificacion FOREIGN KEY (planificacionId) REFERENCES PlanificacionInstitucional(id);
+
+-- Insertar datos para la metodología oficial
+
+-- Crear rol específico para la comisión académica
+INSERT INTO Usuario (correo, passwordHash, rol, personaId, activo) VALUES
+('vicerrector.academico@uta.edu.ec', '$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS', 'COMISION_PRESIDENTE', 1, 1);
+
+-- Comisión Académica de Escalafón y Promoción
+INSERT INTO ComisionAcademica (nombre, cargo, usuarioId, activo, fechaDesignacion, fechaFinPeriodo) VALUES
+('Vicerrector Académico', 'PRESIDENTE', 3, 1, '2024-01-01', '2026-01-01'),
+('Director de Talento Humano', 'SECRETARIO', 1, 1, '2024-01-01', '2026-01-01');
+
+-- Lista de Verificación para DT2 (ejemplo)
+INSERT INTO ListaVerificacion (nivelAcademicoId, nombreDocumento, descripcion, obligatorio, orden, activo) VALUES
+(1, 'Hoja de Vida Actualizada', 'Curriculum vitae actualizado y firmado', 1, 1, 1),
+(1, 'Cédula de Identidad', 'Copia certificada de la cédula de identidad', 1, 2, 1),
+(1, 'Título de Tercer Nivel', 'Copia certificada del título de grado', 1, 3, 1),
+(1, 'Certificado de Tiempo de Servicio', 'Certificado que acredite 4 años en DT1', 1, 4, 1),
+(1, 'Publicaciones Académicas', 'Certificado de al menos 1 publicación', 1, 5, 1),
+(1, 'Evaluación Docente', 'Certificado de evaluación ≥75%', 1, 6, 1),
+(1, 'Certificados de Capacitación', 'Certificados que sumen 96 horas', 1, 7, 1);
+
+-- Lista de Verificación para DT3
+INSERT INTO ListaVerificacion (nivelAcademicoId, nombreDocumento, descripcion, obligatorio, orden, activo) VALUES
+(2, 'Hoja de Vida Actualizada', 'Curriculum vitae actualizado y firmado', 1, 1, 1),
+(2, 'Cédula de Identidad', 'Copia certificada de la cédula de identidad', 1, 2, 1),
+(2, 'Título de Tercer Nivel', 'Copia certificada del título de grado', 1, 3, 1),
+(2, 'Certificado de Tiempo de Servicio', 'Certificado que acredite 4 años en DT2', 1, 4, 1),
+(2, 'Publicaciones Académicas', 'Certificado de al menos 2 publicaciones', 1, 5, 1),
+(2, 'Evaluación Docente', 'Certificado de evaluación ≥75%', 1, 6, 1),
+(2, 'Certificados de Capacitación', 'Certificados que sumen 96 horas', 1, 7, 1),
+(2, 'Proyectos de Investigación', 'Certificado de 12 meses de investigación', 1, 8, 1);
+
+-- Planificación Institucional 2024
+INSERT INTO PlanificacionInstitucional (anio, fechaInicioConvocatoria, fechaFinConvocatoria, fechaInicioEvaluacion, fechaFinEvaluacion, fechaNotificacionResultados, presupuestoDisponible, activo, aprobadoConsejo, fechaAprobacion) VALUES
+(2024, '2024-07-01', '2024-07-31', '2024-08-01', '2024-08-31', '2024-09-15', 50000.00, 1, 1, '2024-06-15');
+
+-- Actualizar la solicitud existente con los nuevos campos
+UPDATE SolicitudAvanceRango 
+SET fechaPresentacion = '2024-07-15',
+    fechaRecepcionTalentoHumano = '2024-07-15',
+    fechaEnvioComision = '2024-07-16',
+    documentosVerificados = 0,
+    planificacionId = 1
+WHERE id = 1;
+
+-- Agregar algunas verificaciones de documentos de ejemplo
+-- (Estas se insertarían cuando una solicitud se presenta)
+
+-- Actualizar para agregar más roles
+INSERT INTO Usuario (correo, passwordHash, rol, personaId, activo) VALUES
+('comision.miembro1@uta.edu.ec', '$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS', 'COMISION_MIEMBRO', 1, 1),
+('consejo.universitario@uta.edu.ec', '$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS', 'CONSEJO_UNIVERSITARIO', 1, 1);
+
+UPDATE PublicacionAcademica SET Externo = 0 WHERE Externo IS NULL;

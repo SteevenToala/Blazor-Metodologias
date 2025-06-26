@@ -1,0 +1,384 @@
+@using MyCleanApp.Client.DTOs
+@using Microsoft.JSInterop
+@inject DocenteService DocenteService
+@inject IJSRuntime JS
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+    <div class="p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-medium">Panel de Gestión de Promociones - Metodología Oficial</h3>
+            <div class="flex gap-2">
+                <button @onclick="() => SetActiveSubTab(\"verificacion\")" 
+                        class="px-3 py-1 text-sm rounded @(_activeSubTab == "verificacion" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:text-gray-800")">
+                    Verificación
+                </button>
+                <button @onclick="() => SetActiveSubTab(\"apelaciones\")" 
+                        class="px-3 py-1 text-sm rounded @(_activeSubTab == "apelaciones" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:text-gray-800")">
+                    Apelaciones
+                </button>
+                <button @onclick="() => SetActiveSubTab(\"plazos\")" 
+                        class="px-3 py-1 text-sm rounded @(_activeSubTab == "plazos" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:text-gray-800")">
+                    Plazos
+                </button>
+                <button @onclick="() => SetActiveSubTab(\"informes\")" 
+                        class="px-3 py-1 text-sm rounded @(_activeSubTab == "informes" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:text-gray-800")">
+                    Informes
+                </button>
+            </div>
+        </div>
+
+        @if (_activeSubTab == "verificacion")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium text-gray-900">Verificación de Documentos</h4>
+                
+                @if (_solicitudesPendientesVerificacion.Any())
+                {
+                    @foreach (var solicitud in _solicitudesPendientesVerificacion)
+                    {
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <div>
+                                    <h5 class="font-medium">@solicitud.DocenteNombre</h5>
+                                    <p class="text-sm text-gray-600">Promoción a @solicitud.NivelSolicitado</p>
+                                </div>
+                                <button @onclick="() => AbrirVerificacionDocumentos(solicitud.Id)" 
+                                        class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
+                                    Verificar Documentos
+                                </button>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-gray-500 text-center py-4">No hay solicitudes pendientes de verificación.</p>
+                }
+            </div>
+        }
+
+        @if (_activeSubTab == "apelaciones")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium text-gray-900">Gestión de Apelaciones</h4>
+                
+                @if (_apelacionesPendientes.Any())
+                {
+                    @foreach (var apelacion in _apelacionesPendientes)
+                    {
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <h5 class="font-medium">@apelacion.DocenteNombre</h5>
+                                    <p class="text-sm text-gray-600">Promoción a @apelacion.NivelSolicitado</p>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        Apelación presentada el @apelacion.FechaApelacion.ToString("dd/MM/yyyy")
+                                    </p>
+                                    
+                                    <div class="mt-3 p-3 bg-gray-50 rounded">
+                                        <p class="text-sm font-medium text-gray-700">Motivo:</p>
+                                        <p class="text-sm text-gray-600">@apelacion.MotivoApelacion</p>
+                                        
+                                        @if (!string.IsNullOrEmpty(apelacion.DocumentosRespaldo))
+                                        {
+                                            <p class="text-sm font-medium text-gray-700 mt-2">Documentos de respaldo:</p>
+                                            <p class="text-sm text-gray-600">@apelacion.DocumentosRespaldo</p>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 ml-4">
+                                    <button @onclick="() => AbrirModalRespuestaApelacion(apelacion.Id, true)" 
+                                            class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
+                                        Aprobar
+                                    </button>
+                                    <button @onclick="() => AbrirModalRespuestaApelacion(apelacion.Id, false)" 
+                                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">
+                                        Rechazar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-gray-500 text-center py-4">No hay apelaciones pendientes.</p>
+                }
+            </div>
+        }
+
+        @if (_activeSubTab == "plazos")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium text-gray-900">Seguimiento de Plazos</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="border border-red-200 bg-red-50 rounded-lg p-4">
+                        <h5 class="font-medium text-red-800">Plazos Vencidos</h5>
+                        <p class="text-2xl font-bold text-red-600">@_plazosVencidos.Count</p>
+                        @if (_plazosVencidos.Any())
+                        {
+                            <div class="mt-2 space-y-1">
+                                @foreach (var plazo in _plazosVencidos.Take(3))
+                                {
+                                    <p class="text-xs text-red-600">@plazo.DocenteNombre - @plazo.TipoEvento</p>
+                                }
+                                @if (_plazosVencidos.Count > 3)
+                                {
+                                    <p class="text-xs text-red-500">y @(_plazosVencidos.Count - 3) más...</p>
+                                }
+                            </div>
+                        }
+                    </div>
+                    
+                    <div class="border border-amber-200 bg-amber-50 rounded-lg p-4">
+                        <h5 class="font-medium text-amber-800">Por Vencer (próximos 3 días)</h5>
+                        <p class="text-2xl font-bold text-amber-600">@_plazosPorVencer.Count</p>
+                        @if (_plazosPorVencer.Any())
+                        {
+                            <div class="mt-2 space-y-1">
+                                @foreach (var plazo in _plazosPorVencer.Take(3))
+                                {
+                                    <p class="text-xs text-amber-600">@plazo.DocenteNombre - @plazo.DiasRestantes días</p>
+                                }
+                                @if (_plazosPorVencer.Count > 3)
+                                {
+                                    <p class="text-xs text-amber-500">y @(_plazosPorVencer.Count - 3) más...</p>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_activeSubTab == "informes")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium text-gray-900">Informes Finales</h4>
+                
+                @if (_informesFinales.Any())
+                {
+                    @foreach (var informe in _informesFinales)
+                    {
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h5 class="font-medium">@informe.DocenteNombre</h5>
+                                    <p class="text-sm text-gray-600">Promoción a @informe.NivelSolicitado</p>
+                                    <p class="text-xs text-gray-500">
+                                        Generado el @informe.FechaGeneracion.ToString("dd/MM/yyyy")
+                                    </p>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @GetEstadoInformeClasses(informe.Estado)">
+                                        @informe.Estado
+                                    </span>
+                                </div>
+                                <div class="flex gap-2">
+                                    @if (informe.Estado == "GENERADO")
+                                    {
+                                        <button @onclick="() => EnviarInformeAConsejo(informe.Id)" 
+                                                class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
+                                            Enviar al Consejo
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-gray-500 text-center py-4">No hay informes finales generados.</p>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@* Modal para respuesta de apelación *@
+@if (_showModalRespuestaApelacion)
+{
+    <div class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-medium mb-4">
+                @(_aprobandoApelacion ? "Aprobar" : "Rechazar") Apelación
+            </h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Respuesta de la Comisión
+                    </label>
+                    <textarea 
+                        @bind="_respuestaApelacion"
+                        rows="4"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Ingrese la respuesta oficial de la comisión...">
+                    </textarea>
+                </div>
+            </div>
+            
+            <div class="flex gap-2 mt-6">
+                <button 
+                    @onclick="ConfirmarRespuestaApelacion"
+                    disabled="_procesandoRespuesta"
+                    class="flex-1 @(_aprobandoApelacion ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700") text-white font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50">
+                    @if (_procesandoRespuesta)
+                    {
+                        <span>Procesando...</span>
+                    }
+                    else
+                    {
+                        <span>@(_aprobandoApelacion ? "Aprobar" : "Rechazar")</span>
+                    }
+                </button>
+                <button 
+                    @onclick="CerrarModalRespuestaApelacion"
+                    disabled="_procesandoRespuesta"
+                    class="flex-1 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string _activeSubTab = "verificacion";
+    
+    private List<SolicitudAvanceRangoAdminDto> _solicitudesPendientesVerificacion = new();
+    private List<ApelacionPromocionDto> _apelacionesPendientes = new();
+    private List<SeguimientoPlazoDto> _plazosVencidos = new();
+    private List<SeguimientoPlazoDto> _plazosPorVencer = new();
+    private List<InformeFinalPromocionDto> _informesFinales = new();
+    
+    // Modal de respuesta apelación
+    private bool _showModalRespuestaApelacion = false;
+    private bool _procesandoRespuesta = false;
+    private bool _aprobandoApelacion = false;
+    private int _apelacionIdSeleccionada = 0;
+    private string _respuestaApelacion = string.Empty;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+    
+    private async Task CargarDatos()
+    {
+        try
+        {
+            // Cargar solicitudes pendientes de verificación
+            var todasSolicitudes = await DocenteService.GetSolicitudesAvanceRango();
+            _solicitudesPendientesVerificacion = todasSolicitudes.Where(s => !s.documentosVerificados && s.Estado == "PENDIENTE").ToList();
+            
+            // Cargar apelaciones pendientes
+            _apelacionesPendientes = await DocenteService.GetApelacionesPendientes();
+            
+            // Cargar plazos
+            _plazosVencidos = await DocenteService.GetPlazosVencidos();
+            _plazosPorVencer = await DocenteService.GetPlazosPorVencer();
+            
+            // Cargar informes finales
+            _informesFinales = await DocenteService.GetInformesFinales();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", $"Error cargando datos: {ex.Message}");
+        }
+    }
+    
+    private void SetActiveSubTab(string tabId)
+    {
+        _activeSubTab = tabId;
+    }
+    
+    private async Task AbrirVerificacionDocumentos(int solicitudId)
+    {
+        // Aquí abriríamos un modal o navegaríamos a una página de verificación
+        await JS.InvokeVoidAsync("alert", $"Función de verificación de documentos para solicitud {solicitudId} - Por implementar");
+    }
+    
+    private void AbrirModalRespuestaApelacion(int apelacionId, bool aprobar)
+    {
+        _apelacionIdSeleccionada = apelacionId;
+        _aprobandoApelacion = aprobar;
+        _respuestaApelacion = string.Empty;
+        _showModalRespuestaApelacion = true;
+    }
+    
+    private void CerrarModalRespuestaApelacion()
+    {
+        _showModalRespuestaApelacion = false;
+        _respuestaApelacion = string.Empty;
+        _apelacionIdSeleccionada = 0;
+    }
+    
+    private async Task ConfirmarRespuestaApelacion()
+    {
+        if (string.IsNullOrWhiteSpace(_respuestaApelacion))
+        {
+            await JS.InvokeVoidAsync("alert", "Debe ingresar una respuesta.");
+            return;
+        }
+        
+        _procesandoRespuesta = true;
+        
+        try
+        {
+            var exito = await DocenteService.ResolverApelacion(_apelacionIdSeleccionada, _respuestaApelacion, _aprobandoApelacion);
+            
+            if (exito)
+            {
+                await JS.InvokeVoidAsync("alert", "Apelación resuelta exitosamente.");
+                CerrarModalRespuestaApelacion();
+                await CargarDatos();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Error al resolver la apelación.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            _procesandoRespuesta = false;
+        }
+    }
+    
+    private async Task EnviarInformeAConsejo(int informeId)
+    {
+        try
+        {
+            var exito = await DocenteService.EnviarInformeAConsejo(informeId);
+            
+            if (exito)
+            {
+                await JS.InvokeVoidAsync("alert", "Informe enviado al Consejo Universitario exitosamente.");
+                await CargarDatos();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Error al enviar el informe.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+    
+    private string GetEstadoInformeClasses(string estado)
+    {
+        return estado switch
+        {
+            "GENERADO" => "bg-blue-100 text-blue-800",
+            "ENVIADO_CONSEJO" => "bg-amber-100 text-amber-800",
+            "APROBADO" => "bg-green-100 text-green-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+    }
+}

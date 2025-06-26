@@ -1,16 +1,20 @@
 using System.Net.Http.Json;
 using MyCleanApp.Application.DTOs;
 using MyCleanApp.Client.DTOs;
+using System.Text;
+using System.Text.Json;
 
 public class DocenteService
 {
     private readonly HttpClient _http;
     private readonly LocalStorageService _localStorageService;
+    private readonly JsonSerializerOptions _jsonOptions;
 
     public DocenteService(HttpClient http, LocalStorageService localStorageService)
     {
         _http = http;
         _localStorageService = localStorageService;
+        _jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
     }
 
     public async Task<DashBoardDocente?> getDataDashBoard()
@@ -273,6 +277,216 @@ public class DocenteService
             return null;
         var solicitudes = await response.Content.ReadFromJsonAsync<List<SolicitudAvanceRangoDto>>();
         return solicitudes?.Where(s => s.DocenteId == docenteId).ToList();
+    }
+
+    // Métodos para Lista de Verificación
+    public async Task<List<ListaVerificacionDto>> GetListaVerificacionPorNivel(int nivelAcademicoId)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"http://localhost:5015/api/ListaVerificacion/nivel/{nivelAcademicoId}");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<List<ListaVerificacionDto>>(json, _jsonOptions) ?? new List<ListaVerificacionDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener lista de verificación: {ex.Message}");
+        }
+        return new List<ListaVerificacionDto>();
+    }
+
+    public async Task<List<VerificacionDocumentosDto>> GetVerificacionDocumentos(int solicitudId)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"http://localhost:5015/api/VerificacionDocumentos/solicitud/{solicitudId}");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<List<VerificacionDocumentosDto>>(json, _jsonOptions) ?? new List<VerificacionDocumentosDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener verificación de documentos: {ex.Message}");
+        }
+        return new List<VerificacionDocumentosDto>();
+    }
+
+    public async Task<bool> ActualizarVerificacionDocumento(int verificacionId, bool verificado, string observaciones)
+    {
+        try
+        {
+            var data = new { verificado, observaciones, fechaVerificacion = DateTime.Now };
+            var content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
+            var response = await _http.PutAsync($"http://localhost:5015/api/VerificacionDocumentos/{verificacionId}", content);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al actualizar verificación: {ex.Message}");
+            return false;
+        }
+    }
+
+    // Métodos para Apelaciones
+    public async Task<bool> CrearApelacion(CrearApelacionDto apelacion)
+    {
+        try
+        {
+            var content = new StringContent(JsonSerializer.Serialize(apelacion), Encoding.UTF8, "application/json");
+            var response = await _http.PostAsync("http://localhost:5015/api/ApelacionPromocion", content);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al crear apelación: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<List<ApelacionPromocionDto>> GetApelacionesPendientes()
+    {
+        try
+        {
+            var response = await _http.GetAsync("http://localhost:5015/api/ApelacionPromocion/pendientes");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<List<ApelacionPromocionDto>>(json, _jsonOptions) ?? new List<ApelacionPromocionDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener apelaciones pendientes: {ex.Message}");
+        }
+        return new List<ApelacionPromocionDto>();
+    }
+
+    public async Task<bool> ResolverApelacion(int apelacionId, string respuesta, bool aprobada)
+    {
+        try
+        {
+            var data = new { respuestaComision = respuesta, estado = aprobada ? "APROBADA" : "RECHAZADA", fechaRespuesta = DateTime.Now, resuelto = true };
+            var content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
+            var response = await _http.PutAsync($"http://localhost:5015/api/ApelacionPromocion/{apelacionId}", content);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al resolver apelación: {ex.Message}");
+            return false;
+        }
+    }
+
+    // Métodos para Seguimiento de Plazos
+    public async Task<List<SeguimientoPlazoDto>> GetPlazosVencidos()
+    {
+        try
+        {
+            var response = await _http.GetAsync("http://localhost:5015/api/SeguimientoPlazos/vencidos");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<List<SeguimientoPlazoDto>>(json, _jsonOptions) ?? new List<SeguimientoPlazoDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener plazos vencidos: {ex.Message}");
+        }
+        return new List<SeguimientoPlazoDto>();
+    }
+
+    public async Task<List<SeguimientoPlazoDto>> GetPlazosPorVencer()
+    {
+        try
+        {
+            var response = await _http.GetAsync("http://localhost:5015/api/SeguimientoPlazos/por-vencer");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<List<SeguimientoPlazoDto>>(json, _jsonOptions) ?? new List<SeguimientoPlazoDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener plazos por vencer: {ex.Message}");
+        }
+        return new List<SeguimientoPlazoDto>();
+    }
+
+    // Métodos para Comisión Académica
+    public async Task<List<ComisionAcademicaDto>> GetMiembrosComision()
+    {
+        try
+        {
+            var response = await _http.GetAsync("http://localhost:5015/api/ComisionAcademica");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<List<ComisionAcademicaDto>>(json, _jsonOptions) ?? new List<ComisionAcademicaDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener miembros de comisión: {ex.Message}");
+        }
+        return new List<ComisionAcademicaDto>();
+    }
+
+    // Métodos para Informes Finales
+    public async Task<bool> GenerarInformeFinal(int solicitudId)
+    {
+        try
+        {
+            var data = new { solicitudId };
+            var content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
+            var response = await _http.PostAsync("http://localhost:5015/api/InformeFinalPromocion/generar", content);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al generar informe final: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<List<InformeFinalPromocionDto>> GetInformesFinales()
+    {
+        try
+        {
+            var response = await _http.GetAsync("http://localhost:5015/api/InformeFinalPromocion");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<List<InformeFinalPromocionDto>>(json, _jsonOptions) ?? new List<InformeFinalPromocionDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener informes finales: {ex.Message}");
+        }
+        return new List<InformeFinalPromocionDto>();
+    }
+
+    public async Task<bool> EnviarInformeAConsejo(int informeId)
+    {
+        try
+        {
+            var data = new { estado = "ENVIADO_CONSEJO", fechaEnvioConsejo = DateTime.Now };
+            var content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
+            var response = await _http.PutAsync($"http://localhost:5015/api/InformeFinalPromocion/{informeId}/enviar-consejo", content);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al enviar informe al consejo: {ex.Message}");
+            return false;
+        }
     }
 
 }
