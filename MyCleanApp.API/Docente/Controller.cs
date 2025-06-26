@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
+using MyCleanApp.API.DTOs;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -274,6 +275,41 @@ public class DocenteController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
+    }
+
+    [HttpGet("detallados")]
+    public async Task<ActionResult<IEnumerable<DocenteDetalladoDto>>> GetDocentesDetallados()
+    {
+        try
+        {
+            var docentes = await _context.Docente
+                .Include(d => d.Usuario)
+                    .ThenInclude(u => u.Persona)
+                .Include(d => d.NivelAcademico)
+                .Select(d => new DocenteDetalladoDto
+                {
+                    Id = d.Id,
+                    NombreCompleto = (d.Usuario!.Persona!.Nombres ?? "") + " " + (d.Usuario.Persona.Apellidos ?? ""),
+                    Correo = d.Usuario.Correo ?? "",
+                    Cedula = d.Usuario.Persona.Cedula ?? "",
+                    NivelAcademico = d.NivelAcademico!.nombre ?? "",
+                    FechaInicioNivel = d.FechaInicioNivel,
+                    UsuarioId = d.UsuarioId,
+                    NivelAcademicoId = d.NivelAcademicoId,
+                    UltimaEvaluacion = _context.EvaluacionDocente
+                        .Where(e => e.DocenteId == d.Id)
+                        .OrderByDescending(e => e.Periodo)
+                        .Select(e => (double?)e.Puntaje)
+                        .FirstOrDefault()
+                })
+                .ToListAsync();
+
+            return Ok(docentes);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno del servidor: {ex.Message}");
         }
     }
 }

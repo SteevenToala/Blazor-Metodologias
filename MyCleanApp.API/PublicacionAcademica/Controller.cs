@@ -141,4 +141,22 @@ public class PublicacionAcademicaController : ControllerBase
         Response.Headers["Content-Disposition"] = "inline; filename=publicacion.pdf";
         return File(publicacion.Archivo, "application/pdf");
     }
+
+    [HttpGet("docente/{docenteId}")]
+    public async Task<ActionResult<IEnumerable<PublicacionAcademica>>> GetByDocente(int docenteId)
+    {
+        try
+        {
+            var publicaciones = await _context.PublicacionAcademica
+                .Where(p => p.DocenteId == docenteId)
+                .OrderByDescending(p => p.Anio)
+                .ToListAsync();
+
+            return Ok(publicaciones);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+        }
+    }
 }

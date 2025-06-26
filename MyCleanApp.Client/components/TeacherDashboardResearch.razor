@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
 @using MyCleanApp.Client.DTOs
+@using System.Net.Http.Json
 
 @inject NavigationManager Navigation
 @inject DocenteService DocenteService
@@ -10,6 +11,9 @@
 @code {
     [Parameter]
     public List<ProyectoInvestigacionDto> ProyectosInvestigacion { get; set; } = new();
+
+    [Parameter]
+    public EventCallback OnProyectosActualizados { get; set; }
 
     private bool showModalImportar = false;
     private string modalMessageImportar = string.Empty;

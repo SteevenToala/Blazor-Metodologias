@@ -1,250 +1,386 @@
 @using MyCleanApp.Client.DTOs
-@using System.Text.Json
-@inject HttpClient Http
+@using MyCleanApp.Client.Services
+@using Microsoft.JSInterop
+@inject DocenteService DocenteService
+@inject IJSRuntime JSRuntime
 
-<div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-    <div class="p-6">
-        <h3 class="text-lg font-medium mb-2">Listado de Docentes</h3>
-        <p class="text-sm text-gray-600 mb-4">Gestiona los perfiles de docentes y sus niveles</p>
+<div class="space-y-6">
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 class="font-medium text-blue-900 mb-2">👥 Gestión de Docentes</h3>
+        <p class="text-sm text-blue-700">
+            Sistema para gestionar información de docentes, revisar documentos y historial académico
+        </p>
+    </div>
 
-        <div class="flex flex-col md:flex-row gap-4 mb-4">
-            <div class="relative flex-1">
-                <svg
-                    class="absolute left-2 top-2.5 h-4 w-4 text-gray-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                </svg>
-                <input
-                    placeholder="Buscar por nombre..."
-                    class="pl-8 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    @bind="searchQuery"
-                />
-            </div>
-            <div class="flex gap-2">
-                <div class="relative">
-                    <button
-                        @onclick="ToggleLevelDropdown"
-                        class="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors flex items-center"
-                    >
-                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                            />
-                        </svg>
-                        Nivel: @(levelFilter == "all" ? "Todos" : levelFilter)
-                    </button>
-                    @if (showLevelDropdown)
+    @if (isLoading)
+    {
+        <div class="flex justify-center items-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span class="ml-2 text-gray-600">Cargando docentes...</span>
+        </div>
+    }
+    else
+    {
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium">Lista de Docentes</h3>
+                    <div class="flex space-x-2">
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre, cédula o nivel..."
+                            @oninput="OnSearchChanged"
+                            class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                            @onclick="CargarDocentes"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                            Actualizar
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-auto">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Docente
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Cédula
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Nivel Académico
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Años en Nivel
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Evaluación
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Acciones
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach (var docente in DocentesFiltrados)
+                            {
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center">
+                                                <span class="text-white text-sm font-medium">
+                                                    @(docente.NombreCompleto?.Split(' ').FirstOrDefault()?.Substring(0, 1))@(docente.NombreCompleto?.Split(' ').Skip(1).FirstOrDefault()?.Substring(0, 1))
+                                                </span>
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900">@docente.NombreCompleto</div>
+                                                <div class="text-sm text-gray-500">@docente.Correo</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        @docente.Cedula
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                            @docente.NivelAcademico
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        @CalcularAnosEnNivel(docente.FechaInicioNivel) años
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        @if (docente.UltimaEvaluacion.HasValue)
+                                        {
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full @GetPuntajeColor(docente.UltimaEvaluacion.Value)">
+                                                @docente.UltimaEvaluacion.Value.ToString("F1")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                                                Sin evaluar
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <button
+                                            @onclick="() => AbrirModalDocumentos(docente)"
+                                            class="text-green-600 hover:text-green-900"
+                                        >
+                                            📄 Documentos
+                                        </button>
+                                        <button
+                                            @onclick="() => VerHistorialDocente(docente)"
+                                            class="text-blue-600 hover:text-blue-900"
+                                        >
+                                            📊 Historial
+                                        </button>
+                                        <button
+                                            @onclick="() => VerEvaluaciones(docente)"
+                                            class="text-purple-600 hover:text-purple-900"
+                                        >
+                                            📋 Evaluaciones
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @if (!DocentesFiltrados.Any())
                     {
-                        <div class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
-                            <div class="py-1">
-                                <button
-                                    @onclick='() => SetLevelFilter("all")'
-                                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                    Todos
-                                </button>
-                                @foreach (var level in new[] { "DT.1", "DT.2", "DT.3", "DT.4", "DT.5" })
-                                {
-                                    <button
-                                        @onclick='() => SetLevelFilter(level)'
-                                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                    >
-                                        @level
-                                    </button>
-                                }
-                            </div>
+                        <div class="text-center py-8">
+                            <p class="text-gray-500">No se encontraron docentes.</p>
                         </div>
                     }
                 </div>
             </div>
         </div>
-
-        @if (loadingTeachers)
-        {
-            <div class="p-8 text-center text-gray-500">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                Cargando docentes...
-            </div>
-        }
-        else if (!string.IsNullOrEmpty(teachersError))
-        {
-            <div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
-                @teachersError
-            </div>
-        }
-        else
-        {
-            <div class="border rounded-lg overflow-hidden">
-                <table class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Docente
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Nivel
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                                Años
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                                Papers
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
-                                Evaluación
-                            </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Estado
-                            </th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Acciones
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200 bg-white">
-                        @foreach (var teacher in FilteredTeachers)
-                        {
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <div class="font-medium">@teacher.Name</div>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium font-semibold bg-blue-50">
-                                        @teacher.Level
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap hidden md:table-cell">
-                                    <div class="flex items-center">
-                                        <svg
-                                            class="mr-1 h-4 w-4 text-gray-500"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                            />
-                                        </svg>
-                                        @teacher.Years años
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap hidden md:table-cell">
-                                    <div class="flex items-center">
-                                        <svg
-                                            class="mr-1 h-4 w-4 text-gray-500"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                                            />
-                                        </svg>
-                                        @teacher.Papers
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap hidden lg:table-cell">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @(teacher.Evaluation >= 75 ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800")">
-                                        @teacher.Evaluation%
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    @if (teacher.PromotionReady)
-                                    {
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                            Elegible para promoción
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-700">
-                                            En progreso
-                                        </span>
-                                    }
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right">
-                                    <button class="text-gray-400 hover:text-gray-600 p-1">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                                            />
-                                        </svg>
-                                    </button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-    </div>
-    <div class="px-6 py-4 flex justify-between border-t border-gray-200">
-        <div class="text-sm text-gray-500">
-            Mostrando @FilteredTeachers.Count de @TeachersData.Count docentes
-        </div>
-        <button class="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium py-1 px-3 rounded-md text-sm transition-colors">
-            Exportar Lista
-        </button>
-    </div>
+    }
 </div>
 
+@* Modal para revisar documentos *@
+@if (showModalDocumentos && docenteSeleccionado != null)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @onclick:stopPropagation="true">
+        <div class="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto" @onclick:stopPropagation="true">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium">Documentos de @docenteSeleccionado.NombreCompleto</h3>
+                <button
+                    @onclick="CerrarModalDocumentos"
+                    class="text-gray-400 hover:text-gray-600"
+                >
+                    ✕
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Información del Docente -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-900 mb-3">Información Personal</h4>
+                    <div class="space-y-2 text-sm">
+                        <p><strong>Nombre:</strong> @docenteSeleccionado.NombreCompleto</p>
+                        <p><strong>Cédula:</strong> @docenteSeleccionado.Cedula</p>
+                        <p><strong>Correo:</strong> @docenteSeleccionado.Correo</p>
+                        <p><strong>Nivel Actual:</strong> @docenteSeleccionado.NivelAcademico</p>
+                        <p><strong>Fecha Inicio Nivel:</strong> @docenteSeleccionado.FechaInicioNivel.ToString("dd/MM/yyyy")</p>
+                        <p><strong>Años en Nivel:</strong> @CalcularAnosEnNivel(docenteSeleccionado.FechaInicioNivel) años</p>
+                    </div>
+                </div>
+
+                <!-- Capacitaciones -->
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-blue-900 mb-3">Capacitaciones</h4>
+                    @if (capacitacionesDocente.Any())
+                    {
+                        <div class="space-y-2 text-sm max-h-32 overflow-y-auto">
+                            @foreach (var capacitacion in capacitacionesDocente)
+                            {
+                                <div class="border-l-2 border-blue-300 pl-2">
+                                    <p class="font-medium">@capacitacion.Nombre</p>
+                                    <p class="text-gray-600">@capacitacion.Horas horas - @capacitacion.FechaInicio.ToString("yyyy")</p>
+                                </div>
+                            }
+                        </div>
+                        <p class="mt-2 text-sm font-medium text-blue-800">
+                            Total: @capacitacionesDocente.Sum(c => c.Horas) horas
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-gray-500 text-sm">No hay capacitaciones registradas</p>
+                    }
+                </div>
+
+                <!-- Publicaciones -->
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-green-900 mb-3">Publicaciones Académicas</h4>
+                    @if (publicacionesDocente.Any())
+                    {
+                        <div class="space-y-2 text-sm max-h-32 overflow-y-auto">
+                            @foreach (var publicacion in publicacionesDocente)
+                            {
+                                <div class="border-l-2 border-green-300 pl-2">
+                                    <p class="font-medium">@publicacion.Titulo</p>
+                                    <p class="text-gray-600">@publicacion.Revista (@publicacion.Anio)</p>
+                                </div>
+                            }
+                        </div>
+                        <p class="mt-2 text-sm font-medium text-green-800">
+                            Total: @publicacionesDocente.Count publicaciones
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-gray-500 text-sm">No hay publicaciones registradas</p>
+                    }
+                </div>
+
+                <!-- Proyectos de Investigación -->
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-purple-900 mb-3">Proyectos de Investigación</h4>
+                    @if (proyectosDocente.Any())
+                    {
+                        <div class="space-y-2 text-sm max-h-32 overflow-y-auto">
+                            @foreach (var proyecto in proyectosDocente)
+                            {
+                                <div class="border-l-2 border-purple-300 pl-2">
+                                    <p class="font-medium">@proyecto.Titulo</p>
+                                    <p class="text-gray-600">@proyecto.RolEnProyecto - @proyecto.FechaInicio.ToString("yyyy")</p>
+                                </div>
+                            }
+                        </div>
+                        <p class="mt-2 text-sm font-medium text-purple-800">
+                            Total: @proyectosDocente.Count proyectos
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-gray-500 text-sm">No hay proyectos registrados</p>
+                    }
+                </div>
+            </div>
+
+            <div class="flex justify-end mt-6">
+                <button
+                    @onclick="CerrarModalDocumentos"
+                    class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                >
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
-    [Parameter] public List<AdminTeacher> TeachersData { get; set; } = new();
-    [Parameter] public bool loadingTeachers { get; set; } = false;
-    [Parameter] public string teachersError { get; set; } = string.Empty;
+    private List<DocenteDetalladoDto> docentes = new();
+    private List<CursoCapacitacionDto> capacitacionesDocente = new();
+    private List<PublicacionAcademicaDto> publicacionesDocente = new();
+    private List<ProyectoInvestigacionDto> proyectosDocente = new();
+    
+    private bool isLoading = true;
+    private string searchTerm = string.Empty;
+    
+    // Modal variables
+    private bool showModalDocumentos = false;
+    private DocenteDetalladoDto? docenteSeleccionado;
 
-    private string searchQuery = string.Empty;
-    private string levelFilter = "all";
-    private bool showLevelDropdown = false;
+    private IEnumerable<DocenteDetalladoDto> DocentesFiltrados =>
+        docentes.Where(d =>
+            string.IsNullOrWhiteSpace(searchTerm) ||
+            (d.NombreCompleto?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (d.Cedula?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (d.NivelAcademico?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
+        );
 
-    private List<AdminTeacher> FilteredTeachers => TeachersData
-        .Where(teacher =>
-            teacher.Name.ToLower().Contains(searchQuery.ToLower()) &&
-            (levelFilter == "all" || teacher.Level == levelFilter)
-        )
-        .ToList();
-
-    private void ToggleLevelDropdown()
+    protected override async Task OnInitializedAsync()
     {
-        showLevelDropdown = !showLevelDropdown;
+        await CargarDocentes();
     }
 
-    private void SetLevelFilter(string level)
+    private async Task CargarDocentes()
     {
-        levelFilter = level;
-        showLevelDropdown = false;
+        isLoading = true;
+        try
+        {
+            docentes = await DocenteService.ObtenerTodosLosDocentesDetalladosAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar docentes: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al cargar los docentes");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
-    public class AdminTeacher
+    private void OnSearchChanged(ChangeEventArgs e)
     {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string Level { get; set; } = string.Empty;
-        public int Years { get; set; }
-        public int Papers { get; set; }
-        public int Evaluation { get; set; }
-        public int Training { get; set; }
-        public int Research { get; set; }
-        public bool PromotionReady { get; set; }
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task AbrirModalDocumentos(DocenteDetalladoDto docente)
+    {
+        docenteSeleccionado = docente;
+        showModalDocumentos = true;
+        
+        // Cargar los documentos del docente
+        try
+        {
+            capacitacionesDocente = await DocenteService.ObtenerCapacitacionesPorDocenteAsync(docente.Id);
+            publicacionesDocente = await DocenteService.ObtenerPublicacionesPorDocenteAsync(docente.Id);
+            proyectosDocente = await DocenteService.ObtenerProyectosPorDocenteAsync(docente.Id);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar documentos del docente: {ex.Message}");
+            capacitacionesDocente = new();
+            publicacionesDocente = new();
+            proyectosDocente = new();
+        }
+        
+        StateHasChanged();
+    }
+
+    private void CerrarModalDocumentos()
+    {
+        showModalDocumentos = false;
+        docenteSeleccionado = null;
+        capacitacionesDocente.Clear();
+        publicacionesDocente.Clear();
+        proyectosDocente.Clear();
+    }
+
+    private async Task VerHistorialDocente(DocenteDetalladoDto docente)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", $"Historial de {docente.NombreCompleto} - Funcionalidad en desarrollo");
+    }
+
+    private async Task VerEvaluaciones(DocenteDetalladoDto docente)
+    {
+        try
+        {
+            var evaluaciones = await DocenteService.ObtenerEvaluacionesPorDocenteAsync(docente.Id);
+            if (evaluaciones.Any())
+            {
+                var mensaje = $"Evaluaciones de {docente.NombreCompleto}:\\n";
+                foreach (var eval in evaluaciones.OrderByDescending(e => e.Periodo))
+                {
+                    mensaje += $"- {eval.Periodo}: {eval.Puntaje} puntos\\n";
+                }
+                await JSRuntime.InvokeVoidAsync("alert", mensaje);
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"No se encontraron evaluaciones para {docente.NombreCompleto}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener evaluaciones: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al obtener las evaluaciones");
+        }
+    }
+
+    private int CalcularAnosEnNivel(DateTime fechaInicio)
+    {
+        return DateTime.Now.Year - fechaInicio.Year;
+    }
+
+    private string GetPuntajeColor(double puntaje)
+    {
+        return puntaje >= 85 ? "bg-green-100 text-green-800" :
+               puntaje >= 75 ? "bg-yellow-100 text-yellow-800" :
+               "bg-red-100 text-red-800";
     }
 }

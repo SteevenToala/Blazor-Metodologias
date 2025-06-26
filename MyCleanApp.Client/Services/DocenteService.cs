@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using MyCleanApp.Application.DTOs;
 using MyCleanApp.Client.DTOs;
 using System.Text;
 using System.Text.Json;
@@ -919,6 +918,103 @@ public class DocenteService
             return false;
         }
     }
+
+    // Métodos para gestión de docentes detallados
+    public async Task<List<MyCleanApp.Client.DTOs.DocenteDetalladoDto>> ObtenerTodosLosDocentesDetalladosAsync()
+    {
+        try
+        {
+            var response = await _http.GetAsync("http://localhost:5015/api/Docente/detallados");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var docentes = await response.Content.ReadFromJsonAsync<List<MyCleanApp.Client.DTOs.DocenteDetalladoDto>>();
+                return docentes ?? new List<MyCleanApp.Client.DTOs.DocenteDetalladoDto>();
+            }
+            else
+            {
+                Console.WriteLine($"Error al obtener docentes detallados: {response.StatusCode}");
+                return new List<MyCleanApp.Client.DTOs.DocenteDetalladoDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción al obtener docentes detallados: {ex.Message}");
+            return new List<MyCleanApp.Client.DTOs.DocenteDetalladoDto>();
+        }
+    }
+
+    public async Task<List<MyCleanApp.Client.DTOs.CursoCapacitacionDto>> ObtenerCapacitacionesPorDocenteAsync(int docenteId)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"http://localhost:5015/api/CursoCapacitacion/docente/{docenteId}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var capacitaciones = await response.Content.ReadFromJsonAsync<List<MyCleanApp.Client.DTOs.CursoCapacitacionDto>>();
+                return capacitaciones ?? new List<MyCleanApp.Client.DTOs.CursoCapacitacionDto>();
+            }
+            else
+            {
+                Console.WriteLine($"Error al obtener capacitaciones: {response.StatusCode}");
+                return new List<MyCleanApp.Client.DTOs.CursoCapacitacionDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción al obtener capacitaciones: {ex.Message}");
+            return new List<MyCleanApp.Client.DTOs.CursoCapacitacionDto>();
+        }
+    }
+
+    public async Task<List<MyCleanApp.Client.DTOs.PublicacionAcademicaDto>> ObtenerPublicacionesPorDocenteAsync(int docenteId)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"http://localhost:5015/api/PublicacionAcademica/docente/{docenteId}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var publicaciones = await response.Content.ReadFromJsonAsync<List<MyCleanApp.Client.DTOs.PublicacionAcademicaDto>>();
+                return publicaciones ?? new List<MyCleanApp.Client.DTOs.PublicacionAcademicaDto>();
+            }
+            else
+            {
+                Console.WriteLine($"Error al obtener publicaciones: {response.StatusCode}");
+                return new List<MyCleanApp.Client.DTOs.PublicacionAcademicaDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción al obtener publicaciones: {ex.Message}");
+            return new List<MyCleanApp.Client.DTOs.PublicacionAcademicaDto>();
+        }
+    }
+
+    public async Task<List<MyCleanApp.Client.DTOs.ProyectoInvestigacionDto>> ObtenerProyectosPorDocenteAsync(int docenteId)
+    {
+        try
+        {
+            var response = await _http.GetAsync($"http://localhost:5015/api/ProyectoInvestigacion/docente/{docenteId}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var proyectos = await response.Content.ReadFromJsonAsync<List<MyCleanApp.Client.DTOs.ProyectoInvestigacionDto>>();
+                return proyectos ?? new List<MyCleanApp.Client.DTOs.ProyectoInvestigacionDto>();
+            }
+            else
+            {
+                Console.WriteLine($"Error al obtener proyectos: {response.StatusCode}");
+                return new List<MyCleanApp.Client.DTOs.ProyectoInvestigacionDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción al obtener proyectos: {ex.Message}");
+            return new List<MyCleanApp.Client.DTOs.ProyectoInvestigacionDto>();
+        }
+    }
 }
 
 // DTOs para promociones
@@ -963,4 +1059,25 @@ public class EvaluacionDocenteUpdateDto
     public int Id { get; set; }
     public float Puntaje { get; set; }
     public string Observaciones { get; set; } = string.Empty;
+}
+
+public class DocenteDetalladoDto
+{
+    public int Id { get; set; }
+    public string Cedula { get; set; } = string.Empty;
+    public string Nombres { get; set; } = string.Empty;
+    public string Apellidos { get; set; } = string.Empty;
+    public string Correo { get; set; } = string.Empty;
+    public string Telefono { get; set; } = string.Empty;
+    public string Direccion { get; set; } = string.Empty;
+    public string Departamento { get; set; } = string.Empty;
+    public string Cargo { get; set; } = string.Empty;
+    public DateTime FechaContratacion { get; set; }
+    public string TipoContrato { get; set; } = string.Empty;
+    public decimal Salario { get; set; }
+    public string Estado { get; set; } = string.Empty;
+    public string UsuarioId { get; set; } = string.Empty;
+    public List<CursoCapacitacionDto> Capacitaciones { get; set; } = new();
+    public List<PublicacionAcademicaDto> Publicaciones { get; set; } = new();
+    public List<ProyectoInvestigacionDto> Proyectos { get; set; } = new();
 }

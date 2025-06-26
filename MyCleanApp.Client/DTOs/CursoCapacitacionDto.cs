@@ -1,4 +1,4 @@
-namespace MyCleanApp.Application.DTOs
+namespace MyCleanApp.Client.DTOs
 {
     public class CursoCapacitacionDto
     {

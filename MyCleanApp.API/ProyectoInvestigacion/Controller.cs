@@ -121,4 +121,22 @@ public class ProyectoInvestigacionController : ControllerBase
         Response.Headers["Content-Disposition"] = "inline; filename=documento.pdf";
         return File(proyecto.Documento, "application/pdf");
     }
+
+    [HttpGet("docente/{docenteId}")]
+    public async Task<ActionResult<IEnumerable<ProyectoInvestigacion>>> GetByDocente(int docenteId)
+    {
+        try
+        {
+            var proyectos = await _context.ProyectoInvestigacion
+                .Where(p => p.DocenteId == docenteId)
+                .OrderByDescending(p => p.FechaInicio)
+                .ToListAsync();
+
+            return Ok(proyectos);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+        }
+    }
 }

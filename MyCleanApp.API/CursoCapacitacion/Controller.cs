@@ -138,4 +138,22 @@ public class CursoCapacitacionController : ControllerBase
         Response.Headers["Content-Disposition"] = "inline; filename=certificado.pdf";
         return File(curso.Certificado, "application/pdf");
     }
+
+    [HttpGet("docente/{docenteId}")]
+    public async Task<ActionResult<IEnumerable<CursoCapacitacion>>> GetByDocente(int docenteId)
+    {
+        try
+        {
+            var capacitaciones = await _context.CursoCapacitacion
+                .Where(c => c.DocenteId == docenteId)
+                .OrderByDescending(c => c.FechaInicio)
+                .ToListAsync();
+
+            return Ok(capacitaciones);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+        }
+    }
 }
