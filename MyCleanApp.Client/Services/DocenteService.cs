@@ -719,4 +719,73 @@ public class DocenteService
         }
     }
 
+    // Métodos para gestión de promociones
+    public async Task<RequisitoPromocionResponse?> ObtenerRequisitosPromocionAsync()
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse?.usuario == null) return null;
+
+        try
+        {
+            var response = await _http.GetAsync($"http://localhost:5015/api/Docente/requisitos-promocion/{loginResponse.usuario.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<RequisitoPromocionResponse>();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error al obtener requisitos de promoción: {error}");
+                return null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción al obtener requisitos de promoción: {ex.Message}");
+            return null;
+        }
+    }
+
+    public async Task<bool> SolicitarPromocionAsync()
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse?.usuario == null) return false;
+
+        try
+        {
+            var response = await _http.PostAsync($"http://localhost:5015/api/Docente/solicitar-promocion/{loginResponse.usuario.Id}", null);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al solicitar promoción: {ex.Message}");
+            return false;
+        }
+    }
+}
+
+// DTOs para promociones
+public class RequisitoPromocionResponse
+{
+    public string NivelActual { get; set; } = string.Empty;
+    public string ProximoNivel { get; set; } = string.Empty;
+    public bool PuedePromoverse { get; set; }
+    public List<RequisitoEvaluacion> Requisitos { get; set; } = new();
+    public ResumenCumplimiento ResumenCumplimiento { get; set; } = new();
+}
+
+public class RequisitoEvaluacion
+{
+    public string TipoRequisito { get; set; } = string.Empty;
+    public float ValorRequerido { get; set; }
+    public float ValorActual { get; set; }
+    public bool Cumple { get; set; }
+    public float Porcentaje { get; set; }
+}
+
+public class ResumenCumplimiento
+{
+    public int RequisitosCumplidos { get; set; }
+    public int TotalRequisitos { get; set; }
+    public float PorcentajeGeneral { get; set; }
 }

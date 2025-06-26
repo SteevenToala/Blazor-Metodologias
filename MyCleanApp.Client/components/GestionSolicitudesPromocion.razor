@@ -1,0 +1,350 @@
+@using MyCleanApp.Client.Services
+@inject SolicitudPromocionService SolicitudService
+@inject IJSRuntime JSRuntime
+
+<div class="solicitudes-promocion-admin">
+    <div class="card">
+        <div class="card-header">
+            <h4><i class="fas fa-clipboard-list"></i> Gestión de Solicitudes de Promoción</h4>
+        </div>
+        <div class="card-body">
+            @if (isLoading)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando solicitudes...</span>
+                    </div>
+                </div>
+            }
+            else if (solicitudes == null || !solicitudes.Any())
+            {
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No hay solicitudes de promoción pendientes.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Docente</th>
+                                <th>Nivel Actual</th>
+                                <th>Nivel Solicitado</th>
+                                <th>Fecha Solicitud</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var solicitud in solicitudes)
+                            {
+                                <tr class="@GetRowClass(solicitud.Estado)">
+                                    <td>
+                                        <strong>@solicitud.DocenteNombre</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">@solicitud.NivelActual</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">@solicitud.NuevoNivel</span>
+                                    </td>
+                                    <td>
+                                        @solicitud.FechaSolicitud.ToString("dd/MM/yyyy")
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-@GetEstadoBadgeClass(solicitud.Estado)">
+                                            @solicitud.Estado
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (solicitud.Estado == "PENDIENTE")
+                                        {
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-success btn-sm" 
+                                                        @onclick="() => MostrarModalAprobacion(solicitud)"
+                                                        disabled="@isProcessing">
+                                                    <i class="fas fa-check"></i> Aprobar
+                                                </button>
+                                                <button class="btn btn-danger btn-sm" 
+                                                        @onclick="() => MostrarModalRechazo(solicitud)"
+                                                        disabled="@isProcessing">
+                                                    <i class="fas fa-times"></i> Rechazar
+                                                </button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <small class="text-muted">
+                                                @if (solicitud.FechaRespuesta.HasValue)
+                                                {
+                                                    <span>Procesada: @solicitud.FechaRespuesta.Value.ToString("dd/MM/yyyy")</span>
+                                                }
+                                            </small>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Aprobación -->
+@if (showAprobacionModal && solicitudSeleccionada != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-check-circle text-success"></i>
+                        Aprobar Promoción
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModales"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Docente:</strong> @solicitudSeleccionada.DocenteNombre</p>
+                    <p><strong>Promoción:</strong> @solicitudSeleccionada.NivelActual → @solicitudSeleccionada.NuevoNivel</p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Observaciones (opcional):</label>
+                        <textarea class="form-control" @bind="observacionesAprobacion" rows="3" 
+                                  placeholder="Comentarios sobre la aprobación..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModales">Cancelar</button>
+                    <button type="button" class="btn btn-success" @onclick="AprobarSolicitud" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="fas fa-check"></i> Confirmar Aprobación
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de Rechazo -->
+@if (showRechazoModal && solicitudSeleccionada != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-times-circle text-danger"></i>
+                        Rechazar Promoción
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModales"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Docente:</strong> @solicitudSeleccionada.DocenteNombre</p>
+                    <p><strong>Promoción:</strong> @solicitudSeleccionada.NivelActual → @solicitudSeleccionada.NuevoNivel</p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Motivo del rechazo <span class="text-danger">*</span>:</label>
+                        <textarea class="form-control" @bind="motivoRechazo" rows="3" 
+                                  placeholder="Explique las razones del rechazo..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModales">Cancelar</button>
+                    <button type="button" class="btn btn-danger" @onclick="RechazarSolicitud" 
+                            disabled="@(isProcessing || string.IsNullOrWhiteSpace(motivoRechazo))">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="fas fa-times"></i> Confirmar Rechazo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .solicitudes-promocion-admin .card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-radius: 0.5rem;
+    }
+
+    .solicitudes-promocion-admin .card-header {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        color: white;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+        border: none;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.1);
+    }
+
+    .row-pendiente {
+        background-color: rgba(255, 193, 7, 0.1);
+    }
+
+    .row-aprobada {
+        background-color: rgba(25, 135, 84, 0.1);
+    }
+
+    .row-rechazada {
+        background-color: rgba(220, 53, 69, 0.1);
+    }
+</style>
+
+@code {
+    private List<SolicitudPromocionDto>? solicitudes;
+    private bool isLoading = true;
+    private bool isProcessing = false;
+    private bool showAprobacionModal = false;
+    private bool showRechazoModal = false;
+    private SolicitudPromocionDto? solicitudSeleccionada;
+    private string observacionesAprobacion = "";
+    private string motivoRechazo = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarSolicitudes();
+    }
+
+    private async Task CargarSolicitudes()
+    {
+        isLoading = true;
+        try
+        {
+            solicitudes = await SolicitudService.ObtenerSolicitudesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar solicitudes: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al cargar las solicitudes");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void MostrarModalAprobacion(SolicitudPromocionDto solicitud)
+    {
+        solicitudSeleccionada = solicitud;
+        observacionesAprobacion = "";
+        showAprobacionModal = true;
+    }
+
+    private void MostrarModalRechazo(SolicitudPromocionDto solicitud)
+    {
+        solicitudSeleccionada = solicitud;
+        motivoRechazo = "";
+        showRechazoModal = true;
+    }
+
+    private void CerrarModales()
+    {
+        showAprobacionModal = false;
+        showRechazoModal = false;
+        solicitudSeleccionada = null;
+        observacionesAprobacion = "";
+        motivoRechazo = "";
+    }
+
+    private async Task AprobarSolicitud()
+    {
+        if (solicitudSeleccionada == null) return;
+
+        isProcessing = true;
+        try
+        {
+            var success = await SolicitudService.AprobarSolicitudAsync(
+                solicitudSeleccionada.Id, 
+                observacionesAprobacion);
+
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Solicitud aprobada exitosamente. El docente ha sido promovido.");
+                CerrarModales();
+                await CargarSolicitudes();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Error al aprobar la solicitud");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al aprobar solicitud: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al procesar la aprobación");
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RechazarSolicitud()
+    {
+        if (solicitudSeleccionada == null || string.IsNullOrWhiteSpace(motivoRechazo)) return;
+
+        isProcessing = true;
+        try
+        {
+            var success = await SolicitudService.RechazarSolicitudAsync(
+                solicitudSeleccionada.Id, 
+                motivoRechazo);
+
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Solicitud rechazada.");
+                CerrarModales();
+                await CargarSolicitudes();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Error al rechazar la solicitud");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al rechazar solicitud: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al procesar el rechazo");
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetRowClass(string estado)
+    {
+        return estado switch
+        {
+            "PENDIENTE" => "row-pendiente",
+            "APROBADA" => "row-aprobada",
+            "RECHAZADA" => "row-rechazada",
+            _ => ""
+        };
+    }
+
+    private string GetEstadoBadgeClass(string estado)
+    {
+        return estado switch
+        {
+            "PENDIENTE" => "warning",
+            "APROBADA" => "success",
+            "RECHAZADA" => "danger",
+            _ => "secondary"
+        };
+    }
+}

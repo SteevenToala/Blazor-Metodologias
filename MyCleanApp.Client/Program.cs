@@ -14,6 +14,7 @@ builder.Services.AddScoped<LocalStorageService>();
 builder.Services.AddScoped<EvaluacionService>();
 builder.Services.AddScoped<DocenteService>();
 builder.Services.AddScoped<VerificacionService>();
+builder.Services.AddScoped<SolicitudPromocionService>();
 
 
 await builder.Build().RunAsync();

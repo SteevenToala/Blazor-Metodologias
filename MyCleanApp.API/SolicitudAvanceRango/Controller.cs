@@ -142,4 +142,94 @@ public class SolicitudAvanceRangoController : ControllerBase
             return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
         }
     }
+
+    [HttpPost("{id}/aprobar")]
+    public async Task<IActionResult> AprobarSolicitud(int id, [FromBody] AprobacionRequest request)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            // Buscar la solicitud con sus relaciones
+            var solicitud = await _context.SolicitudAvanceRango
+                .Include(s => s.Docente)
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (solicitud == null)
+                return NotFound(new { error = "Solicitud no encontrada" });
+
+            if (solicitud.Estado == "APROBADA")
+                return BadRequest(new { error = "La solicitud ya ha sido aprobada" });
+
+            // Actualizar el estado de la solicitud
+            solicitud.Estado = "APROBADA";
+            solicitud.FechaRespuesta = DateTime.Now;
+            solicitud.Observaciones = request.Observaciones ?? "Promoción aprobada";
+
+            // Actualizar el nivel del docente
+            var docente = solicitud.Docente;
+            if (docente != null)
+            {
+                docente.NivelAcademicoId = solicitud.NuevoNivelAcademicoId;
+                docente.FechaInicioNivel = DateTime.Now;
+                _context.Entry(docente).State = EntityState.Modified;
+            }
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(new 
+            { 
+                message = "Solicitud aprobada exitosamente",
+                solicitudId = id,
+                nuevoNivelId = solicitud.NuevoNivelAcademicoId,
+                fechaPromocion = DateTime.Now
+            });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/rechazar")]
+    public async Task<IActionResult> RechazarSolicitud(int id, [FromBody] RechazoRequest request)
+    {
+        try
+        {
+            var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
+            if (solicitud == null)
+                return NotFound(new { error = "Solicitud no encontrada" });
+
+            if (solicitud.Estado == "RECHAZADA")
+                return BadRequest(new { error = "La solicitud ya ha sido rechazada" });
+
+            solicitud.Estado = "RECHAZADA";
+            solicitud.FechaRespuesta = DateTime.Now;
+            solicitud.Observaciones = request.Motivo ?? "Solicitud rechazada";
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new 
+            { 
+                message = "Solicitud rechazada",
+                solicitudId = id,
+                motivo = request.Motivo
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
+    }
+}
+
+public class AprobacionRequest
+{
+    public string? Observaciones { get; set; }
+}
+
+public class RechazoRequest
+{
+    public string? Motivo { get; set; }
 }

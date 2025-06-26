@@ -108,4 +108,172 @@ public class DocenteController : ControllerBase
             return StatusCode(500, $"Error interno del servidor: {ex.Message}");
         }
     }
+
+    [HttpGet("requisitos-promocion/{usuarioId}")]
+    public async Task<ActionResult<object>> GetRequisitosPromocion(int usuarioId)
+    {
+        try
+        {
+            var docente = await _context.Docente
+                .Include(d => d.NivelAcademico)
+                .FirstOrDefaultAsync(d => d.UsuarioId == usuarioId);
+
+            if (docente == null)
+                return NotFound("Docente no encontrado para ese usuario");
+
+            // Determinar el próximo nivel académico
+            var nivelActual = docente.NivelAcademico.nombre;
+            var proximoNivelId = nivelActual switch
+            {
+                "DT1" => 1, // DT2
+                "DT2" => 2, // DT3
+                "DT3" => 3, // DT4
+                "DT4" => 4, // DT5
+                _ => 0
+            };
+
+            if (proximoNivelId == 0)
+                return Ok(new { message = "El docente está en el nivel máximo", puedePromoverse = false });
+
+            // Obtener requisitos para el próximo nivel
+            var requisitosProximoNivel = await _context.RequisitoNivelAcademico
+                .Include(r => r.TipoRequisito)
+                .Where(r => r.NivelAcademicoId == proximoNivelId)
+                .ToListAsync();
+
+            // Calcular estado actual del docente
+            var aniosEnNivel = (DateTime.Now - docente.FechaInicioNivel).TotalDays / 365.25;
+            
+            var publicaciones = await _context.PublicacionAcademica
+                .CountAsync(p => p.DocenteId == docente.Id);
+
+            var puntajeEvaluacion = await _context.EvaluacionDocente
+                .Where(e => e.DocenteId == docente.Id)
+                .AverageAsync(e => (float?)e.Puntaje) ?? 0;
+
+            var horasCapacitacion = await _context.CursoCapacitacion
+                .Where(c => c.DocenteId == docente.Id)
+                .SumAsync(c => (int?)c.Horas) ?? 0;
+
+            // Calcular meses de investigación
+            var proyectosInvestigacion = await _context.ProyectoInvestigacion
+                .Where(p => p.DocenteId == docente.Id)
+                .ToListAsync();
+
+            var mesesInvestigacion = proyectosInvestigacion
+                .Sum(p => {
+                    var inicio = p.FechaInicio;
+                    var fin = p.FechaFin;
+                    return ((fin - inicio).TotalDays / 30.44); // Promedio de días por mes
+                });
+
+            // Evaluar cada requisito
+            var evaluacionRequisitos = requisitosProximoNivel.Select(req =>
+            {
+                var valorActual = req.TipoRequisito.Nombre switch
+                {
+                    "Años en el rango" => (float)Math.Floor(aniosEnNivel),
+                    "Papers" => (float)publicaciones,
+                    "Puntaje Evaluación" => puntajeEvaluacion,
+                    "Horas Capacitación" => (float)horasCapacitacion,
+                    "Investigaciones" => (float)Math.Floor(mesesInvestigacion),
+                    _ => 0f
+                };
+
+                var cumple = valorActual >= req.ValorRequerido;
+
+                return new
+                {
+                    TipoRequisito = req.TipoRequisito.Nombre,
+                    ValorRequerido = req.ValorRequerido,
+                    ValorActual = valorActual,
+                    Cumple = cumple,
+                    Porcentaje = req.ValorRequerido > 0 ? (valorActual / req.ValorRequerido * 100) : 100
+                };
+            }).ToList();
+
+            var puedePromoverse = evaluacionRequisitos.All(r => r.Cumple);
+
+            var proximoNivel = await _context.NivelAcademico.FindAsync(proximoNivelId);
+
+            return Ok(new
+            {
+                NivelActual = nivelActual,
+                ProximoNivel = proximoNivel?.nombre ?? "N/A",
+                PuedePromoverse = puedePromoverse,
+                Requisitos = evaluacionRequisitos,
+                ResumenCumplimiento = new
+                {
+                    RequisitosCumplidos = evaluacionRequisitos.Count(r => r.Cumple),
+                    TotalRequisitos = evaluacionRequisitos.Count,
+                    PorcentajeGeneral = evaluacionRequisitos.Count > 0 
+                        ? evaluacionRequisitos.Average(r => r.Porcentaje) 
+                        : 0
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
+    }
+
+    [HttpPost("solicitar-promocion/{usuarioId}")]
+    public async Task<ActionResult> SolicitarPromocion(int usuarioId)
+    {
+        try
+        {
+            var docente = await _context.Docente
+                .Include(d => d.NivelAcademico)
+                .FirstOrDefaultAsync(d => d.UsuarioId == usuarioId);
+
+            if (docente == null)
+                return NotFound("Docente no encontrado para ese usuario");
+
+            // Verificar si ya tiene una solicitud pendiente
+            var solicitudPendiente = await _context.SolicitudAvanceRango
+                .AnyAsync(s => s.DocenteId == docente.Id && s.Estado == "PENDIENTE");
+
+            if (solicitudPendiente)
+                return BadRequest(new { error = "Ya tiene una solicitud de promoción pendiente" });
+
+            // Determinar el próximo nivel
+            var nivelActual = docente.NivelAcademico.nombre;
+            var proximoNivelId = nivelActual switch
+            {
+                "DT1" => 1, // DT2
+                "DT2" => 2, // DT3
+                "DT3" => 3, // DT4
+                "DT4" => 4, // DT5
+                _ => 0
+            };
+
+            if (proximoNivelId == 0)
+                return BadRequest(new { error = "El docente está en el nivel máximo" });
+
+            // Crear la solicitud
+            var nuevaSolicitud = new SolicitudAvanceRango
+            {
+                DocenteId = docente.Id,
+                FechaSolicitud = DateTime.Now,
+                Estado = "PENDIENTE",
+                NuevoNivelAcademicoId = proximoNivelId,
+                Observaciones = "Solicitud generada automáticamente"
+            };
+
+            _context.SolicitudAvanceRango.Add(nuevaSolicitud);
+            await _context.SaveChangesAsync();
+
+            return Ok(new 
+            { 
+                message = "Solicitud de promoción creada exitosamente",
+                solicitudId = nuevaSolicitud.Id,
+                proximoNivel = proximoNivelId
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
+    }
 }
