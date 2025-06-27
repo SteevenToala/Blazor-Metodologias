@@ -1,205 +1,222 @@
 @using MyCleanApp.Client.Services
+@using MudBlazor
 @inject SolicitudPromocionService SolicitudService
 @inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
-<div class="solicitudes-promocion-admin">
-    <div class="card">
-        <div class="card-header">
-            <h4><i class="fas fa-clipboard-list"></i> Gestión de Solicitudes de Promoción</h4>
+<MudPaper Class="pa-6" Elevation="4">
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" md="8">
+            <div class="d-flex align-center">
+                <MudIcon Icon="Icons.Material.Filled.Assignment" Color="Color.Primary" Size="Size.Large" Class="mr-3" />
+                <div>
+                    <MudText Typo="Typo.h5" Class="font-weight-bold">Gestión de Solicitudes de Promoción</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Administración de solicitudes de avance académico</MudText>
+                </div>
+            </div>
+        </MudItem>
+        <MudItem xs="12" md="4" Class="d-flex justify-end">
+            <MudButton Variant="Variant.Filled" 
+                      Color="Color.Primary" 
+                      StartIcon="Icons.Material.Filled.Refresh"
+                      OnClick="CargarSolicitudes"
+                      Disabled="isLoading">
+                Actualizar
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center pa-8">
+            <div class="d-flex flex-column align-center">
+                <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                <MudText Typo="Typo.body2" Class="mt-3" Color="Color.Secondary">Cargando solicitudes...</MudText>
+            </div>
         </div>
-        <div class="card-body">
-            @if (isLoading)
-            {
-                <div class="text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Cargando solicitudes...</span>
-                    </div>
-                </div>
-            }
-            else if (solicitudes == null || !solicitudes.Any())
-            {
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i> No hay solicitudes de promoción pendientes.
-                </div>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Docente</th>
-                                <th>Nivel Actual</th>
-                                <th>Nivel Solicitado</th>
-                                <th>Fecha Solicitud</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var solicitud in solicitudes)
+    }
+    else if (solicitudes == null || !solicitudes.Any())
+    {
+        <MudAlert Severity="Severity.Info" Class="my-4">
+            <div class="d-flex align-center">
+                <MudIcon Icon="Icons.Material.Filled.Info" Class="mr-2" />
+                <span>No hay solicitudes de promoción pendientes.</span>
+            </div>
+        </MudAlert>
+    }
+    else
+    {
+        <MudDataGrid T="SolicitudPromocionDto" 
+                     Items="@solicitudes" 
+                     Filterable="true" 
+                     FilterMode="DataGridFilterMode.ColumnFilterRow"
+                     SortMode="SortMode.Multiple" 
+                     Groupable="false"
+                     Hover="true"
+                     RowStyleFunc="@GetRowStyle"
+                     Elevation="2"
+                     Class="mud-elevation-4">
+            
+            <Columns>
+                <PropertyColumn Property="x => x.DocenteNombre" Title="Docente">
+                    <CellTemplate>
+                        <div class="d-flex align-center">
+                            <MudAvatar Color="Color.Primary" Size="Size.Small" Class="mr-3">
+                                @(context.Item.DocenteNombre.Split(' ').FirstOrDefault()?.Substring(0, 1).ToUpper())
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.body1" Class="font-weight-medium">@context.Item.DocenteNombre</MudText>
+                            </div>
+                        </div>
+                    </CellTemplate>
+                </PropertyColumn>
+
+                <PropertyColumn Property="x => x.NivelActual" Title="Nivel Actual">
+                    <CellTemplate>
+                        <MudChip Color="Color.Default" Size="Size.Small" Text="@context.Item.NivelActual" />
+                    </CellTemplate>
+                </PropertyColumn>
+
+                <PropertyColumn Property="x => x.NuevoNivel" Title="Nivel Solicitado">
+                    <CellTemplate>
+                        <MudChip Color="Color.Primary" Size="Size.Small" Text="@context.Item.NuevoNivel" />
+                    </CellTemplate>
+                </PropertyColumn>
+
+                <PropertyColumn Property="x => x.FechaSolicitud" Title="Fecha Solicitud" Format="dd/MM/yyyy" />
+
+                <PropertyColumn Property="x => x.Estado" Title="Estado">
+                    <CellTemplate>
+                        <MudChip Color="@GetEstadoColor(context.Item.Estado)" 
+                                Size="Size.Small" 
+                                Text="@context.Item.Estado"
+                                Icon="@GetEstadoIcon(context.Item.Estado)" />
+                    </CellTemplate>
+                </PropertyColumn>
+
+                <TemplateColumn Title="Acciones" Sortable="false">
+                    <CellTemplate>
+                        @if (context.Item.Estado == "PENDIENTE")
+                        {
+                            <div class="d-flex gap-2">
+                                <MudButton Variant="Variant.Filled" 
+                                          Color="Color.Success" 
+                                          Size="Size.Small"
+                                          StartIcon="Icons.Material.Filled.Check"
+                                          OnClick="() => MostrarModalAprobacion(context.Item)"
+                                          Disabled="isProcessing">
+                                    Aprobar
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled" 
+                                          Color="Color.Error" 
+                                          Size="Size.Small"
+                                          StartIcon="Icons.Material.Filled.Close"
+                                          OnClick="() => MostrarModalRechazo(context.Item)"
+                                          Disabled="isProcessing">
+                                    Rechazar
+                                </MudButton>
+                            </div>
+                        }
+                        else
+                        {
+                            @if (context.Item.FechaRespuesta.HasValue)
                             {
-                                <tr class="@GetRowClass(solicitud.Estado)">
-                                    <td>
-                                        <strong>@solicitud.DocenteNombre</strong>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-secondary">@solicitud.NivelActual</span>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-primary">@solicitud.NuevoNivel</span>
-                                    </td>
-                                    <td>
-                                        @solicitud.FechaSolicitud.ToString("dd/MM/yyyy")
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-@GetEstadoBadgeClass(solicitud.Estado)">
-                                            @solicitud.Estado
-                                        </span>
-                                    </td>
-                                    <td>
-                                        @if (solicitud.Estado == "PENDIENTE")
-                                        {
-                                            <div class="btn-group" role="group">
-                                                <button class="btn btn-success btn-sm" 
-                                                        @onclick="() => MostrarModalAprobacion(solicitud)"
-                                                        disabled="@isProcessing">
-                                                    <i class="fas fa-check"></i> Aprobar
-                                                </button>
-                                                <button class="btn btn-danger btn-sm" 
-                                                        @onclick="() => MostrarModalRechazo(solicitud)"
-                                                        disabled="@isProcessing">
-                                                    <i class="fas fa-times"></i> Rechazar
-                                                </button>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <small class="text-muted">
-                                                @if (solicitud.FechaRespuesta.HasValue)
-                                                {
-                                                    <span>Procesada: @solicitud.FechaRespuesta.Value.ToString("dd/MM/yyyy")</span>
-                                                }
-                                            </small>
-                                        }
-                                    </td>
-                                </tr>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Procesada: @context.Item.FechaRespuesta.Value.ToString("dd/MM/yyyy")
+                                </MudText>
                             }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </div>
-    </div>
-</div>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    }
+</MudPaper>
 
 <!-- Modal de Aprobación -->
 @if (showAprobacionModal && solicitudSeleccionada != null)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="fas fa-check-circle text-success"></i>
-                        Aprobar Promoción
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModales"></button>
-                </div>
-                <div class="modal-body">
-                    <p><strong>Docente:</strong> @solicitudSeleccionada.DocenteNombre</p>
-                    <p><strong>Promoción:</strong> @solicitudSeleccionada.NivelActual → @solicitudSeleccionada.NuevoNivel</p>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Observaciones (opcional):</label>
-                        <textarea class="form-control" @bind="observacionesAprobacion" rows="3" 
-                                  placeholder="Comentarios sobre la aprobación..."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CerrarModales">Cancelar</button>
-                    <button type="button" class="btn btn-success" @onclick="AprobarSolicitud" disabled="@isProcessing">
-                        @if (isProcessing)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2"></span>
-                        }
-                        <i class="fas fa-check"></i> Confirmar Aprobación
-                    </button>
-                </div>
+    <MudDialog Visible="showAprobacionModal" Options="@dialogOptions">
+        <TitleContent>
+            <div class="d-flex align-center">
+                <MudIcon Icon="Icons.Material.Filled.CheckCircle" Color="Color.Success" Class="mr-3" />
+                <MudText Typo="Typo.h6">Aprobar Promoción</MudText>
             </div>
-        </div>
-    </div>
+        </TitleContent>
+        <DialogContent>
+            <div class="mb-4">
+                <MudText><strong>Docente:</strong> @solicitudSeleccionada.DocenteNombre</MudText>
+                <MudText><strong>Promoción:</strong> @solicitudSeleccionada.NivelActual → @solicitudSeleccionada.NuevoNivel</MudText>
+            </div>
+            
+            <MudTextField Label="Observaciones (opcional)" 
+                         @bind-Value="observacionesAprobacion" 
+                         Variant="Variant.Outlined" 
+                         Lines="3"
+                         Placeholder="Comentarios sobre la aprobación..."
+                         FullWidth="true" />
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="CerrarModales" Variant="Variant.Text">Cancelar</MudButton>
+            <MudButton OnClick="AprobarSolicitud" 
+                      Variant="Variant.Filled" 
+                      Color="Color.Success"
+                      StartIcon="Icons.Material.Filled.Check"
+                      Disabled="isProcessing">
+                @if (isProcessing)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Confirmar Aprobación
+            </MudButton>
+        </DialogActions>
+    </MudDialog>
 }
 
 <!-- Modal de Rechazo -->
 @if (showRechazoModal && solicitudSeleccionada != null)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="fas fa-times-circle text-danger"></i>
-                        Rechazar Promoción
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModales"></button>
-                </div>
-                <div class="modal-body">
-                    <p><strong>Docente:</strong> @solicitudSeleccionada.DocenteNombre</p>
-                    <p><strong>Promoción:</strong> @solicitudSeleccionada.NivelActual → @solicitudSeleccionada.NuevoNivel</p>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Motivo del rechazo <span class="text-danger">*</span>:</label>
-                        <textarea class="form-control" @bind="motivoRechazo" rows="3" 
-                                  placeholder="Explique las razones del rechazo..." required></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CerrarModales">Cancelar</button>
-                    <button type="button" class="btn btn-danger" @onclick="RechazarSolicitud" 
-                            disabled="@(isProcessing || string.IsNullOrWhiteSpace(motivoRechazo))">
-                        @if (isProcessing)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2"></span>
-                        }
-                        <i class="fas fa-times"></i> Confirmar Rechazo
-                    </button>
-                </div>
+    <MudDialog Visible="showRechazoModal" Options="@dialogOptions">
+        <TitleContent>
+            <div class="d-flex align-center">
+                <MudIcon Icon="Icons.Material.Filled.Cancel" Color="Color.Error" Class="mr-3" />
+                <MudText Typo="Typo.h6">Rechazar Promoción</MudText>
             </div>
-        </div>
-    </div>
+        </TitleContent>
+        <DialogContent>
+            <div class="mb-4">
+                <MudText><strong>Docente:</strong> @solicitudSeleccionada.DocenteNombre</MudText>
+                <MudText><strong>Promoción:</strong> @solicitudSeleccionada.NivelActual → @solicitudSeleccionada.NuevoNivel</MudText>
+            </div>
+            
+            <MudTextField Label="Motivo del rechazo *" 
+                         @bind-Value="motivoRechazo" 
+                         Variant="Variant.Outlined" 
+                         Lines="3"
+                         Placeholder="Explique las razones del rechazo..."
+                         Required="true"
+                         RequiredError="El motivo del rechazo es obligatorio"
+                         FullWidth="true" />
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="CerrarModales" Variant="Variant.Text">Cancelar</MudButton>
+            <MudButton OnClick="RechazarSolicitud" 
+                      Variant="Variant.Filled" 
+                      Color="Color.Error"
+                      StartIcon="Icons.Material.Filled.Close"
+                      Disabled="@(isProcessing || string.IsNullOrWhiteSpace(motivoRechazo))">
+                @if (isProcessing)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Confirmar Rechazo
+            </MudButton>
+        </DialogActions>
+    </MudDialog>
 }
 
-<style>
-    .solicitudes-promocion-admin .card {
-        border: none;
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-        border-radius: 0.5rem;
-    }
 
-    .solicitudes-promocion-admin .card-header {
-        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-        color: white;
-        border-radius: 0.5rem 0.5rem 0 0 !important;
-        border: none;
-    }
-
-    .table-hover tbody tr:hover {
-        background-color: rgba(0, 123, 255, 0.1);
-    }
-
-    .row-pendiente {
-        background-color: rgba(255, 193, 7, 0.1);
-    }
-
-    .row-aprobada {
-        background-color: rgba(25, 135, 84, 0.1);
-    }
-
-    .row-rechazada {
-        background-color: rgba(220, 53, 69, 0.1);
-    }
-</style>
 
 @code {
     private List<SolicitudPromocionDto>? solicitudes;
@@ -226,7 +243,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error al cargar solicitudes: {ex.Message}");
-            await JSRuntime.InvokeVoidAsync("alert", "Error al cargar las solicitudes");
+            Snackbar.Add("Error al cargar las solicitudes", Severity.Error);
         }
         finally
         {
@@ -271,19 +288,19 @@
 
             if (success)
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Solicitud aprobada exitosamente. El docente ha sido promovido y su evaluación ha sido reiniciada.");
+                Snackbar.Add("Solicitud aprobada exitosamente. El docente ha sido promovido y su evaluación ha sido reiniciada.", Severity.Success);
                 CerrarModales();
                 await CargarSolicitudes();
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Error al aprobar la solicitud");
+                Snackbar.Add("Error al aprobar la solicitud", Severity.Error);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error al aprobar solicitud: {ex.Message}");
-            await JSRuntime.InvokeVoidAsync("alert", "Error al procesar la aprobación");
+            Snackbar.Add("Error al procesar la aprobación", Severity.Error);
         }
         finally
         {
@@ -305,19 +322,19 @@
 
             if (success)
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Solicitud rechazada.");
+                Snackbar.Add("Solicitud rechazada.", Severity.Success);
                 CerrarModales();
                 await CargarSolicitudes();
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Error al rechazar la solicitud");
+                Snackbar.Add("Error al rechazar la solicitud", Severity.Error);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error al rechazar solicitud: {ex.Message}");
-            await JSRuntime.InvokeVoidAsync("alert", "Error al procesar el rechazo");
+            Snackbar.Add("Error al procesar el rechazo", Severity.Error);
         }
         finally
         {
@@ -326,16 +343,44 @@
         }
     }
 
-    private string GetRowClass(string estado)
+    private string GetRowStyle(SolicitudPromocionDto item, int index)
     {
-        return estado switch
+        return item.Estado switch
         {
-            "PENDIENTE" => "row-pendiente",
-            "APROBADA" => "row-aprobada",
-            "RECHAZADA" => "row-rechazada",
+            "PENDIENTE" => "background-color: rgba(255, 193, 7, 0.1);",
+            "APROBADA" => "background-color: rgba(25, 135, 84, 0.1);",
+            "RECHAZADA" => "background-color: rgba(220, 53, 69, 0.1);",
             _ => ""
         };
     }
+
+    private Color GetEstadoColor(string estado)
+    {
+        return estado switch
+        {
+            "PENDIENTE" => Color.Warning,
+            "APROBADA" => Color.Success,
+            "RECHAZADA" => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private string GetEstadoIcon(string estado)
+    {
+        return estado switch
+        {
+            "PENDIENTE" => Icons.Material.Filled.HourglassEmpty,
+            "APROBADA" => Icons.Material.Filled.CheckCircle,
+            "RECHAZADA" => Icons.Material.Filled.Cancel,
+            _ => Icons.Material.Filled.Help
+        };
+    }
+
+    private DialogOptions dialogOptions = new()
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true
+    };
 
     private string GetEstadoBadgeClass(string estado)
     {

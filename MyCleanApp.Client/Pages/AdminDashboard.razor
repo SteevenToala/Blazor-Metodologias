@@ -1,97 +1,42 @@
 @inject HttpClient Http
 @inject IJSRuntime JS
-@using MyCleanApp.Client.components
+@inject ISnackbar Snackbar
+@using MyCleanApp.Client.Components
 
 @page "/admin-dashboard"
 
-<div class="container mx-auto px-4 py-8">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
     <AdminDashboardHeader/>
 
     <AdminDashboardStats />
 
-    @* Pestañas principales *@
-    <div class="space-y-4">
-        <div class="border-b border-gray-200">
-            <nav class="-mb-px flex space-x-8">
-                @foreach (var tab in new[] { 
-                    (Id: "teachers", Label: "Docentes", Icon: "👥"), 
-                    (Id: "promotions", Label: "Promociones", Icon: "📈"), 
-                    //(Id: "verificacion", Label: "Verificación", Icon: "📋"), 
-                    //(Id: "comision", Label: "Comisión Académica", Icon: "🏛️"), 
-                    //(Id: "apelaciones", Label: "Apelaciones", Icon: "⚖️"), 
-                    (Id: "evaluations", Label: "Evaluaciones", Icon: "📊"), 
-                    //(Id: "reports", Label: "Informes", Icon: "📄") 
-                })
-                {
-                    <button
-                        @onclick="() => SetActiveTab(tab.Id)"
-                        class="py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 @(activeTab == tab.Id ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300")"
-                    >
-                        <span>@tab.Icon</span>
-                        <span>@tab.Label</span>
-                    </button>
-                }
-            </nav>
-        </div>
+    @* Pestañas principales con MudBlazor *@
+    <MudPaper Class="mt-6" Elevation="2">
+        <MudTabs Elevation="0" 
+                 Rounded="true" 
+                 Color="Color.Primary"
+                 SliderColor="Color.Secondary"
+                 @bind-ActivePanelIndex="activeTabIndex"
+                 PanelClass="pa-6">
 
-        @* Contenido de las pestañas *@
-        @if (activeTab == "teachers")
-        {
-            <AdminDashboardTeachers />
-        }
+            <MudTabPanel Text="Docentes" Icon="Icons.Material.Filled.People">
+                <AdminDashboardTeachers />
+            </MudTabPanel>
 
-        @if (activeTab == "promotions")
-        {
-            <GestionSolicitudesPromocion />
-        }
+            <MudTabPanel Text="Promociones" Icon="Icons.Material.Filled.TrendingUp">
+                <GestionSolicitudesPromocion />
+            </MudTabPanel>
 
-        @if (activeTab == "verificacion")
-        {
-            <div class="space-y-6">
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h3 class="font-medium text-blue-900 mb-2">📋 Sistema de Verificación de Documentos</h3>
-                    <p class="text-sm text-blue-700">Lista de verificación conforme al Anexo 1 del Reglamento UTA</p>
-                </div>
-                <ListaVerificacionComponent />
-            </div>
-        }
+            <MudTabPanel Text="Evaluaciones" Icon="Icons.Material.Filled.Assessment">
+                <AdminDashboardEvaluations />
+            </MudTabPanel>
 
-        @if (activeTab == "comision")
-        {
-            <div class="space-y-6">
-                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                    <h3 class="font-medium text-purple-900 mb-2">🏛️ Comisión Académica</h3>
-                    <p class="text-sm text-purple-700">Evaluación y votación de solicitudes según Art. 7-9 del Reglamento UTA</p>
-                </div>
-                <ComisionAcademicaPanel />
-            </div>
-        }
-
-        @if (activeTab == "apelaciones")
-        {
-            <div class="space-y-6">
-                <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                    <h3 class="font-medium text-orange-900 mb-2">⚖️ Sistema de Apelaciones</h3>
-                    <p class="text-sm text-orange-700">Gestión de recursos y apelaciones según Art. 11 del Reglamento UTA</p>
-                </div>
-                <SistemaApelaciones />
-            </div>
-        }
-
-        @if (activeTab == "evaluations")
-        {
-            <AdminDashboardEvaluations />
-        }
-
-        @if (activeTab == "reports")
-        {
-            <AdminDashboardReports />
-        }
-    </div>
-</div>
+        </MudTabs>
+    </MudPaper>
+</MudContainer>
 
 @code {
-    private string activeTab = "teachers";
+    private int activeTabIndex = 0;
 
     // Manejadores de eventos para el header
     private async Task HandleConfiguracion()
@@ -102,11 +47,5 @@
     private async Task HandleAñadirDocente()
     {
         await JS.InvokeVoidAsync("alert", "Añadir Docente - Funcionalidad en desarrollo");
-    }
-
-    // Método para cambiar de pestaña
-    private void SetActiveTab(string tabId)
-    {
-        activeTab = tabId;
     }
 }

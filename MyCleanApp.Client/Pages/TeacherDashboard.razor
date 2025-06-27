@@ -1,4 +1,4 @@
-@using MyCleanApp.Client.components
+@using MyCleanApp.Client.Components
 @using MyCleanApp.Client.DTOs
 @inject LocalStorageService LocalStorage
 @inject NavigationManager Navigation
@@ -329,7 +329,7 @@ else
         {
             <div class="flex justify-end mb-4">
         </div>
-    <MyCleanApp.Client.components.TeacherDashboardResearch 
+    <TeacherDashboardResearch 
         ProyectosInvestigacion="proyectosInvestigacion" 
         OnProyectosActualizados="RecargarProyectosInvestigacion" />
         }
