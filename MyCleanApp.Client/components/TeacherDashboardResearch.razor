@@ -1,6 +1,201 @@
+@using System
+@using System.Collections.Generic
 @using Microsoft.AspNetCore.Components
-@inject DocenteService DocenteService
+
+@using Microsoft.AspNetCore.Components.Forms
+@using MyCleanApp.Client.DTOs
+@using System.Net.Http.Json
+
 @inject NavigationManager Navigation
+@inject DocenteService DocenteService
+
+@code {
+    [Parameter]
+    public List<ProyectoInvestigacionDto> ProyectosInvestigacion { get; set; } = new();
+
+    [Parameter]
+    public EventCallback OnProyectosActualizados { get; set; }
+
+    private bool showModalImportar = false;
+    private string modalMessageImportar = string.Empty;
+    private string searchTerm = string.Empty;
+    private string selectedRol = "";
+    private string selectedAnio = "";
+    
+    private bool showPdfModal = false;
+    private string? pdfUrl;
+    private bool showEditModal = false;
+    private ProyectoInvestigacionDto? proyectoEditando;
+    private string editTitulo = string.Empty;
+    private string editRol = string.Empty;
+    private DateTime editFechaInicio;
+    private DateTime editFechaFin;
+    private IBrowserFile? editDocumentoFile;
+    
+    private IEnumerable<string> RolesDisponibles => ProyectosInvestigacion
+        .Select(p => p.RolEnProyecto)
+        .Where(r => !string.IsNullOrWhiteSpace(r))
+        .Distinct()
+        .OrderBy(r => r);
+    private IEnumerable<string> AniosDisponibles => ProyectosInvestigacion
+        .Select(p => p.FechaInicio.Year.ToString())
+        .Distinct()
+        .OrderByDescending(a => a);
+    private IEnumerable<ProyectoInvestigacionDto> Filtrados =>
+        ProyectosInvestigacion
+            .Where(p =>
+                (string.IsNullOrWhiteSpace(searchTerm)
+                    || (p.Titulo?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+                && (string.IsNullOrWhiteSpace(selectedRol) || p.RolEnProyecto == selectedRol)
+                && (string.IsNullOrWhiteSpace(selectedAnio) || p.FechaInicio.Year.ToString() == selectedAnio)
+            );
+
+    protected override async Task OnInitializedAsync()
+    {
+        ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
+    }
+
+    private void LimpiarFiltros()
+    {
+        searchTerm = string.Empty;
+        selectedRol = "";
+        selectedAnio = "";
+    }
+
+    private void IrASubirProyecto()
+    {
+        Navigation.NavigateTo("/subir-proyecto-investigacion");
+    }
+
+    private async Task ImportarProyectosExternos()
+    {
+        try
+        {
+            var http = new HttpClient();
+            var proyectosExternos = await http.GetFromJsonAsync<List<ProyectoInvestigacionDto>>("http://localhost:3000/ProyectoInvestigacion");
+            var soloExternos = proyectosExternos?.Where(p => p.Externo).ToList() ?? new List<ProyectoInvestigacionDto>();
+            
+            // Crear conjunto de proyectos actuales para comparar duplicados
+            var proyectosActuales = ProyectosInvestigacion
+                .Select(p => (p.Titulo.Trim().ToLower(), p.FechaInicio.Date, p.FechaFin.Date, p.RolEnProyecto.Trim().ToLower()))
+                .ToHashSet();
+                
+            int importados = 0, duplicados = 0;
+            
+            foreach (var proyecto in soloExternos)
+            {
+                var key = (proyecto.Titulo.Trim().ToLower(), proyecto.FechaInicio.Date, proyecto.FechaFin.Date, proyecto.RolEnProyecto.Trim().ToLower());
+                if (!proyectosActuales.Contains(key))
+                {
+                    var response = await DocenteService.ImportarProyectoExternoAsync(proyecto);
+                    if (response)
+                        importados++;
+                    else
+                        duplicados++;
+                }
+                else
+                {
+                    duplicados++;
+                }
+            }
+            
+            // Recarga la lista después de importar
+            ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
+            
+            if (importados > 0)
+                modalMessageImportar = $"Se importaron {importados} proyecto(s) nuevo(s).";
+            else
+                modalMessageImportar = "No se importaron proyectos porque ya existen.";
+                
+            showModalImportar = true;
+        }
+        catch (Exception ex)
+        {
+            modalMessageImportar = $"Error al importar proyectos: {ex.Message}";
+            showModalImportar = true;
+        }
+    }
+
+    private void CerrarModalImportar()
+    {
+        showModalImportar = false;
+    }
+
+    private void VerDocumento(int proyectoId)
+    {
+        pdfUrl = $"http://localhost:5015/api/ProyectoInvestigacion/documento/{proyectoId}";
+        showPdfModal = true;
+    }
+    
+    private void CerrarPdfModal()
+    {
+        showPdfModal = false;
+        pdfUrl = null;
+    }
+    
+    private void EditarProyecto(ProyectoInvestigacionDto proyecto)
+    {
+        proyectoEditando = proyecto;
+        editTitulo = proyecto.Titulo;
+        editRol = proyecto.RolEnProyecto;
+        editFechaInicio = proyecto.FechaInicio;
+        editFechaFin = proyecto.FechaFin;
+        showEditModal = true;
+    }
+    
+    private async Task OnDocumentoFileChanged(InputFileChangeEventArgs e)
+    {
+        editDocumentoFile = e.File;
+        if (editDocumentoFile != null && proyectoEditando != null)
+        {
+            using var stream = editDocumentoFile.OpenReadStream(5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            proyectoEditando.Documento = ms.ToArray();
+        }
+    }
+    
+    private async Task GuardarEdicionProyecto()
+    {
+        if (proyectoEditando == null) return;
+        
+        proyectoEditando.Titulo = editTitulo;
+        proyectoEditando.RolEnProyecto = editRol;
+        proyectoEditando.FechaInicio = editFechaInicio;
+        proyectoEditando.FechaFin = editFechaFin;
+        
+        var response = await DocenteService.EditarProyectoAsync(proyectoEditando);
+        if (!response)
+        {
+            modalMessageImportar = "No se pudo editar el proyecto.";
+            showModalImportar = true;
+        }
+        
+        showEditModal = false;
+        ProyectosInvestigacion = await DocenteService.GetProyectosInvestigacionAsync();
+    }
+    
+    private void CancelarEdicionProyecto()
+    {
+        showEditModal = false;
+        proyectoEditando = null;
+    }
+    
+    private async Task EliminarProyecto(int proyectoId)
+    {
+        var response = await DocenteService.EliminarProyectoAsync(proyectoId);
+        if (response)
+        {
+            ProyectosInvestigacion = ProyectosInvestigacion.Where(p => p.Id != proyectoId).ToList();
+        }
+        else
+        {
+            modalMessageImportar = "No se pudo eliminar el proyecto.";
+            showModalImportar = true;
+        }
+    }
+}
+
 
 <div class="space-y-4">
     <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -8,83 +203,143 @@
             <div class="flex flex-row items-center justify-between mb-4">
                 <div>
                     <h3 class="text-lg font-medium">Proyectos de Investigación</h3>
-                    <p class="text-sm text-gray-600">
-                        Has completado @ResearchMonths de @(MesesNecesarios == -1 ? 0 : MesesNecesarios) meses
-                        requeridos
-                        en proyectos de investigación
-                    </p>
+
+                    <p class="text-sm text-gray-600">Tus proyectos registrados en el sistema</p>
                 </div>
-                <button
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
-                    @onclick="IrASubirPublicacion">
-                    Registrar Nuevo Proyecto
+                <div>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                            @onclick="IrASubirProyecto">
+                        Registrar Proyecto
+                    </button>
+                    <button class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors ml-2"
+                            @onclick="ImportarProyectosExternos">
+                        Importar datos
+                    </button>
+                </div>
+            </div>
+            <div class="flex flex-row gap-2 mb-4">
+                <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedRol">
+                    <option value="">Todos los roles</option>
+                    @foreach (var rol in RolesDisponibles)
+                    {
+                        <option value="@rol">@rol</option>
+                    }
+                </select>
+                <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedAnio">
+                    <option value="">Todos los años</option>
+                    @foreach (var anio in AniosDisponibles)
+                    {
+                        <option value="@anio">@anio</option>
+                    }
+                </select>
+                <input class="w-full border rounded-md px-3 py-2 text-sm" placeholder="Buscar proyecto..." @bind="searchTerm" />
+                <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-3 py-2 rounded-md text-sm" @onclick="LimpiarFiltros" title="Limpiar filtros">
+                    Limpiar
                 </button>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-2 mb-4">
-                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style="width: @(Math.Min((double)ResearchMonths / MesesNecesarios == -1 ? 1 : MesesNecesarios * 100, 100))%;">
-                </div>
-            </div>
-
-
-            @if (Proyectos == null)
-            {
-                <div class="p-4 text-gray-500 text-center">Cargando proyectos...</div>
-            }
-            else if (!Proyectos.Any())
-            {
-                <div class="p-4 text-gray-500 text-center">No hay proyectos registrados.</div>
-            }
-            else
-            {
-                @foreach (var proyecto in Proyectos)
+            <div class="border rounded-lg divide-y">
+                @if (Filtrados != null && Filtrados.Any())
                 {
-                    <div class="border rounded-lg p-4 mb-4">
-                        <div class="font-medium">@proyecto.Titulo</div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                            <div>
-                                <div class="text-sm font-medium text-gray-500">Fecha de inicio</div>
-                                <div>@proyecto.FechaInicio.ToShortDateString()</div>
+                    @foreach (var proyecto in Filtrados)
+                    {
+                        <div class="p-4">
+                            <div class="font-medium flex items-center gap-2">
+                                @proyecto.Titulo
+                                @if (proyecto.Externo == true)
+                                {
+                                    <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300" title="Importado de fuente externa">Externo</span>
+                                }
+                                else if (proyecto.Externo == false)
+                                {
+                                    <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-300" title="Registrado localmente">Local</span>
+                                    <button class="ml-2 text-yellow-600 underline text-xs" @onclick="() => EditarProyecto(proyecto)">Editar</button>
+                                    <button class="ml-2 text-red-600 underline text-xs" @onclick="() => EliminarProyecto(proyecto.Id)">Eliminar</button>
+                                }
                             </div>
-                            <div>
-                                <div class="text-sm font-medium text-gray-500">Fecha estimada de finalización</div>
-                                <div>@proyecto.FechaFin.ToShortDateString()</div>
+                            <div class="text-sm text-gray-500 mt-1">
+                                @proyecto.FechaInicio.ToString("yyyy-MM-dd") - @proyecto.FechaFin.ToString("yyyy-MM-dd")
                             </div>
-                            <div>
-                                <div class="text-sm font-medium text-gray-500">Rol en el proyecto</div>
-                                <div>@proyecto.RolEnProyecto</div>
+                            <div class="flex items-center mt-2">
+                                <svg class="h-4 w-4 text-blue-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                                <span class="text-sm text-blue-500">@proyecto.RolEnProyecto</span>
+                                @if (proyecto.Documento != null)
+                                {
+                                    <button class="ml-4 text-blue-600 underline text-xs" @onclick="() => VerDocumento(proyecto.Id)">Ver documento</button>
+                                }
                             </div>
-                            <div>
-                                <div class="text-sm font-medium text-gray-500">Estado</div>
-                                <span
-                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">@proyecto.Estado</span>
-                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="p-4">
+                        <div class="text-gray-500 text-center py-4">
+                            No tienes proyectos de investigación registrados.
                         </div>
                     </div>
                 }
-            }
 
-
+            </div>
         </div>
     </div>
+
+
+    @if (showModalImportar)
+    {
+        <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+            <div class="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full text-center">
+                <div class="text-lg font-semibold mb-4">Importación de Proyectos</div>
+                <div class="mb-6">@modalMessageImportar</div>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md" @onclick="CerrarModalImportar">Cerrar</button>
+            </div>
+        </div>
+    }
+    @if (showPdfModal && pdfUrl != null)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-4 max-w-3xl w-full relative">
+                <button class="absolute top-2 right-2 text-gray-600" @onclick="CerrarPdfModal">✕</button>
+                <iframe src="@pdfUrl" width="100%" height="600px"></iframe>
+            </div>
+        </div>
+    }
+    @if (showEditModal && proyectoEditando != null)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-6 max-w-md w-full relative">
+                <button class="absolute top-2 right-2 text-gray-600" @onclick="CancelarEdicionProyecto">✕</button>
+                <h3 class="text-lg font-semibold mb-4">Editar Proyecto</h3>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Título</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editTitulo" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Rol en Proyecto</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editRol" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Fecha Inicio</label>
+                    <input type="date" class="w-full border rounded-md px-3 py-2 text-sm" @bind="editFechaInicio" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Fecha Fin</label>
+                    <input type="date" class="w-full border rounded-md px-3 py-2 text-sm" @bind="editFechaFin" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Documento PDF</label>
+                    <InputFile OnChange="OnDocumentoFileChanged" accept="application/pdf" />
+                    @if (proyectoEditando.Documento != null)
+                    {
+                        <span class="ml-2 text-green-600 text-xs">Documento cargado</span>
+                    }
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-4 py-2 rounded-md" @onclick="CancelarEdicionProyecto">Cancelar</button>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-md" @onclick="GuardarEdicionProyecto">Guardar</button>
+                </div>
+            </div>
+        </div>
+    }
 </div>
-
-@code {
-    [Parameter]
-    public int MesesNecesarios { get; set; }
-    private ProyectoInvestigacionDto[]? Proyectos;
-    private int ResearchMonths = 0;
-
-    protected override async Task OnInitializedAsync()
-    {
-        Proyectos = await DocenteService.getProyectos() ?? Array.Empty<ProyectoInvestigacionDto>();
-
-        // Opcional: calcular meses de investigación sumando la duración de cada proyecto
-        ResearchMonths = Proyectos.Sum(p => ((p.FechaFin.Year - p.FechaInicio.Year) * 12) + (p.FechaFin.Month -
-        p.FechaInicio.Month));
-    }
-    private void IrASubirPublicacion()
-    {
-        Navigation.NavigateTo("/subir-proyecto");
-    }
-}

@@ -1,0 +1,166 @@
+@using MyCleanApp.Client.DTOs
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h3 class="text-lg font-medium text-gray-900">Comisión Académica de Escalafón y Promoción</h3>
+            <p class="text-sm text-gray-600">Universidad Técnica de Ambato - Según Artículo 4 del Reglamento</p>
+        </div>
+        <div class="text-xs text-gray-500">
+            Designada por el H. Consejo Universitario
+        </div>
+    </div>
+    
+    <!-- Información de la comisión -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="space-y-4">
+            <div class="border border-blue-200 bg-blue-50 rounded-lg p-4">
+                <h4 class="font-medium text-blue-800 mb-2">Integración de la Comisión</h4>
+                <div class="space-y-2 text-sm text-blue-700">
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 bg-blue-600 rounded-full mr-2 flex-shrink-0"></span>
+                        <span><strong>Presidente:</strong> Vicerrector Académico (con voto dirimente)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 bg-blue-500 rounded-full mr-2 flex-shrink-0"></span>
+                        <span>Vicerrector de Investigación, Innovación y Vinculación</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 bg-blue-500 rounded-full mr-2 flex-shrink-0"></span>
+                        <span>Vicerrector Administrativo</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 bg-blue-500 rounded-full mr-2 flex-shrink-0"></span>
+                        <span>Presidente de la Asociación de Profesores (APUA)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 bg-blue-500 rounded-full mr-2 flex-shrink-0"></span>
+                        <span>Dos Profesores Titulares (período 2 años)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border border-purple-200 bg-purple-50 rounded-lg p-4">
+                <h4 class="font-medium text-purple-800 mb-2">Secretaría y Asesoría</h4>
+                <div class="space-y-2 text-sm text-purple-700">
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 bg-purple-600 rounded-full mr-2 flex-shrink-0"></span>
+                        <span><strong>Secretario:</strong> Director de Talento Humano (voz informativa)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 bg-purple-500 rounded-full mr-2 flex-shrink-0"></span>
+                        <span><strong>Asesor:</strong> Director Financiero (voz informativa)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="space-y-4">
+            <div class="border border-green-200 bg-green-50 rounded-lg p-4">
+                <h4 class="font-medium text-green-800 mb-2">Responsabilidades</h4>
+                <div class="space-y-2 text-sm text-green-700">
+                    <div class="flex items-start">
+                        <span class="w-3 h-3 bg-green-600 rounded-full mr-2 flex-shrink-0 mt-0.5"></span>
+                        <span>Sesionar según planificación institucional</span>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-3 h-3 bg-green-600 rounded-full mr-2 flex-shrink-0 mt-0.5"></span>
+                        <span>Remitir convocatorias al H. Consejo Universitario</span>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-3 h-3 bg-green-600 rounded-full mr-2 flex-shrink-0 mt-0.5"></span>
+                        <span>Conocer, analizar y resolver solicitudes de promoción</span>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-3 h-3 bg-green-600 rounded-full mr-2 flex-shrink-0 mt-0.5"></span>
+                        <span>Elevar consultas a organismos universitarios</span>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="w-3 h-3 bg-green-600 rounded-full mr-2 flex-shrink-0 mt-0.5"></span>
+                        <span>Emitir informes finales de promoción</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border border-amber-200 bg-amber-50 rounded-lg p-4">
+                <h4 class="font-medium text-amber-800 mb-2">Proceso de Promoción</h4>
+                <div class="space-y-2 text-sm text-amber-700">
+                    <div class="flex items-center">
+                        <span class="text-amber-600 font-bold mr-2">1.</span>
+                        <span>Recepción de solicitudes con documentos</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="text-amber-600 font-bold mr-2">2.</span>
+                        <span>Verificación de Lista de Verificación (Anexo 1)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="text-amber-600 font-bold mr-2">3.</span>
+                        <span>Análisis de pertinencia y relevancia</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="text-amber-600 font-bold mr-2">4.</span>
+                        <span>Verificación de cumplimiento de requisitos</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="text-amber-600 font-bold mr-2">5.</span>
+                        <span>Notificación de resultados</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="text-amber-600 font-bold mr-2">6.</span>
+                        <span>Resolución de apelaciones (3 días)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="text-amber-600 font-bold mr-2">7.</span>
+                        <span>Emisión de informe final</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cronograma y plazos -->
+    <div class="border border-gray-200 rounded-lg p-4">
+        <h4 class="font-medium text-gray-800 mb-3">Cronograma de Promociones 2024</h4>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="text-center p-3 bg-blue-50 rounded border">
+                <div class="text-xs text-blue-600 font-medium">CONVOCATORIA</div>
+                <div class="text-sm font-bold text-blue-800">Jul 1-31, 2024</div>
+                <div class="text-xs text-blue-600">Presentación solicitudes</div>
+            </div>
+            <div class="text-center p-3 bg-amber-50 rounded border">
+                <div class="text-xs text-amber-600 font-medium">EVALUACIÓN</div>
+                <div class="text-sm font-bold text-amber-800">Ago 1-31, 2024</div>
+                <div class="text-xs text-amber-600">Análisis de comisión</div>
+            </div>
+            <div class="text-center p-3 bg-purple-50 rounded border">
+                <div class="text-xs text-purple-600 font-medium">NOTIFICACIÓN</div>
+                <div class="text-sm font-bold text-purple-800">Sep 15, 2024</div>
+                <div class="text-xs text-purple-600">Resultados a docentes</div>
+            </div>
+            <div class="text-center p-3 bg-green-50 rounded border">
+                <div class="text-xs text-green-600 font-medium">APELACIONES</div>
+                <div class="text-sm font-bold text-green-800">3 días</div>
+                <div class="text-xs text-green-600">Plazo para apelar</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Información legal -->
+    <div class="mt-4 p-3 bg-gray-50 rounded text-xs text-gray-600">
+        <div class="flex items-center">
+            <svg class="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span><strong>Base Legal:</strong> Reglamento para la Promoción del Personal Académico Titular de la UTA - Resolución 0677-CU-P-2023</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Inicialización del componente
+    }
+}

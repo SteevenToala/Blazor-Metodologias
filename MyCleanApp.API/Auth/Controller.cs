@@ -30,9 +30,9 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto, [FromServices] IPasswordHasher passwordHasher)
     {
-        // Incluir Rol y Persona si deseas usar también esos datos
+        // Solo incluir Persona ya que Rol es una propiedad string, no una entidad relacionada
         var usuario = await _context.Usuario
-            .Include(u=>u.Persona)
+            .Include(u => u.Persona)
             .FirstOrDefaultAsync(u => u.Correo == dto.Correo);
 
         if (usuario == null || !passwordHasher.Verify(dto.Contraseña, usuario.PasswordHash))
@@ -47,9 +47,9 @@ public class AuthController : ControllerBase
             {
                 usuario.Id,
                 usuario.Correo,
-                Nombre=usuario.Persona.Nombres+" "+usuario.Persona.Apellidos,
-                Cedula =usuario.Persona.Cedula,
-                Rol = usuario.Rol // mostrar el nombre del rol (e.g., "ADMINISTRADOR")
+                Nombre = usuario.Persona?.Nombres + " " + usuario.Persona?.Apellidos,
+                Cedula = usuario.Persona?.Cedula,
+                Rol = usuario.Rol ?? "" // mostrar el nombre del rol (e.g., "ADMINISTRADOR")
             }
         });
     }
@@ -57,15 +57,20 @@ public class AuthController : ControllerBase
     private string GenerateJwtToken(Usuario usuario)
     {
         var jwtSettings = _config.GetSection("Jwt");
+        var jwtKey = jwtSettings["Key"];
+        
+        if (string.IsNullOrEmpty(jwtKey))
+            throw new InvalidOperationException("JWT Key no está configurada");
+            
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, usuario.Correo),
             new Claim("id", usuario.Id.ToString()),
-            new Claim("rol", usuario.Rol),
+            new Claim("rol", usuario.Rol ?? ""),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
@@ -122,7 +127,7 @@ public class AuthController : ControllerBase
             {
                 Correo = dto.Correo,
                 PasswordHash = passwordHasher.Hash(dto.Contraseña),
-                Rol = dto.Rol, // Cambiado de RolId a Rol
+                Rol = dto.Rol, // Directly assign the role string
                 PersonaId = persona.Id,
                 Activo = true
             };

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MyCleanApp.API.DTOs;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
 
@@ -48,11 +49,17 @@ public class PublicacionAcademicaController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Put(int id, [FromBody] PublicacionAcademica publicacion)
+    public async Task<IActionResult> Put(int id, [FromBody] PublicacionAcademicaDto dto)
     {
-        if (id != publicacion.Id) return BadRequest();
-
-        _context.Entry(publicacion).State = EntityState.Modified;
+        var publicacion = await _context.PublicacionAcademica.FirstOrDefaultAsync(p => p.Id == id);
+        if (publicacion == null) return NotFound();
+        publicacion.Titulo = dto.Titulo;
+        publicacion.Revista = dto.Revista;
+        publicacion.Volumen = dto.Volumen;
+        publicacion.Anio = dto.Anio;
+        publicacion.Tipo = dto.Tipo;
+        publicacion.Archivo = dto.Archivo;
+        // No se permite cambiar DocenteId ni Externo por seguridad
         await _context.SaveChangesAsync();
         return NoContent();
     }
@@ -85,10 +92,71 @@ public class PublicacionAcademicaController : ControllerBase
                 p.Volumen,
                 p.Anio,
                 p.Tipo,
-                p.Archivo
+                p.Archivo,
+                p.Externo // <-- AGREGADO
             })
             .ToListAsync();
 
         return Ok(publicaciones);
+    }
+
+    [HttpPost("importar")]
+    public async Task<IActionResult> ImportarPublicacionExterna([FromBody] PublicacionAcademicaDto publicacion)
+    {
+        // Validación para evitar duplicados
+        bool yaExiste = await _context.PublicacionAcademica.AnyAsync(p =>
+            p.Titulo == publicacion.Titulo &&
+            p.Revista == publicacion.Revista &&
+            p.Volumen == publicacion.Volumen &&
+            p.Anio == publicacion.Anio &&
+            p.Tipo == publicacion.Tipo &&
+            p.DocenteId == publicacion.DocenteId &&
+            p.Externo);
+
+        if (yaExiste)
+            return Conflict("La publicación ya fue importada previamente.");
+
+        var entidad = new PublicacionAcademica
+        {
+            Titulo = publicacion.Titulo,
+            Revista = publicacion.Revista,
+            Volumen = publicacion.Volumen,
+            Anio = publicacion.Anio,
+            Tipo = publicacion.Tipo,
+            DocenteId = publicacion.DocenteId,
+            Archivo = publicacion.Archivo,
+            Externo = true
+        };
+        _context.PublicacionAcademica.Add(entidad);
+        await _context.SaveChangesAsync();
+        return Ok();
+    }
+
+    [HttpGet("archivo/{id}")]
+    public async Task<IActionResult> GetArchivo(int id)
+    {
+        var publicacion = await _context.PublicacionAcademica.FirstOrDefaultAsync(p => p.Id == id);
+        if (publicacion == null || publicacion.Archivo == null)
+            return NotFound();
+        Response.Headers["Content-Disposition"] = "inline; filename=publicacion.pdf";
+        return File(publicacion.Archivo, "application/pdf");
+    }
+
+    [HttpGet("docente/{docenteId}")]
+    public async Task<ActionResult<IEnumerable<PublicacionAcademica>>> GetByDocente(int docenteId)
+    {
+        try
+        {
+            var publicaciones = await _context.PublicacionAcademica
+                .Where(p => p.DocenteId == docenteId)
+                .OrderByDescending(p => p.Anio)
+                .ToListAsync();
+
+            return Ok(publicaciones);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+        }
     }
 }

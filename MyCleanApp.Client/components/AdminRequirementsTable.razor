@@ -1,0 +1,50 @@
+@using MyCleanApp.Client.DTOs
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm mt-6">
+    <div class="p-6">
+        <h3 class="text-lg font-medium mb-4">Requisitos de Promoción por Nivel</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="border px-4 py-2 text-left">Nivel Actual</th>
+                        <th class="border px-4 py-2 text-left">Nivel Objetivo</th>
+                        <th class="border px-4 py-2 text-left">Años en Nivel</th>
+                        <th class="border px-4 py-2 text-left">Papers</th>
+                        <th class="border px-4 py-2 text-left">Evaluación</th>
+                        <th class="border px-4 py-2 text-left">Horas Capacitación</th>
+                        <th class="border px-4 py-2 text-left">Meses Investigación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in LevelRequirements)
+                    {
+                        <tr>
+                            <td class="border px-4 py-2">@entry.Key</td>
+                            <td class="border px-4 py-2">@entry.Value.NextLevel</td>
+                            <td class="border px-4 py-2">@entry.Value.Years</td>
+                            <td class="border px-4 py-2">@entry.Value.Papers</td>
+                            <td class="border px-4 py-2">@entry.Value.Evaluation%</td>
+                            <td class="border px-4 py-2">@entry.Value.Training</td>
+                            <td class="border px-4 py-2">@(entry.Value.Research == 0 ? "-" : entry.Value.Research.ToString())</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Dictionary<string, AdminLevelRequirement> LevelRequirements { get; set; } = new();
+
+    public class AdminLevelRequirement
+    {
+        public string NextLevel { get; set; } = string.Empty;
+        public int Years { get; set; }
+        public int Papers { get; set; }
+        public int Evaluation { get; set; }
+        public int Training { get; set; }
+        public int Research { get; set; }
+    }
+}

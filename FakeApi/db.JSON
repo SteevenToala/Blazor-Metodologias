@@ -66,6 +66,11 @@
       "id": 1,
       "nombre": "DT3",
       "descripcion": "Docente con experiencia media"
+    },
+    {
+      "id": 2,
+      "nombre": "DT4", 
+      "descripcion": "Docente con experiencia avanzada"
     }
   ],
   "EvaluacionDocente": [
@@ -83,7 +88,17 @@
       "horas": 40,
       "fechaInicio": "2024-01-10",
       "fechaFin": "2024-01-20",
-      "docenteId": 1
+      "docenteId": 1,
+      "externo": true
+    },
+    {
+      "id": 2,
+      "nombre": "Curso de TIC",
+      "horas": 20,
+      "fechaInicio": "2024-02-01",
+      "fechaFin": "2024-02-10",
+      "docenteId": 1,
+      "externo": true
     }
   ],
   "ProyectoInvestigacion": [
@@ -93,7 +108,8 @@
       "fechaInicio": "2024-03-01",
       "fechaFin": "2024-06-30",
       "rolEnProyecto": "Investigador Principal",
-      "docenteId": 1
+      "docenteId": 1,
+      "externo": true
     }
   ],
   "PublicacionAcademica": [
@@ -104,7 +120,8 @@
       "volumen": "Vol. 12",
       "anio": 2024,
       "tipo": "Artículo",
-      "docenteId": 1
+      "docenteId": 1,
+      "externo": true
     }
   ],
   "RequisitoPromocion": [

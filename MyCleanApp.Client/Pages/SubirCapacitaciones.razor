@@ -91,7 +91,8 @@
             FechaInicio = capacitacion.FechaInicio,
             FechaFin = capacitacion.FechaFin,
             Certificado = capacitacion.Certificado,
-            Horas = (int) capacitacion.Horas
+            Horas = (int) capacitacion.Horas,
+            Externo = false // Siempre local
         };
 
         var ok = await DocenteService.SubirCapacigtaciones(dto);

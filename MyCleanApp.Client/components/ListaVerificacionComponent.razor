@@ -1,0 +1,297 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+    <div class="p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-lg font-medium text-gray-900">Lista de Verificación - Anexo 1</h3>
+                <p class="text-sm text-gray-600">Verificación de documentos según reglamento UTA</p>
+            </div>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                📋 Artículo 6 - Numeral 2
+            </span>
+        </div>
+
+        @if (solicitudesPendientes.Any())
+        {
+            @foreach (var solicitud in solicitudesPendientes)
+            {
+                <div class="border border-gray-200 rounded-lg p-6 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h4 class="font-medium text-gray-900">Solicitud ID: @solicitud.Id</h4>
+                            <p class="text-sm text-gray-600">Docente ID: @solicitud.DocenteId</p>
+                            <p class="text-xs text-gray-500">Presentada: @solicitud.FechaSolicitud.ToString("dd/MM/yyyy")</p>
+                        </div>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                            Pendiente Verificación
+                        </span>
+                    </div>
+
+                    @* Lista de verificación específica por nivel *@
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h5 class="font-medium text-gray-800 mb-3">Requisitos a Verificar:</h5>
+                        
+                        <div class="space-y-3">
+                            @* Requisitos generales *@
+                            <div class="flex items-center">
+                                <input type="checkbox" @onchange="@((e) => UpdateVerificacion(solicitud.Id, "documento_identidad", (bool)e.Value!))" 
+                                       class="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                                <label class="ml-3 text-sm text-gray-700">
+                                    📄 Documento de identidad vigente
+                                </label>
+                            </div>
+
+                            <div class="flex items-center">
+                                <input type="checkbox" @onchange="@((e) => UpdateVerificacion(solicitud.Id, "hoja_vida", (bool)e.Value!))"
+                                       class="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                                <label class="ml-3 text-sm text-gray-700">
+                                    📋 Hoja de vida actualizada
+                                </label>
+                            </div>
+
+                            <div class="flex items-center">
+                                <input type="checkbox" @onchange="@((e) => UpdateVerificacion(solicitud.Id, "certificado_trabajo", (bool)e.Value!))"
+                                       class="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                                <label class="ml-3 text-sm text-gray-700">
+                                    🏢 Certificado de años de servicio
+                                </label>
+                            </div>
+
+                            @* Requisitos académicos *@
+                            <div class="flex items-center">
+                                <input type="checkbox" @onchange="@((e) => UpdateVerificacion(solicitud.Id, "titulo_grado", (bool)e.Value!))"
+                                       class="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                                <label class="ml-3 text-sm text-gray-700">
+                                    🎓 Títulos académicos oficiales
+                                </label>
+                            </div>
+
+                            <div class="flex items-center">
+                                <input type="checkbox" @onchange="@((e) => UpdateVerificacion(solicitud.Id, "publicaciones", (bool)e.Value!))"
+                                       class="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                                <label class="ml-3 text-sm text-gray-700">
+                                    📚 Publicaciones académicas verificables
+                                </label>
+                            </div>
+
+                            <div class="flex items-center">
+                                <input type="checkbox" @onchange="@((e) => UpdateVerificacion(solicitud.Id, "capacitaciones", (bool)e.Value!))"
+                                       class="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                                <label class="ml-3 text-sm text-gray-700">
+                                    📖 Certificados de capacitación
+                                </label>
+                            </div>
+
+                            <div class="flex items-center">
+                                <input type="checkbox" @onchange="@((e) => UpdateVerificacion(solicitud.Id, "investigacion", (bool)e.Value!))"
+                                       class="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                                <label class="ml-3 text-sm text-gray-700">
+                                    🔬 Proyectos de investigación dirigidos
+                                </label>
+                            </div>
+                        </div>
+
+                        @* Área de observaciones *@
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Observaciones de Verificación:
+                            </label>
+                            <textarea @bind="observacionesVerificacion[solicitud.Id]" 
+                                      rows="3" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      placeholder="Ingrese observaciones sobre documentos faltantes o inconsistencias..."></textarea>
+                        </div>
+
+                        @* Botones de acción *@
+                        <div class="flex gap-3 mt-4">
+                            <button @onclick="() => AprobarVerificacion(solicitud.Id)" 
+                                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                ✅ Documentos Verificados
+                            </button>
+                            <button @onclick="() => RechazarVerificacion(solicitud.Id)" 
+                                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                ❌ Documentos Incompletos
+                            </button>
+                            <button @onclick="() => SolicitarAclaracion(solicitud.Id)" 
+                                    class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                📋 Solicitar Aclaración
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="text-center py-12">
+                <div class="mx-auto h-12 w-12 text-gray-400">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No hay solicitudes pendientes</h3>
+                <p class="mt-1 text-sm text-gray-500">Todas las solicitudes han sido verificadas.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<SolicitudAvanceRangoDto> solicitudesPendientes = new();
+    private Dictionary<int, string> observacionesVerificacion = new();
+    private Dictionary<int, Dictionary<string, bool>> verificacionesDocumentos = new();
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarSolicitudesPendientes();
+    }
+
+    private async Task CargarSolicitudesPendientes()
+    {
+        try
+        {
+            loading = true;
+            var response = await Http.GetAsync("http://localhost:5015/api/SolicitudAvanceRango");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var solicitudes = JsonSerializer.Deserialize<List<SolicitudAvanceRangoDto>>(json, 
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                
+                // Filtrar solo las que están pendientes de verificación
+                solicitudesPendientes = solicitudes?.Where(s => s.Estado == "PENDIENTE" || s.Estado == "RECIBIDA").ToList() ?? new();
+                
+                // Inicializar diccionarios
+                foreach (var solicitud in solicitudesPendientes)
+                {
+                    observacionesVerificacion[solicitud.Id] = "";
+                    verificacionesDocumentos[solicitud.Id] = new Dictionary<string, bool>();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("console.error", $"Error cargando solicitudes: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void UpdateVerificacion(int solicitudId, string tipoDocumento, bool verificado)
+    {
+        if (!verificacionesDocumentos.ContainsKey(solicitudId))
+        {
+            verificacionesDocumentos[solicitudId] = new Dictionary<string, bool>();
+        }
+        verificacionesDocumentos[solicitudId][tipoDocumento] = verificado;
+    }
+
+    private async Task AprobarVerificacion(int solicitudId)
+    {
+        try
+        {
+            // Verificar que todos los documentos estén marcados
+            if (verificacionesDocumentos.ContainsKey(solicitudId))
+            {
+                var documentosCompletos = verificacionesDocumentos[solicitudId].Values.All(v => v);
+                if (!documentosCompletos)
+                {
+                    await JS.InvokeVoidAsync("alert", "Debe verificar todos los documentos antes de aprobar.");
+                    return;
+                }
+            }
+
+            // Actualizar estado de la solicitud
+            var solicitud = solicitudesPendientes.First(s => s.Id == solicitudId);
+            solicitud.Estado = "VERIFICADA";
+            solicitud.FechaRespuesta = DateTime.Now;
+            solicitud.Observaciones = observacionesVerificacion.GetValueOrDefault(solicitudId, "");
+
+            var content = new StringContent(JsonSerializer.Serialize(solicitud), System.Text.Encoding.UTF8, "application/json");
+            var response = await Http.PutAsync($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("alert", "Documentos verificados correctamente. La solicitud será enviada a la Comisión Académica.");
+                await CargarSolicitudesPendientes();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Error al actualizar la solicitud.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+
+    private async Task RechazarVerificacion(int solicitudId)
+    {
+        try
+        {
+            var observaciones = observacionesVerificacion.GetValueOrDefault(solicitudId, "");
+            if (string.IsNullOrWhiteSpace(observaciones))
+            {
+                await JS.InvokeVoidAsync("alert", "Debe incluir observaciones para rechazar la verificación.");
+                return;
+            }
+
+            var solicitud = solicitudesPendientes.First(s => s.Id == solicitudId);
+            solicitud.Estado = "DOCUMENTOS_INCOMPLETOS";
+            solicitud.FechaRespuesta = DateTime.Now;
+            solicitud.Observaciones = observaciones;
+
+            var content = new StringContent(JsonSerializer.Serialize(solicitud), System.Text.Encoding.UTF8, "application/json");
+            var response = await Http.PutAsync($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("alert", "Verificación rechazada. El docente será notificado para completar documentos.");
+                await CargarSolicitudesPendientes();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+
+    private async Task SolicitarAclaracion(int solicitudId)
+    {
+        try
+        {
+            var observaciones = observacionesVerificacion.GetValueOrDefault(solicitudId, "");
+            if (string.IsNullOrWhiteSpace(observaciones))
+            {
+                await JS.InvokeVoidAsync("alert", "Debe incluir observaciones para solicitar aclaración.");
+                return;
+            }
+
+            var solicitud = solicitudesPendientes.First(s => s.Id == solicitudId);
+            solicitud.Estado = "ACLARACION_REQUERIDA";
+            solicitud.Observaciones = observaciones;
+
+            var content = new StringContent(JsonSerializer.Serialize(solicitud), System.Text.Encoding.UTF8, "application/json");
+            var response = await Http.PutAsync($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("alert", "Solicitud de aclaración enviada al docente.");
+                await CargarSolicitudesPendientes();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+}

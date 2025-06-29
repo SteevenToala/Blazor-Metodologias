@@ -1,58 +1,127 @@
+@using MyCleanApp.Client.DTOs
 @inject DocenteService DocenteService
+@inject NavigationManager NavigationManager
 
 @code {
-    private string NextLevel { get; set; } = "";
-    private List<Requirement> Requirements { get; set; } = new();
-    private bool isLoading = true;
-
-    // Calcula el porcentaje y requisitos completados
+    [Parameter]
+    public List<Requirement> Requirements { get; set; } = new();
+    [Parameter]
+    public string NextLevel { get; set; } = "";
+    [Parameter]
+    public string NivelActual { get; set; } = "";
+    [Parameter]
+    public List<ProyectoInvestigacionDto> ProyectosInvestigacion { get; set; } = new();
+    private bool isLoading = false;
     private double progressPercentage => Requirements.Count == 0 ? 0 : (Requirements.Count(r => r.Completed) * 100.0 / Requirements.Count);
     private int completedRequirements => Requirements.Count(r => r.Completed);
     private int totalRequirements => Requirements.Count;
 
-    protected override async Task OnInitializedAsync()
+    private string GetUnidad(string nombre)
     {
-        var dashboard = await DocenteService.getDataDashBoard();
-        if (dashboard != null)
-        {
-            Requirements = dashboard.requisitoNivel?.Select(r => new Requirement
-            {
-                Name = r.Nombre,
-                Current = r.Nombre switch
-                {
-                    "Años en el rango" or "Años en nivel actual" => dashboard.AniosEnNivel,
-                    "Papers" or "Publicaciones académicas" => dashboard.PublicacionesAcademicas,
-                    "Puntaje Evaluación" or "Puntaje de evaluación" => (int)dashboard.PuntajeEvaluacion,
-                    "Horas Capacitación" or "Horas de capacitación" => dashboard.HorasCapacitacion,
-                    "Investigaciones" or "Meses en investigación" => dashboard.Investigaciones,
-                    _ => 0
-                },
-                Required = r.ValorRequerido,
-                Completed = r.Nombre switch
-                {
-                    "Años en el rango" or "Años en nivel actual" => dashboard.AniosEnNivel >= r.ValorRequerido,
-                    "Papers" or "Publicaciones académicas" => dashboard.PublicacionesAcademicas >= r.ValorRequerido,
-                    "Puntaje Evaluación" or "Puntaje de evaluación" => dashboard.PuntajeEvaluacion >= r.ValorRequerido,
-                    "Horas Capacitación" or "Horas de capacitación" => dashboard.HorasCapacitacion >= r.ValorRequerido,
-                    "Investigaciones" or "Meses en investigación" => dashboard.Investigaciones >= r.ValorRequerido,
-                    _ => false
-                }
-            }).ToList() ?? new List<Requirement>();
-
-            var nivelActual = dashboard.NivelAcademico;
-            var prefijo = nivelActual.Substring(0, nivelActual.Length - 1);
-            var numero = int.TryParse(nivelActual.Substring(nivelActual.Length - 1), out var n) ? n : 1;
-            NextLevel = numero < 5 ? $"{prefijo}{numero + 1}" : nivelActual;
-        }
-        isLoading = false;
+        if (nombre.Contains("Puntaje")) return "%";
+        if (nombre.Contains("Meses") || nombre.Contains("Investigación")) return "meses";
+        return string.Empty;
     }
 
-    public class Requirement
+    protected override void OnParametersSet()
     {
-        public string Name { get; set; } = string.Empty;
-        public int Current { get; set; }
-        public int Required { get; set; }
-        public bool Completed { get; set; }
+        var reqMeses = Requirements.FirstOrDefault(r => r.Name.Contains("Meses") || r.Name.Contains("Investigación"));
+        if (reqMeses != null)
+        {
+            int mesesInvestigacion = 0;
+            if (ProyectosInvestigacion != null && ProyectosInvestigacion.Count > 0)
+            {
+                foreach (var proyecto in ProyectosInvestigacion)
+                {
+                    var inicio = proyecto.FechaInicio;
+                    var fin = proyecto.FechaFin;
+                    int meses = (fin.Year - inicio.Year) * 12 + (fin.Month - inicio.Month);
+                    if (meses < 0) meses = 0;
+                    mesesInvestigacion += meses;
+                }
+            }
+            reqMeses.Current = mesesInvestigacion;
+            reqMeses.Completed = mesesInvestigacion >= reqMeses.Required;
+        }
+    }
+
+    private bool showSolicitudModal = false;
+    private string solicitudMensaje = string.Empty;
+    private bool solicitudEnviada = false;
+    private bool solicitudLoading = false;
+    private List<SolicitudAvanceRangoDto> solicitudesAvance = new();
+    private bool tieneSolicitudPendiente => solicitudesAvance.Any(s => s.Estado == "PENDIENTE");
+    private bool showExitoModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarSolicitudesAvance();
+    }
+
+    private async Task CargarSolicitudesAvance()
+    {
+        var loginResponse = await DocenteService.GetLoginResponseAsync();
+        if (loginResponse == null || loginResponse.usuario == null)
+            return;
+        var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+        if (docenteId == null)
+            return;
+        solicitudesAvance = await DocenteService.ObtenerSolicitudesAvancePorDocenteIdAsync(docenteId.Value) ?? new List<SolicitudAvanceRangoDto>();
+    }
+
+    private async Task SolicitarPromocionAsync()
+    {
+        solicitudLoading = true;
+        solicitudMensaje = string.Empty;
+        solicitudEnviada = false;
+        try
+        {
+            var loginResponse = await DocenteService.GetLoginResponseAsync();
+            if (loginResponse == null || loginResponse.usuario == null)
+            {
+                solicitudMensaje = "No se pudo obtener el usuario actual.";
+                solicitudLoading = false;
+                return;
+            }
+            var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+            if (docenteId == null)
+            {
+                solicitudMensaje = "No se pudo obtener el ID del docente.";
+                solicitudLoading = false;
+                return;
+            }
+            var nextLevelId = await DocenteService.ObtenerNivelAcademicoIdPorNombreAsync(NextLevel);
+            if (nextLevelId == null)
+            {
+                solicitudMensaje = "No se pudo obtener el ID del nuevo nivel académico.";
+                solicitudLoading = false;
+                return;
+            }
+            var solicitud = new SolicitudAvanceRangoDto
+            {
+                DocenteId = docenteId.Value,
+                FechaSolicitud = DateTime.Now,
+                Estado = "PENDIENTE",
+                NuevoNivelAcademicoId = nextLevelId.Value
+            };
+            var exito = await DocenteService.SolicitarAvanceRangoAsync(solicitud);
+            if (exito)
+            {
+                solicitudMensaje = $"Solicitud enviada para promocionarse de {NivelActual} a {NextLevel}.";
+                solicitudEnviada = true;
+                showExitoModal = true;
+                await CargarSolicitudesAvance();
+            }
+            else
+            {
+                solicitudMensaje = "Error al enviar la solicitud. Intente nuevamente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            solicitudMensaje = $"Error: {ex.Message}";
+        }
+        solicitudLoading = false;
     }
 }
 
@@ -67,8 +136,7 @@ else
             <div class="flex-shrink-0">
                 <svg class="h-10 w-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <circle cx="12" cy="12" r="10" stroke-width="2" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M12 6v6l4 2" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2" />
                 </svg>
             </div>
             <div class="flex-1">
@@ -120,34 +188,93 @@ else
                                 </span>
                             </div>
                             <div class="text-sm text-gray-500">
-                                Progreso: @req.Current de @req.Required @(req.Name == "Puntaje de evaluación" ? "%" : "")
+                                Progreso: @req.Current de @req.Required @GetUnidad(req.Name)
                             </div>
                             <div class="w-full bg-gray-200 rounded-full h-2 mt-2 @(req.Completed ? "bg-green-100" : "")">
                                 <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                     style="width: @(Math.Min((double)req.Current / req.Required * 100, 100))%;"></div>
+                                     style="width: @(Math.Min((double)req.Current / req.Required * 100, 100).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%;"></div>
                             </div>
                         </div>
                     }
 
-                    <div class="border rounded-lg p-4 border-amber-500 bg-amber-50">
-                        <div class="flex">
-                            <svg class="h-4 w-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round"
-                                      stroke-linejoin="round"
-                                      stroke-width="2"
-                                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                            </svg>
-                            <div class="ml-3">
-                                <h3 class="text-sm font-medium">Te faltan requisitos para promocionar</h3>
-                                <div class="mt-2 text-sm">
-                                    Completa todos los requisitos pendientes para ser elegible para la promoción a
-                                    @NextLevel.
+                    @if (progressPercentage == 100)
+                    {
+                        <div class="flex justify-end mt-4">
+                            <button class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-md shadow transition-colors"
+                                    @onclick="() => showSolicitudModal = true" disabled="@tieneSolicitudPendiente">
+                                Solicitar promoción de @NivelActual a @NextLevel
+                            </button>
+                        </div>
+                        @if (tieneSolicitudPendiente)
+                        {
+                            <div class="text-amber-600 text-sm mt-2">Ya tienes una solicitud de avance de rango pendiente. Debes esperar una respuesta antes de enviar otra.</div>
+                        }
+                        @if (showSolicitudModal && !tieneSolicitudPendiente)
+                        {
+                            <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                                <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md relative">
+                                    <button class="absolute top-2 right-2 text-gray-400 hover:text-gray-600" @onclick="() => showSolicitudModal = false">&times;</button>
+                                    <h2 class="text-lg font-semibold mb-4">Confirmar solicitud de promoción</h2>
+                                    <p class="mb-4">¿Está seguro que desea solicitar la promoción de <b>@NivelActual</b> a <b>@NextLevel</b>?</p>
+                                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-md shadow transition-colors mr-2" @onclick="SolicitarPromocionAsync" disabled="@solicitudLoading">
+                                        @if (solicitudLoading)
+                                        {
+                                            <span class="animate-spin mr-2">⏳ Enviando...</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Confirmar solicitud</span>
+                                        }
+                                    </button>
+                                    <button class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-6 rounded-md shadow transition-colors" @onclick="() => showSolicitudModal = false" disabled="@solicitudLoading">Cancelar</button>
+                                    @if (!string.IsNullOrEmpty(solicitudMensaje))
+                                    {
+                                        <div class="mt-4 text-sm @(solicitudEnviada ? "text-green-600" : "text-red-600")">@solicitudMensaje</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="border rounded-lg p-4 border-amber-500 bg-amber-50">
+                            <div class="flex">
+                                <svg class="h-4 w-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round"
+                                          stroke-linejoin="round"
+                                          stroke-width="2"
+                                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                                <div class="ml-3">
+                                    <h3 class="text-sm font-medium">Te faltan requisitos para promocionar</h3>
+                                    <div class="mt-2 text-sm">
+                                        Completa todos los requisitos pendientes para ser elegible para la promoción a
+                                        @NextLevel.
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    }
                 </div>
             </div>
         </div>
     </div>
+}
+
+@if (showExitoModal)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md relative text-center">
+            <h2 class="text-2xl font-bold text-green-600 mb-4">¡Solicitud enviada!</h2>
+            <p class="mb-6">Tu solicitud de avance de rango fue enviada correctamente.</p>
+            <button class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-md shadow transition-colors" @onclick="RecargarPagina">Aceptar</button>
+        </div>
+    </div>
+}
+
+@code {
+    private void RecargarPagina()
+    {
+        NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+    }
 }

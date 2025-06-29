@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MyCleanApp.API.DTOs;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
 
@@ -22,8 +23,17 @@ public class ProyectoInvestigacionController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult> Post([FromBody] ProyectoInvestigacion proyecto)
+    public async Task<ActionResult> Post([FromBody] ProyectoInvestigacionCreateDto dto)
     {
+        var proyecto = new ProyectoInvestigacion
+        {
+            Titulo = dto.Titulo,
+            FechaInicio = dto.FechaInicio,
+            FechaFin = dto.FechaFin,
+            RolEnProyecto = dto.RolEnProyecto,
+            DocenteId = dto.DocenteId,
+            Documento = dto.Documento
+        };
         _context.ProyectoInvestigacion.Add(proyecto);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(Get), new { id = proyecto.Id }, proyecto);
@@ -49,11 +59,39 @@ public class ProyectoInvestigacionController : ControllerBase
     }
 
 
+    [HttpPost("importar")]
+    public async Task<IActionResult> ImportarProyectoExterno([FromBody] ProyectoInvestigacionDto proyecto)
+    {
+        // Validación para evitar duplicados
+        bool yaExiste = await _context.ProyectoInvestigacion.AnyAsync(p =>
+            p.Titulo == proyecto.Titulo &&
+            p.FechaInicio == proyecto.FechaInicio &&
+            p.FechaFin == proyecto.FechaFin &&
+            p.DocenteId == proyecto.DocenteId &&
+            p.Externo);
+
+        if (yaExiste)
+            return Conflict("El proyecto ya fue importado previamente.");
+
+        var entidad = new ProyectoInvestigacion
+        {
+            Titulo = proyecto.Titulo,
+            FechaInicio = proyecto.FechaInicio,
+            FechaFin = proyecto.FechaFin,
+            RolEnProyecto = proyecto.RolEnProyecto,
+            DocenteId = proyecto.DocenteId,
+            Documento = proyecto.Documento,
+            Externo = true
+        };
+        _context.ProyectoInvestigacion.Add(entidad);
+        await _context.SaveChangesAsync();
+        return Ok();
+    }
 
     [HttpGet("usuario/{usuarioId}")]
-    public async Task<ActionResult<IEnumerable<ProyectoInvestigacionDto>>> GetProyectosPorUsuario(int usuarioId)
+    public async Task<ActionResult<IEnumerable<ProyectoInvestigacionDto>>> GetProyectosByUsuarioId(int usuarioId)
     {
-        // Busca el docente asociado al usuario
+
         var docente = await _context.Docente.FirstOrDefaultAsync(d => d.UsuarioId == usuarioId);
         if (docente == null)
             return NotFound("Docente no encontrado para el usuario dado.");
@@ -62,39 +100,51 @@ public class ProyectoInvestigacionController : ControllerBase
             .Where(p => p.DocenteId == docente.Id)
             .Select(p => new ProyectoInvestigacionDto
             {
+
+                Id = p.Id,
+
                 Titulo = p.Titulo,
                 FechaInicio = p.FechaInicio,
                 FechaFin = p.FechaFin,
                 RolEnProyecto = p.RolEnProyecto,
-                Estado = p.FechaFin < DateTime.Now ? "Finalizado" : "En progreso"
+
+                DocenteId = p.DocenteId,
+                Documento = p.Documento,
+                Externo = p.Externo // <-- AGREGADO
+
             })
             .ToListAsync();
 
         return Ok(proyectos);
     }
 
-    [HttpPost("usuario/{usuarioId}")]
-    public async Task<IActionResult> RegistrarProyecto(int usuarioId, [FromBody] ProyectoInvestigacionCreateRequest request)
+
+    [HttpGet("documento/{id}")]
+    public async Task<IActionResult> GetDocumento(int id)
     {
-        // Buscar el docente por el usuarioId
-        var docente = await _context.Docente.FirstOrDefaultAsync(d => d.UsuarioId == usuarioId);
-        if (docente == null)
-            return NotFound("Docente no encontrado para el usuario dado.");
+        var proyecto = await _context.ProyectoInvestigacion.FirstOrDefaultAsync(p => p.Id == id);
+        if (proyecto == null || proyecto.Documento == null)
+            return NotFound();
+        Response.Headers["Content-Disposition"] = "inline; filename=documento.pdf";
+        return File(proyecto.Documento, "application/pdf");
+    }
 
-        var proyecto = new ProyectoInvestigacion
+    [HttpGet("docente/{docenteId}")]
+    public async Task<ActionResult<IEnumerable<ProyectoInvestigacion>>> GetByDocente(int docenteId)
+    {
+        try
         {
-            Titulo = request.Titulo,
-            FechaInicio = request.FechaInicio,
-            FechaFin = request.FechaFin,
-            RolEnProyecto = request.RolEnProyecto,
-            Documento = request.Documento,
-            DocenteId = docente.Id
-        };
+            var proyectos = await _context.ProyectoInvestigacion
+                .Where(p => p.DocenteId == docenteId)
+                .OrderByDescending(p => p.FechaInicio)
+                .ToListAsync();
 
-        _context.ProyectoInvestigacion.Add(proyecto);
-        await _context.SaveChangesAsync();
-
-        return Ok(new { proyecto.Id });
+            return Ok(proyectos);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+        }
     }
 
 }

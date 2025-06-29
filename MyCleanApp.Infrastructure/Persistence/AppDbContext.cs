@@ -21,6 +21,13 @@ namespace MyCleanApp.Infrastructure.Persistence
         public DbSet<RequisitoPromocion> RequisitoPromocion { get; set; }
         public DbSet<SolicitudAvanceRango> SolicitudAvanceRango { get; set; }
         public DbSet<TipoRequisito> TipoRequisito { get; set; }
+        
+        // Nuevas entidades para cumplimiento del reglamento
+        public DbSet<ListaVerificacion> ListaVerificacion { get; set; }
+        
+        // Entidades del esquema de la base de datos (corregidas)
+        public DbSet<ComisionAcademica> ComisionAcademica { get; set; }
+        public DbSet<ApelacionPromocion> ApelacionPromocion { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -39,16 +46,17 @@ namespace MyCleanApp.Infrastructure.Persistence
                 entity.Property(e => e.PasswordHash)
                     .IsRequired();
 
-                entity.Property(e => e.Activo)
-                    .IsRequired();
-
                 entity.Property(e => e.Rol)
                     .IsRequired()
                     .HasMaxLength(100);
 
+                entity.Property(e => e.Activo)
+                    .IsRequired();
+
                 entity.HasOne(e => e.Persona)
                     .WithMany(p => p.Usuarios)
-                    .HasForeignKey(e => e.PersonaId);
+                    .HasForeignKey(e => e.PersonaId)
+                    .HasConstraintName("FK_Usuario_Persona");
             });
 
             // Configuración de tabla Persona
@@ -258,7 +266,8 @@ namespace MyCleanApp.Infrastructure.Persistence
                     .HasMaxLength(20);
 
                 entity.Property(e => e.Puntaje)
-                    .IsRequired();
+                    .IsRequired()
+                    .HasColumnType("float");
 
                 entity.HasOne(e => e.Docente)
                     .WithMany()
@@ -332,6 +341,64 @@ namespace MyCleanApp.Infrastructure.Persistence
                 entity.HasOne(e => e.RequisitoPromocion)
                     .WithMany()
                     .HasForeignKey(e => e.RequisitoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configuración de tabla ComisionAcademica
+            modelBuilder.Entity<ComisionAcademica>(entity =>
+            {
+                entity.ToTable("ComisionAcademica");
+                entity.HasKey(e => e.Id);
+                
+                entity.Property(e => e.Nombre)
+                    .IsRequired()
+                    .HasMaxLength(200);
+                    
+                entity.Property(e => e.Cargo)
+                    .IsRequired()
+                    .HasMaxLength(50);
+                    
+                entity.Property(e => e.Activo)
+                    .IsRequired();
+                    
+                entity.Property(e => e.FechaDesignacion)
+                    .IsRequired();
+                    
+                entity.HasOne(e => e.Usuario)
+                    .WithMany()
+                    .HasForeignKey(e => e.UsuarioId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configuración de tabla ApelacionPromocion
+            modelBuilder.Entity<ApelacionPromocion>(entity =>
+            {
+                entity.ToTable("ApelacionPromocion");
+                entity.HasKey(e => e.Id);
+                
+                entity.Property(e => e.FechaApelacion)
+                    .IsRequired();
+                    
+                entity.Property(e => e.MotivoApelacion)
+                    .IsRequired()
+                    .HasMaxLength(500);
+                    
+                entity.Property(e => e.DocumentosRespaldo)
+                    .HasMaxLength(1000);
+                    
+                entity.Property(e => e.Estado)
+                    .IsRequired()
+                    .HasMaxLength(20);
+                    
+                entity.Property(e => e.RespuestaComision)
+                    .HasMaxLength(1000);
+                    
+                entity.Property(e => e.Resuelto)
+                    .IsRequired();
+                    
+                entity.HasOne(e => e.SolicitudAvanceRango)
+                    .WithMany()
+                    .HasForeignKey(e => e.SolicitudId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 

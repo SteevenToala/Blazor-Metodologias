@@ -1,0 +1,466 @@
+@using MyCleanApp.Client.DTOs
+@using MyCleanApp.Client.Services
+@using Microsoft.JSInterop
+@inject DocenteService DocenteService
+@inject IJSRuntime JSRuntime
+
+<div class="space-y-6">
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 class="font-medium text-blue-900 mb-2">👥 Gestión de Docentes</h3>
+        <p class="text-sm text-blue-700">
+            Sistema para gestionar información de docentes, revisar documentos y historial académico
+        </p>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="flex justify-center items-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span class="ml-2 text-gray-600">Cargando docentes...</span>
+        </div>
+    }
+    else
+    {
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium">Lista de Docentes</h3>
+                    <div class="flex space-x-2">
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre, cédula o nivel..."
+                            @oninput="OnSearchChanged"
+                            class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                            @onclick="CargarDocentes"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                            Actualizar
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-auto">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Docente
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Cédula
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Nivel Académico
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Años en Nivel
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Evaluación
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Acciones
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach (var docente in DocentesFiltrados)
+                            {
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10 bg-blue-500 rounded-full flex items-center justify-center">
+                                                <span class="text-white text-sm font-medium">
+                                                    @(docente.NombreCompleto?.Split(' ').FirstOrDefault()?.Substring(0, 1))@(docente.NombreCompleto?.Split(' ').Skip(1).FirstOrDefault()?.Substring(0, 1))
+                                                </span>
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900">@docente.NombreCompleto</div>
+                                                <div class="text-sm text-gray-500">@docente.Correo</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        @docente.Cedula
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                            @docente.NivelAcademico
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        @CalcularAnosEnNivel(docente.FechaInicioNivel) años
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        @if (docente.UltimaEvaluacion.HasValue)
+                                        {
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full @GetPuntajeColor(docente.UltimaEvaluacion.Value)">
+                                                @docente.UltimaEvaluacion.Value.ToString("F1")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                                                Sin evaluar
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <button
+                                            @onclick="() => AbrirModalDocumentos(docente)"
+                                            class="text-green-600 hover:text-green-900"
+                                        >
+                                            📄 Documentos
+                                        </button>
+                                        <button
+                                            @onclick="() => VerHistorialDocente(docente)"
+                                            class="text-blue-600 hover:text-blue-900"
+                                        >
+                                            📊 Historial
+                                        </button>
+                                        <button
+                                            @onclick="() => VerEvaluaciones(docente)"
+                                            class="text-purple-600 hover:text-purple-900"
+                                        >
+                                            📋 Evaluaciones
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @if (!DocentesFiltrados.Any())
+                    {
+                        <div class="text-center py-8">
+                            <p class="text-gray-500">No se encontraron docentes.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@* Modal para revisar documentos *@
+@if (showModalDocumentos && docenteSeleccionado != null)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @onclick:stopPropagation="true">
+        <div class="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto" @onclick:stopPropagation="true">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium">Documentos de @docenteSeleccionado.NombreCompleto</h3>
+                <button
+                    @onclick="CerrarModalDocumentos"
+                    class="text-gray-400 hover:text-gray-600"
+                >
+                    ✕
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Información del Docente -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-900 mb-3">Información Personal</h4>
+                    <div class="space-y-2 text-sm">
+                        <p><strong>Nombre:</strong> @docenteSeleccionado.NombreCompleto</p>
+                        <p><strong>Cédula:</strong> @docenteSeleccionado.Cedula</p>
+                        <p><strong>Correo:</strong> @docenteSeleccionado.Correo</p>
+                        <p><strong>Nivel Actual:</strong> @docenteSeleccionado.NivelAcademico</p>
+                        <p><strong>Fecha Inicio Nivel:</strong> @docenteSeleccionado.FechaInicioNivel.ToString("dd/MM/yyyy")</p>
+                        <p><strong>Años en Nivel:</strong> @CalcularAnosEnNivel(docenteSeleccionado.FechaInicioNivel) años</p>
+                    </div>
+                </div>
+
+                <!-- Capacitaciones -->
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-blue-900 mb-3">Capacitaciones</h4>
+                    @if (capacitacionesDocente.Any())
+                    {
+                        <div class="space-y-2 text-sm max-h-32 overflow-y-auto">
+                            @foreach (var capacitacion in capacitacionesDocente)
+                            {
+                                <div class="border-l-2 border-blue-300 pl-2 flex justify-between items-start">
+                                    <div>
+                                        <p class="font-medium">@capacitacion.Nombre</p>
+                                        <p class="text-gray-600">@capacitacion.Horas horas - @capacitacion.FechaInicio.ToString("yyyy")</p>
+                                    </div>
+                                    @if (capacitacion.Certificado != null)
+                                    {
+                                        <button 
+                                            class="text-blue-600 hover:text-blue-800 text-xs underline ml-2"
+                                            @onclick="() => VerCertificadoCapacitacion(capacitacion.Id)">
+                                            Ver PDF
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <p class="mt-2 text-sm font-medium text-blue-800">
+                            Total: @capacitacionesDocente.Sum(c => c.Horas) horas
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-gray-500 text-sm">No hay capacitaciones registradas</p>
+                    }
+                </div>
+
+                <!-- Publicaciones -->
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-green-900 mb-3">Publicaciones Académicas</h4>
+                    @if (publicacionesDocente.Any())
+                    {
+                        <div class="space-y-2 text-sm max-h-32 overflow-y-auto">
+                            @foreach (var publicacion in publicacionesDocente)
+                            {
+                                <div class="border-l-2 border-green-300 pl-2 flex justify-between items-start">
+                                    <div>
+                                        <p class="font-medium">@publicacion.Titulo</p>
+                                        <p class="text-gray-600">@publicacion.Revista (@publicacion.Anio)</p>
+                                    </div>
+                                    @if (publicacion.Archivo != null)
+                                    {
+                                        <button 
+                                            class="text-green-600 hover:text-green-800 text-xs underline ml-2"
+                                            @onclick="() => VerArchivoPublicacion(publicacion.Id)">
+                                            Ver PDF
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <p class="mt-2 text-sm font-medium text-green-800">
+                            Total: @publicacionesDocente.Count publicaciones
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-gray-500 text-sm">No hay publicaciones registradas</p>
+                    }
+                </div>
+
+                <!-- Proyectos de Investigación -->
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-purple-900 mb-3">Proyectos de Investigación</h4>
+                    @if (proyectosDocente.Any())
+                    {
+                        <div class="space-y-2 text-sm max-h-32 overflow-y-auto">
+                            @foreach (var proyecto in proyectosDocente)
+                            {
+                                <div class="border-l-2 border-purple-300 pl-2 flex justify-between items-start">
+                                    <div>
+                                        <p class="font-medium">@proyecto.Titulo</p>
+                                        <p class="text-gray-600">@proyecto.RolEnProyecto - @proyecto.FechaInicio.ToString("yyyy")</p>
+                                    </div>
+                                    @if (proyecto.Documento != null)
+                                    {
+                                        <button 
+                                            class="text-purple-600 hover:text-purple-800 text-xs underline ml-2"
+                                            @onclick="() => VerDocumentoProyecto(proyecto.Id)">
+                                            Ver PDF
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <p class="mt-2 text-sm font-medium text-purple-800">
+                            Total: @proyectosDocente.Count proyectos
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-gray-500 text-sm">No hay proyectos registrados</p>
+                    }
+                </div>
+            </div>
+
+            <div class="flex justify-end mt-6">
+                <button
+                    @onclick="CerrarModalDocumentos"
+                    class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                >
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* Modal para visualizar PDFs *@
+@if (showPdfModal && pdfUrl != null)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-4 max-w-4xl w-full h-5/6 relative">
+            <button 
+                class="absolute top-2 right-2 text-gray-600 hover:text-gray-800 text-xl font-bold z-10"
+                @onclick="CerrarPdfModal">
+                ✕
+            </button>
+            <iframe 
+                src="@pdfUrl" 
+                width="100%" 
+                height="100%" 
+                class="rounded border-0"
+                style="min-height: 600px;">
+            </iframe>
+        </div>
+    </div>
+}
+
+@code {
+    private List<DocenteDetalladoDto> docentes = new();
+    private List<CursoCapacitacionDto> capacitacionesDocente = new();
+    private List<PublicacionAcademicaDto> publicacionesDocente = new();
+    private List<ProyectoInvestigacionDto> proyectosDocente = new();
+    
+    private bool isLoading = true;
+    private string searchTerm = string.Empty;
+    
+    // Modal variables
+    private bool showModalDocumentos = false;
+    private DocenteDetalladoDto? docenteSeleccionado;
+    
+    // PDF Modal variables
+    private bool showPdfModal = false;
+    private string? pdfUrl;
+
+    private IEnumerable<DocenteDetalladoDto> DocentesFiltrados =>
+        docentes.Where(d =>
+            string.IsNullOrWhiteSpace(searchTerm) ||
+            (d.NombreCompleto?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (d.Cedula?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (d.NivelAcademico?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
+        );
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDocentes();
+    }
+
+    private async Task CargarDocentes()
+    {
+        isLoading = true;
+        try
+        {
+            docentes = await DocenteService.ObtenerTodosLosDocentesDetalladosAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar docentes: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al cargar los docentes");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task AbrirModalDocumentos(DocenteDetalladoDto docente)
+    {
+        docenteSeleccionado = docente;
+        showModalDocumentos = true;
+        
+        // Cargar los documentos del docente
+        try
+        {
+            capacitacionesDocente = await DocenteService.ObtenerCapacitacionesPorDocenteAsync(docente.Id);
+            publicacionesDocente = await DocenteService.ObtenerPublicacionesPorDocenteAsync(docente.Id);
+            proyectosDocente = await DocenteService.ObtenerProyectosPorDocenteAsync(docente.Id);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar documentos del docente: {ex.Message}");
+            capacitacionesDocente = new();
+            publicacionesDocente = new();
+            proyectosDocente = new();
+        }
+        
+        StateHasChanged();
+    }
+
+    private void CerrarModalDocumentos()
+    {
+        showModalDocumentos = false;
+        docenteSeleccionado = null;
+        capacitacionesDocente.Clear();
+        publicacionesDocente.Clear();
+        proyectosDocente.Clear();
+    }
+
+    private async Task VerHistorialDocente(DocenteDetalladoDto docente)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", $"Historial de {docente.NombreCompleto} - Funcionalidad en desarrollo");
+    }
+
+    private async Task VerEvaluaciones(DocenteDetalladoDto docente)
+    {
+        try
+        {
+            var evaluaciones = await DocenteService.ObtenerEvaluacionesPorDocenteAsync(docente.Id);
+            if (evaluaciones.Any())
+            {
+                var mensaje = $"Evaluaciones de {docente.NombreCompleto}:\\n";
+                foreach (var eval in evaluaciones.OrderByDescending(e => e.Periodo))
+                {
+                    mensaje += $"- {eval.Periodo}: {eval.Puntaje} puntos\\n";
+                }
+                await JSRuntime.InvokeVoidAsync("alert", mensaje);
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"No se encontraron evaluaciones para {docente.NombreCompleto}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener evaluaciones: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al obtener las evaluaciones");
+        }
+    }
+
+    private int CalcularAnosEnNivel(DateTime fechaInicio)
+    {
+        return DateTime.Now.Year - fechaInicio.Year;
+    }
+
+    private string GetPuntajeColor(double puntaje)
+    {
+        return puntaje >= 85 ? "bg-green-100 text-green-800" :
+               puntaje >= 75 ? "bg-yellow-100 text-yellow-800" :
+               "bg-red-100 text-red-800";
+    }
+
+    // Métodos para visualización de PDFs
+    private void VerCertificadoCapacitacion(int capacitacionId)
+    {
+        pdfUrl = $"http://localhost:5015/api/CursoCapacitacion/certificado/{capacitacionId}";
+        showPdfModal = true;
+    }
+
+    private void VerArchivoPublicacion(int publicacionId)
+    {
+        pdfUrl = $"http://localhost:5015/api/PublicacionAcademica/archivo/{publicacionId}";
+        showPdfModal = true;
+    }
+
+    private void VerDocumentoProyecto(int proyectoId)
+    {
+        pdfUrl = $"http://localhost:5015/api/ProyectoInvestigacion/documento/{proyectoId}";
+        showPdfModal = true;
+    }
+
+    private void CerrarPdfModal()
+    {
+        showPdfModal = false;
+        pdfUrl = null;
+    }
+}

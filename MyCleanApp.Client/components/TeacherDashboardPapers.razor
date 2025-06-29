@@ -1,13 +1,179 @@
 @using System
 @using System.Collections.Generic
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@using MyCleanApp.Client.DTOs
+@using System.Net.Http.Json
+@inject DocenteService DocenteService
 
 @* Recibe la lista de publicaciones como parámetro *@
 @code {
     [Parameter]
     public List<PublicacionAcademicaDto> PublicacionesAcademicas { get; set; } = new();
-}
 
+    private bool showModalImportar = false;
+    private string modalMessageImportar = string.Empty;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; }
+
+    [Parameter]
+    public EventCallback OnImportarCompletado { get; set; }
+
+    private string searchTerm = string.Empty;
+    private string selectedTipo = "";
+    private string selectedAnio = "";
+    private IEnumerable<string> TiposDisponibles => PublicacionesAcademicas
+        .Select(p => p.Tipo)
+        .Where(t => !string.IsNullOrWhiteSpace(t))
+        .Distinct()
+        .OrderBy(t => t);
+    private IEnumerable<string> AniosDisponibles => PublicacionesAcademicas
+        .Select(p => p.Anio.ToString())
+        .Distinct()
+        .OrderByDescending(a => a);
+    private IEnumerable<PublicacionAcademicaDto> Filtradas =>
+        PublicacionesAcademicas
+            .Where(p =>
+                (string.IsNullOrWhiteSpace(searchTerm)
+                    || (p.Titulo?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+                && (string.IsNullOrWhiteSpace(selectedTipo) || p.Tipo == selectedTipo)
+                && (string.IsNullOrWhiteSpace(selectedAnio) || p.Anio.ToString() == selectedAnio)
+            );
+
+    private void IrASubirPublicacion()
+    {
+        Navigation.NavigateTo("/subir-publicacion");
+    }
+
+    private async Task ImportarPublicacionesExternas()
+    {
+        var http = new HttpClient();
+        var publicacionesExternas = await http.GetFromJsonAsync<List<PublicacionAcademicaDto>>("http://localhost:3000/PublicacionAcademica");
+        var soloExternas = publicacionesExternas?.Where(p => p.Externo).ToList() ?? new List<PublicacionAcademicaDto>();
+        // Recarga la lista real desde el backend antes de comparar
+        var publicacionesActuales = PublicacionesAcademicas
+            .Select(p => (p.Titulo.Trim().ToLower(), p.Revista.Trim().ToLower(), p.Volumen.Trim().ToLower(), p.Anio, p.Tipo.Trim().ToLower()))
+            .ToHashSet();
+        int importadas = 0, duplicadas = 0;
+        foreach (var pub in soloExternas)
+        {
+            var key = (pub.Titulo.Trim().ToLower(), pub.Revista.Trim().ToLower(), pub.Volumen.Trim().ToLower(), pub.Anio, pub.Tipo.Trim().ToLower());
+            if (!publicacionesActuales.Contains(key))
+            {
+                var response = await DocenteService.ImportarPublicacionExternaAsync(pub);
+                if (response)
+                    importadas++;
+                else
+                    duplicadas++;
+            }
+            else
+            {
+                duplicadas++;
+            }
+        }
+        // Notifica al padre para que recargue la lista
+        if (OnImportarCompletado.HasDelegate)
+            await OnImportarCompletado.InvokeAsync();
+        if (importadas > 0)
+            modalMessageImportar = $"Se importaron {importadas} publicación(es) nueva(s).";
+        else
+            modalMessageImportar = "No se importaron publicaciones porque ya existen.";
+        showModalImportar = true;
+    }
+
+    private void CerrarModalImportar()
+    {
+        showModalImportar = false;
+    }
+
+    private void LimpiarFiltros()
+    {
+        searchTerm = string.Empty;
+        selectedTipo = "";
+        selectedAnio = "";
+    }
+
+    private bool showPdfModal = false;
+    private string? pdfUrl;
+    private bool showEditModal = false;
+    private PublicacionAcademicaDto? publicacionEditando;
+    private string editTitulo = string.Empty;
+    private string editRevista = string.Empty;
+    private string editVolumen = string.Empty;
+    private int editAnio;
+    private string editTipo = string.Empty;
+    private IBrowserFile? editArchivoFile;
+
+    private void VerArchivo(int publicacionId)
+    {
+        pdfUrl = $"http://localhost:5015/api/PublicacionAcademica/archivo/{publicacionId}";
+        showPdfModal = true;
+    }
+    private void CerrarPdfModal()
+    {
+        showPdfModal = false;
+        pdfUrl = null;
+    }
+    private void EditarPublicacion(PublicacionAcademicaDto pub)
+    {
+        publicacionEditando = pub;
+        editTitulo = pub.Titulo;
+        editRevista = pub.Revista;
+        editVolumen = pub.Volumen;
+        editAnio = pub.Anio;
+        editTipo = pub.Tipo;
+        showEditModal = true;
+    }
+    private async Task OnArchivoFileChanged(InputFileChangeEventArgs e)
+    {
+        editArchivoFile = e.File;
+        if (editArchivoFile != null && publicacionEditando != null)
+        {
+            using var stream = editArchivoFile.OpenReadStream(5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            publicacionEditando.Archivo = ms.ToArray();
+        }
+    }
+    private async Task GuardarEdicionPublicacion()
+    {
+        if (publicacionEditando == null) return;
+        publicacionEditando.Titulo = editTitulo;
+        publicacionEditando.Revista = editRevista;
+        publicacionEditando.Volumen = editVolumen;
+        publicacionEditando.Anio = editAnio;
+        publicacionEditando.Tipo = editTipo;
+        var response = await DocenteService.EditarPublicacionAsync(publicacionEditando);
+        if (!response)
+        {
+            modalMessageImportar = "No se pudo editar la publicación.";
+            showModalImportar = true;
+        }
+        showEditModal = false;
+        if (OnImportarCompletado.HasDelegate)
+            await OnImportarCompletado.InvokeAsync();
+    }
+    private void CancelarEdicionPublicacion()
+    {
+        showEditModal = false;
+        publicacionEditando = null;
+    }
+    private async Task EliminarPublicacion(int publicacionId)
+    {
+        var response = await DocenteService.EliminarPublicacionAsync(publicacionId);
+        if (response)
+        {
+            if (OnImportarCompletado.HasDelegate)
+                await OnImportarCompletado.InvokeAsync();
+        }
+        else
+        {
+            modalMessageImportar = "No se pudo eliminar la publicación.";
+            showModalImportar = true;
+        }
+    }
+}
 
 <div class="space-y-4">
     <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -17,17 +183,57 @@
                     <h3 class="text-lg font-medium">Publicaciones Académicas</h3>
                     <p class="text-sm text-gray-600">Tus publicaciones registradas en el sistema</p>
                 </div>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-                    Añadir Nueva Publicación
+                <div class="flex flex-row gap-2 items-center">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                            @onclick="IrASubirPublicacion">
+                        Añadir Nueva Publicación
+                    </button>
+                    <button class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                            style="margin-left: 0.5rem;"
+                            @onclick="ImportarPublicacionesExternas">
+                        <span class="inline-block align-middle">Importar datos</span>
+                    </button>
+                </div>
+            </div>
+            <div class="flex flex-row gap-2 mb-4">
+                <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedTipo">
+                    <option value="">Todos los tipos</option>
+                    @foreach (var tipo in TiposDisponibles)
+                    {
+                        <option value="@tipo">@tipo</option>
+                    }
+                </select>
+                <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedAnio">
+                    <option value="">Todos los años</option>
+                    @foreach (var anio in AniosDisponibles)
+                    {
+                        <option value="@anio">@anio</option>
+                    }
+                </select>
+                <input class="w-full border rounded-md px-3 py-2 text-sm" placeholder="Buscar publicación..." @bind="searchTerm" />
+                <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-3 py-2 rounded-md text-sm" @onclick="LimpiarFiltros" title="Limpiar filtros">
+                    Limpiar
                 </button>
             </div>
             <div class="border rounded-lg divide-y">
-                @if (PublicacionesAcademicas != null && PublicacionesAcademicas.Any())
+                @if (Filtradas != null && Filtradas.Any())
                 {
-                    @foreach (var pub in PublicacionesAcademicas)
+                    @foreach (var pub in Filtradas)
                     {
                         <div class="p-4">
-                            <div class="font-medium">@pub.Titulo</div>
+                            <div class="font-medium flex items-center gap-2">
+                                @pub.Titulo
+                                @if (pub.Externo == true)
+                                {
+                                    <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300" title="Importada de fuente externa">Externo</span>
+                                }
+                                else if (pub.Externo == false)
+                                {
+                                    <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-300" title="Registrada localmente">Local</span>
+                                    <button class="ml-2 text-yellow-600 underline text-xs" @onclick="() => EditarPublicacion(pub)">Editar</button>
+                                    <button class="ml-2 text-red-600 underline text-xs" @onclick="() => EliminarPublicacion(pub.Id)">Eliminar</button>
+                                }
+                            </div>
                             <div class="text-sm text-gray-500 mt-1">
                                 @pub.Revista, Vol. @pub.Volumen, @pub.Anio
                             </div>
@@ -41,11 +247,7 @@
                                 <span class="text-sm text-blue-500">@pub.Tipo</span>
                                 @if (pub.Archivo != null)
                                 {
-                                    <a class="ml-4 text-blue-600 underline text-xs"
-                                        href="@($"data:application/pdf;base64,{Convert.ToBase64String(pub.Archivo)}")"
-                                        download="Publicacion_@pub.Id .pdf">
-                                            Descargar archivo
-                                    </a>
+                                    <button class="ml-4 text-blue-600 underline text-xs" @onclick="() => VerArchivo(pub.Id)">Ver archivo</button>
                                 }
                             </div>
                         </div>
@@ -62,4 +264,65 @@
             </div>
         </div>
     </div>
+
+    @if (showModalImportar)
+    {
+        <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+            <div class="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full text-center">
+                <div class="text-lg font-semibold mb-4">Importación de Publicaciones</div>
+                <div class="mb-6">@modalMessageImportar</div>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md" @onclick="CerrarModalImportar">Cerrar</button>
+            </div>
+        </div>
+    }
+    @if (showPdfModal && pdfUrl != null)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-4 max-w-3xl w-full relative">
+                <button class="absolute top-2 right-2 text-gray-600" @onclick="CerrarPdfModal">✕</button>
+                <iframe src="@pdfUrl" width="100%" height="600px"></iframe>
+            </div>
+        </div>
+    }
+    @if (showEditModal && publicacionEditando != null)
+    {
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-6 max-w-md w-full relative">
+                <button class="absolute top-2 right-2 text-gray-600" @onclick="CancelarEdicionPublicacion">✕</button>
+                <h3 class="text-lg font-semibold mb-4">Editar Publicación</h3>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Título</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editTitulo" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Revista</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editRevista" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Volumen</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editVolumen" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Año</label>
+                    <input type="number" class="w-full border rounded-md px-3 py-2 text-sm" @bind="editAnio" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Tipo</label>
+                    <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editTipo" />
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Archivo PDF</label>
+                    <InputFile OnChange="OnArchivoFileChanged" accept="application/pdf" />
+                    @if (publicacionEditando.Archivo != null)
+                    {
+                        <span class="ml-2 text-green-600 text-xs">Archivo cargado</span>
+                    }
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-4 py-2 rounded-md" @onclick="CancelarEdicionPublicacion">Cancelar</button>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-md" @onclick="GuardarEdicionPublicacion">Guardar</button>
+                </div>
+            </div>
+        </div>
+    }
 </div>

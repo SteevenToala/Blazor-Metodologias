@@ -1,6 +1,7 @@
 @page "/login-admin"
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
 @inject NavigationManager Navigation
 @inject HttpClient Http
 @inject IJSRuntime JS
@@ -68,6 +69,13 @@ protected override async Task OnInitializedAsync()
         }
 
     }
+
+    private bool ShowPassword { get; set; } = false;
+    private string PasswordInputType => ShowPassword ? "text" : "password";
+    private void TogglePasswordVisibility()
+    {
+        ShowPassword = !ShowPassword;
+    }
 }
 
 <div class="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
@@ -89,7 +97,7 @@ protected override async Task OnInitializedAsync()
             </div>
             <h2 class="text-2xl text-center font-bold mb-2 text-blue-800">@((RoleParam ?? "admin").Trim().ToLower() == "admin" ? "Acceso Administrador" : $"Acceso Docente ({RoleParam})")</h2>
             <p class="text-center text-gray-500 mb-6">Introduce tus credenciales para acceder al sistema</p>
-            <Microsoft.AspNetCore.Components.Forms.EditForm Model="Model" OnValidSubmit="HandleSubmit">
+            <EditForm Model="Model" OnValidSubmit="HandleSubmit">
                 <div class="space-y-4">
                     <div class="space-y-2">
                         <label for="email" class="block text-sm font-semibold text-blue-900">Correo electrónico</label>
@@ -100,7 +108,22 @@ protected override async Task OnInitializedAsync()
                             <label for="password" class="block text-sm font-semibold text-blue-900">Contraseña</label>
                             <button type="button" class="text-xs text-blue-700 hover:underline bg-transparent border-0 p-0">¿Olvidaste tu contraseña?</button>
                         </div>
-                        <InputText id="password" class="w-full border border-blue-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none text-base" @bind-Value="Model.PasswordField" type="password" required />
+                        <div class="relative">
+                            <InputText id="password" class="w-full border border-blue-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none text-base" @bind-Value="Model.PasswordField" type="@PasswordInputType" required />
+                            <button type="button" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-blue-500 focus:outline-none" @onclick="TogglePasswordVisibility" tabindex="-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    @if (ShowPassword)
+                                    {
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm-9.707 2.293a1 1 0 010-1.414C7.387 9.387 9.613 8 12 8c2.387 0 4.613 1.387 6.707 3.293a1 1 0 010 1.414C16.613 14.613 14.387 16 12 16c-2.387 0-4.613-1.387-6.707-3.293z" />
+                                    }
+                                    else
+                                    {
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm-9.707 2.293a1 1 0 010-1.414C7.387 9.387 9.613 8 12 8c2.387 0 4.613 1.387 6.707 3.293a1 1 0 010 1.414C16.613 14.613 14.387 16 12 16c-2.387 0-4.613-1.387-6.707-3.293z" />
+                                        <line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="2" />
+                                    }
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="mt-6">
@@ -113,7 +136,7 @@ protected override async Task OnInitializedAsync()
                 {
                     <div class="text-red-600 mt-2">@ErrorMsg</div>
                 }
-            </Microsoft.AspNetCore.Components.Forms.EditForm>
+            </EditForm>
         </div>
     </div>
 </div>

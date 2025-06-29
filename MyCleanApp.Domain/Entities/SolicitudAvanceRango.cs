@@ -5,9 +5,9 @@ namespace MyCleanApp.Domain.Entities
         public int Id { get; set; }
         public int DocenteId { get; set; }
         public DateTime FechaSolicitud { get; set; }
-        public string Estado { get; set; } = string.Empty; // PENDIENTE, APROBADA, RECHAZADA
+        public string? Estado { get; set; } // PENDIENTE, APROBADA, RECHAZADA
         public DateTime? FechaRespuesta { get; set; }
-        public string Observaciones { get; set; } = string.Empty;
+        public string? Observaciones { get; set; }
         public int NuevoNivelAcademicoId { get; set; }
 
         public Docente? Docente { get; set; }

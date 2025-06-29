@@ -1,0 +1,341 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@inject HttpClient Http
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+    <div class="p-6">
+        <h3 class="text-lg font-medium mb-2">Gestión de Promociones</h3>
+        <p class="text-sm text-gray-600 mb-4">Sistema de promociones académicas según reglamento UTA</p>
+        
+        <!-- Pestañas de gestión -->
+        <div class="border-b border-gray-200 mb-4">
+            <nav class="-mb-px flex space-x-8">
+                @foreach (var tab in new[] { 
+                    (Id: "solicitudes", Label: "Solicitudes"), 
+                    (Id: "verificacion", Label: "Verificación de Documentos"), 
+                    (Id: "apelaciones", Label: "Apelaciones"), 
+                    (Id: "plazos", Label: "Seguimiento de Plazos"),
+                    (Id: "informes", Label: "Informes Finales")
+                })
+                {
+                    <button
+                        @onclick="() => SetActiveTab(tab.Id)"
+                        class="py-2 px-1 border-b-2 font-medium text-sm @(activeTab == tab.Id ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300")"
+                    >
+                        @tab.Label
+                    </button>
+                }
+            </nav>
+        </div>
+
+        @if (activeTab == "solicitudes")
+        {
+            <div class="space-y-4">
+                <div class="border rounded-lg overflow-hidden">
+                    <div class="bg-blue-50 p-4">
+                        <h3 class="font-medium">Solicitudes de Avance de Rango</h3>
+                    </div>
+                    <div class="divide-y">
+                        @if (loadingSolicitudes)
+                        {
+                            <div class="p-4 text-gray-500">Cargando solicitudes...</div>
+                        }
+                        else if (!string.IsNullOrEmpty(solicitudesError))
+                        {
+                            <div class="p-4 text-red-600">@solicitudesError</div>
+                        }
+                        else if (solicitudesAvance.Count == 0)
+                        {
+                            <div class="p-4 text-gray-500">No hay solicitudes de avance de rango.</div>
+                        }
+                        else
+                        {
+                            @foreach (var solicitud in solicitudesAvance.OrderByDescending(s => s.FechaSolicitud))
+                            {
+                                <div class="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                    <div>
+                                        <div class="font-medium">Solicitud ID: @solicitud.Id</div>
+                                        <div class="text-sm text-gray-500">Docente ID: @solicitud.DocenteId</div>
+                                        <div class="text-xs text-gray-400">Solicitado el @solicitud.FechaSolicitud.ToString("dd/MM/yyyy")</div>
+                                    </div>
+                                    <div class="flex gap-2 items-center">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @(solicitud.Estado == "PENDIENTE" ? "bg-amber-100 text-amber-800" : solicitud.Estado == "APROBADA" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800")">
+                                            @solicitud.Estado
+                                        </span>
+                                        @if (solicitud.Estado == "PENDIENTE")
+                                        {
+                                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1 px-3 rounded-md text-xs" @onclick="() => VerificarDocumentos(solicitud.Id)">Verificar</button>
+                                            <button class="bg-green-600 hover:bg-green-700 text-white font-semibold py-1 px-3 rounded-md text-xs" @onclick="() => AprobarSolicitud(solicitud.Id)">Aprobar</button>
+                                            <button class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1 px-3 rounded-md text-xs" @onclick="() => RechazarSolicitud(solicitud.Id)">Rechazar</button>
+                                        }
+                                        @if (solicitud.Estado == "APROBADA")
+                                        {
+                                            <button class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-3 rounded-md text-xs" @onclick="() => GenerarInforme(solicitud.Id)">Generar Informe</button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (activeTab == "verificacion")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium text-gray-900">Lista de Verificación de Documentos</h4>
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h5 class="font-medium text-blue-800">Anexo 1 - Lista de Verificación</h5>
+                    <p class="text-sm text-blue-600 mt-1">
+                        Según el Artículo 6 del reglamento, la Dirección de Talento Humano debe verificar la autenticidad 
+                        de los documentos a través de la lista de verificación correspondiente al nivel académico solicitado.
+                    </p>
+                </div>
+                
+                @if (solicitudesPendientesVerificacion.Any())
+                {
+                    @foreach (var solicitud in solicitudesPendientesVerificacion)
+                    {
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <div>
+                                    <h5 class="font-medium">Solicitud ID: @solicitud.Id</h5>
+                                    <p class="text-sm text-gray-600">Docente ID: @solicitud.DocenteId</p>
+                                    <p class="text-xs text-gray-500">Presentada el @solicitud.FechaSolicitud.ToString("dd/MM/yyyy")</p>
+                                </div>
+                                <button @onclick="() => IniciarVerificacion(solicitud.Id)" 
+                                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                                    Iniciar Verificación
+                                </button>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-gray-500 text-center py-4">No hay solicitudes pendientes de verificación de documentos.</p>
+                }
+            </div>
+        }
+
+        @if (activeTab == "apelaciones")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium text-gray-900">Gestión de Apelaciones</h4>
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <h5 class="font-medium text-amber-800">Proceso de Apelaciones</h5>
+                    <p class="text-sm text-amber-600 mt-1">
+                        Los docentes tienen 3 días calendario para apelar una decisión. La comisión debe resolver en 3 días.
+                    </p>
+                </div>
+                
+                <p class="text-gray-500 text-center py-4">
+                    <em>Funcionalidad de apelaciones será implementada en la siguiente fase.</em>
+                </p>
+            </div>
+        }
+
+        @if (activeTab == "plazos")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium text-gray-900">Seguimiento de Plazos Legales</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="border border-red-200 bg-red-50 rounded-lg p-4">
+                        <h5 class="font-medium text-red-800">Plazos Vencidos</h5>
+                        <p class="text-2xl font-bold text-red-600">0</p>
+                        <p class="text-xs text-red-600">Requieren atención inmediata</p>
+                    </div>
+                    
+                    <div class="border border-amber-200 bg-amber-50 rounded-lg p-4">
+                        <h5 class="font-medium text-amber-800">Por Vencer (3 días)</h5>
+                        <p class="text-2xl font-bold text-amber-600">0</p>
+                        <p class="text-xs text-amber-600">Próximos a vencer</p>
+                    </div>
+                    
+                    <div class="border border-green-200 bg-green-50 rounded-lg p-4">
+                        <h5 class="font-medium text-green-800">En Tiempo</h5>
+                        <p class="text-2xl font-bold text-green-600">@solicitudesAvance.Count(s => s.Estado == "PENDIENTE")</p>
+                        <p class="text-xs text-green-600">Dentro de los plazos</p>
+                    </div>
+                </div>
+                
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h5 class="font-medium text-blue-800">Plazos según Reglamento</h5>
+                    <ul class="text-sm text-blue-600 mt-2 space-y-1">
+                        <li>• Notificación de resultado: Inmediata tras resolución</li>
+                        <li>• Respuesta del docente: 3 días calendario</li>
+                        <li>• Resolución de apelaciones: 3 días calendario</li>
+                        <li>• Envío al Consejo Universitario: Según cronograma institucional</li>
+                    </ul>
+                </div>
+            </div>
+        }
+
+        @if (activeTab == "informes")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium text-gray-900">Informes Finales para el Consejo Universitario</h4>
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h5 class="font-medium text-purple-800">Artículo 6, numeral 7</h5>
+                    <p class="text-sm text-purple-600 mt-1">
+                        La Comisión emite el informe final de promoción y lo remite al Presidente del 
+                        Honorable Consejo Universitario para su aprobación.
+                    </p>
+                </div>
+                
+                @if (solicitudesAvance.Any(s => s.Estado == "APROBADA"))
+                {
+                    @foreach (var solicitud in solicitudesAvance.Where(s => s.Estado == "APROBADA"))
+                    {
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h5 class="font-medium">Solicitud ID: @solicitud.Id</h5>
+                                    <p class="text-sm text-gray-600">Docente ID: @solicitud.DocenteId</p>
+                                    <p class="text-xs text-gray-500">Aprobada el @solicitud.FechaRespuesta?.ToString("dd/MM/yyyy")</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @onclick="() => GenerarInforme(solicitud.Id)" 
+                                            class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm">
+                                        Generar Informe Final
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-gray-500 text-center py-4">No hay solicitudes aprobadas pendientes de informe final.</p>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<SolicitudAvanceRangoDto> solicitudesAvance = new();
+    private List<SolicitudAvanceRangoDto> solicitudesPendientesVerificacion = new();
+    private bool loadingSolicitudes = true;
+    private string solicitudesError = string.Empty;
+    private string activeTab = "solicitudes";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarSolicitudesAvance();
+    }
+
+    private async Task CargarSolicitudesAvance()
+    {
+        try
+        {
+            loadingSolicitudes = true;
+            solicitudesError = string.Empty;
+            var response = await Http.GetAsync("http://localhost:5015/api/SolicitudAvanceRango");
+            if (!response.IsSuccessStatusCode)
+            {
+                solicitudesError = "Error al cargar solicitudes.";
+                return;
+            }
+            var json = await response.Content.ReadAsStringAsync();
+            var solicitudes = JsonSerializer.Deserialize<List<SolicitudAvanceRangoDto>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            solicitudesAvance = solicitudes ?? new List<SolicitudAvanceRangoDto>();
+            solicitudesPendientesVerificacion = solicitudesAvance.Where(s => s.Estado == "PENDIENTE").ToList();
+        }
+        catch (Exception ex)
+        {
+            solicitudesError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            loadingSolicitudes = false;
+        }
+    }
+
+    private void SetActiveTab(string tabId)
+    {
+        activeTab = tabId;
+    }
+
+    private async Task VerificarDocumentos(int solicitudId)
+    {
+        try
+        {
+            var solicitud = solicitudesAvance.FirstOrDefault(s => s.Id == solicitudId);
+            if (solicitud == null) return;
+            
+            solicitud.Estado = "EN VERIFICACION";
+            var content = new StringContent(JsonSerializer.Serialize(solicitud), System.Text.Encoding.UTF8, "application/json");
+            var response = await Http.PutAsync($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                await CargarSolicitudesAvance();
+            }
+        }
+        catch (Exception ex)
+        {
+            solicitudesError = $"Error al verificar documentos: {ex.Message}";
+        }
+    }
+
+    private async Task AprobarSolicitud(int solicitudId)
+    {
+        try
+        {
+            var solicitud = solicitudesAvance.FirstOrDefault(s => s.Id == solicitudId);
+            if (solicitud == null) return;
+            
+            solicitud.Estado = "APROBADA";
+            solicitud.FechaRespuesta = DateTime.Now;
+            var content = new StringContent(JsonSerializer.Serialize(solicitud), System.Text.Encoding.UTF8, "application/json");
+            var response = await Http.PutAsync($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                await CargarSolicitudesAvance();
+            }
+        }
+        catch (Exception ex)
+        {
+            solicitudesError = $"Error al aprobar solicitud: {ex.Message}";
+        }
+    }
+
+    private async Task RechazarSolicitud(int solicitudId)
+    {
+        try
+        {
+            var solicitud = solicitudesAvance.FirstOrDefault(s => s.Id == solicitudId);
+            if (solicitud == null) return;
+            
+            solicitud.Estado = "RECHAZADA";
+            solicitud.FechaRespuesta = DateTime.Now;
+            var content = new StringContent(JsonSerializer.Serialize(solicitud), System.Text.Encoding.UTF8, "application/json");
+            var response = await Http.PutAsync($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                await CargarSolicitudesAvance();
+            }
+        }
+        catch (Exception ex)
+        {
+            solicitudesError = $"Error al rechazar solicitud: {ex.Message}";
+        }
+    }
+
+    private async Task GenerarInforme(int solicitudId)
+    {
+        // Aquí iría la lógica para generar el informe final
+        Console.WriteLine($"Generando informe para solicitud {solicitudId}");
+        await Task.CompletedTask;
+    }
+
+    private async Task IniciarVerificacion(int solicitudId)
+    {
+        await VerificarDocumentos(solicitudId);
+    }
+}

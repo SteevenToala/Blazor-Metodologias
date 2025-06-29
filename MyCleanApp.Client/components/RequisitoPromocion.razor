@@ -1,0 +1,228 @@
+@using MyCleanApp.Client.Services
+@inject DocenteService DocenteService
+@inject IJSRuntime JSRuntime
+
+<div class="promotion-requirements-card">
+    <div class="card">
+        <div class="card-header">
+            <h4><i class="fas fa-chart-line"></i> Requisitos para Promoción</h4>
+        </div>
+        <div class="card-body">
+            @if (isLoading)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            }
+            else if (requisitosPromocion == null)
+            {
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No se pudieron cargar los requisitos de promoción.
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(requisitosPromocion.ProximoNivel) && requisitosPromocion.ProximoNivel != "N/A")
+            {
+                <div class="promotion-info mb-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Nivel Actual:</strong> @requisitosPromocion.NivelActual
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Próximo Nivel:</strong> @requisitosPromocion.ProximoNivel
+                        </div>
+                    </div>
+                </div>
+
+                <div class="progress-summary mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span><strong>Progreso General</strong></span>
+                        <span class="badge bg-@(requisitosPromocion.PuedePromoverse ? "success" : "warning")">
+                            @requisitosPromocion.ResumenCumplimiento.RequisitosCumplidos/@requisitosPromocion.ResumenCumplimiento.TotalRequisitos
+                        </span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-@(requisitosPromocion.PuedePromoverse ? "success" : "primary")" 
+                             role="progressbar" 
+                             style="width: @(requisitosPromocion.ResumenCumplimiento.PorcentajeGeneral.ToString("F1"))%">
+                            @(requisitosPromocion.ResumenCumplimiento.PorcentajeGeneral.ToString("F1"))%
+                        </div>
+                    </div>
+                </div>
+
+                <div class="requirements-list">
+                    @foreach (var requisito in requisitosPromocion.Requisitos)
+                    {
+                        <div class="requirement-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="requirement-name">
+                                    <i class="fas fa-@GetRequisitoIcon(requisito.TipoRequisito)"></i>
+                                    @requisito.TipoRequisito
+                                </span>
+                                <span class="badge bg-@(requisito.Cumple ? "success" : "danger")">
+                                    @requisito.ValorActual.ToString("F1")/@requisito.ValorRequerido.ToString("F1")
+                                </span>
+                            </div>
+                            <div class="progress progress-sm">
+                                <div class="progress-bar bg-@(requisito.Cumple ? "success" : "warning")" 
+                                     role="progressbar" 
+                                     style="width: @(Math.Min(requisito.Porcentaje, 100).ToString("F1"))%">
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                @(requisito.Porcentaje.ToString("F1"))% completado
+                            </small>
+                        </div>
+                    }
+                </div>
+
+                @if (requisitosPromocion.PuedePromoverse)
+                {
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i>
+                        ¡Felicitaciones! Cumples con todos los requisitos para la promoción.
+                    </div>
+                    <div class="text-center">
+                        <button class="btn btn-success btn-lg" @onclick="SolicitarPromocion" disabled="@isSoliciting">
+                            @if (isSoliciting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            }
+                            <i class="fas fa-paper-plane"></i> Solicitar Promoción
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Aún no cumples con todos los requisitos. Continúa trabajando en las áreas pendientes.
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="alert alert-success">
+                    <i class="fas fa-trophy"></i>
+                    Has alcanzado el nivel académico máximo. ¡Felicitaciones!
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .promotion-requirements-card .card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border-radius: 0.5rem;
+    }
+
+    .promotion-requirements-card .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+        border: none;
+    }
+
+    .requirement-item {
+        padding: 0.75rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        background-color: #f8f9fa;
+    }
+
+    .requirement-name {
+        font-weight: 500;
+    }
+
+    .progress-sm {
+        height: 0.5rem;
+    }
+
+    .promotion-info {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.375rem;
+        border-left: 4px solid #007bff;
+    }
+
+    .progress-summary {
+        background-color: #fff;
+        padding: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+    }
+</style>
+
+@code {
+    private RequisitoPromocionResponse? requisitosPromocion;
+    private bool isLoading = true;
+    private bool isSoliciting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarRequisitos();
+    }
+
+    private async Task CargarRequisitos()
+    {
+        isLoading = true;
+        try
+        {
+            requisitosPromocion = await DocenteService.ObtenerRequisitosPromocionAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar requisitos: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al cargar los requisitos de promoción");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SolicitarPromocion()
+    {
+        isSoliciting = true;
+        try
+        {
+            var success = await DocenteService.SolicitarPromocionAsync();
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Solicitud de promoción enviada exitosamente");
+                await CargarRequisitos(); // Recargar para actualizar el estado
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Error al enviar la solicitud de promoción");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al solicitar promoción: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al procesar la solicitud");
+        }
+        finally
+        {
+            isSoliciting = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetRequisitoIcon(string tipoRequisito)
+    {
+        return tipoRequisito switch
+        {
+            "Años en el rango" => "calendar-alt",
+            "Papers" => "file-alt",
+            "Puntaje Evaluación" => "star",
+            "Horas Capacitación" => "graduation-cap",
+            "Investigaciones" => "microscope",
+            _ => "check-circle"
+        };
+    }
+}

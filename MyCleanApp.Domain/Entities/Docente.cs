@@ -8,8 +8,10 @@ namespace MyCleanApp.Domain.Entities
 
         public int UsuarioId { get; set; }
         public Usuario Usuario { get; set; } = null!;
+        
+        // Relación con Persona a través de Usuario
+        public Persona? Persona => Usuario?.Persona;
 
         public DateTime FechaInicioNivel { get; set; }
-
     }
 }

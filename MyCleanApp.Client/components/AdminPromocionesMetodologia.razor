@@ -1,0 +1,141 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@inject HttpClient Http
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+    <div class="p-6">
+        <h3 class="text-lg font-medium mb-4">Gestión de Promociones - Metodología UTA</h3>
+        
+        @* Subtabs *@
+        <div class="border-b border-gray-200 mb-4">
+            <nav class="-mb-px flex space-x-8">
+                <button @onclick="@(() => SetActiveSubTab("verificacion"))"
+                        class="px-3 py-1 text-sm rounded @(GetTabClass("verificacion"))">
+                    Verificación de Requisitos
+                </button>
+                <button @onclick="@(() => SetActiveSubTab("apelaciones"))"
+                        class="px-3 py-1 text-sm rounded @(GetTabClass("apelaciones"))">
+                    Apelaciones
+                </button>
+                <button @onclick="@(() => SetActiveSubTab("plazos"))"
+                        class="px-3 py-1 text-sm rounded @(GetTabClass("plazos"))">
+                    Gestión de Plazos
+                </button>
+                <button @onclick="@(() => SetActiveSubTab("informes"))"
+                        class="px-3 py-1 text-sm rounded @(GetTabClass("informes"))">
+                    Informes de Promoción
+                </button>
+            </nav>
+        </div>
+
+        @* Contenido de verificación *@
+        @if (_activeSubTab == "verificacion")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium">Solicitudes Pendientes de Verificación</h4>
+                @if (_solicitudesPendientesVerificacion.Any())
+                {
+                    @foreach (var solicitud in _solicitudesPendientesVerificacion)
+                    {
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h5 class="font-medium">Solicitud ID: @solicitud.Id</h5>
+                                    <p class="text-sm text-gray-600">Docente ID: @solicitud.DocenteId</p>
+                                    <p class="text-sm text-gray-600">Estado: @solicitud.Estado</p>
+                                    <p class="text-sm text-gray-600">Fecha: @solicitud.FechaSolicitud.ToString("dd/MM/yyyy")</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button class="px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700">
+                                        Aprobar
+                                    </button>
+                                    <button class="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700">
+                                        Rechazar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-gray-500">No hay solicitudes pendientes de verificación.</p>
+                }
+            </div>
+        }
+
+        @* Contenido de apelaciones *@
+        @if (_activeSubTab == "apelaciones")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium">Apelaciones Pendientes</h4>
+                <p class="text-gray-500">No hay apelaciones pendientes.</p>
+            </div>
+        }
+
+        @* Contenido de plazos *@
+        @if (_activeSubTab == "plazos")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium">Gestión de Plazos</h4>
+                <p class="text-gray-600">Funcionalidad en desarrollo para gestionar plazos de promoción.</p>
+            </div>
+        }
+
+        @* Contenido de informes *@
+        @if (_activeSubTab == "informes")
+        {
+            <div class="space-y-4">
+                <h4 class="font-medium">Informes de Promoción</h4>
+                <p class="text-gray-600">Funcionalidad en desarrollo para generar informes de promoción.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string _activeSubTab = "verificacion";
+    
+    private List<SolicitudAvanceRangoDto> _solicitudesPendientesVerificacion = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private void SetActiveSubTab(string tabId)
+    {
+        _activeSubTab = tabId;
+    }
+
+    private string GetTabClass(string tabId)
+    {
+        return _activeSubTab == tabId ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:text-gray-700";
+    }
+
+    private async Task CargarDatos()
+    {
+        try
+        {
+            _loading = true;
+
+            // Cargar solicitudes pendientes
+            var solicitudesResponse = await Http.GetAsync("http://localhost:5015/api/SolicitudAvanceRango");
+            if (solicitudesResponse.IsSuccessStatusCode)
+            {
+                var solicitudesJson = await solicitudesResponse.Content.ReadAsStringAsync();
+                var solicitudes = JsonSerializer.Deserialize<List<SolicitudAvanceRangoDto>>(solicitudesJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                _solicitudesPendientesVerificacion = solicitudes?.Where(s => s.Estado == "PENDIENTE").ToList() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando datos: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

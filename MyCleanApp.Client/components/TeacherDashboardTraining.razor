@@ -1,5 +1,7 @@
 @using Microsoft.AspNetCore.Components
-@using MyCleanApp.Application.DTOs
+@using Microsoft.AspNetCore.Components.Forms
+@using MyCleanApp.Client.DTOs
+@using System.Net.Http.Json
 @inject DocenteService DocenteService
 @inject NavigationManager Navigation
 
@@ -17,6 +19,33 @@
 
     private List<CursoCapacitacionDto> cursos { get; set; } = new();
     private bool isLoading = true;
+    private bool showModal = false;
+    private string modalMessage = string.Empty;
+    private string searchTerm = string.Empty;
+    private string selectedHoras = "";
+    private string selectedAnio = "";
+    private IEnumerable<string> HorasDisponibles => cursos
+        .Select(c => c.Horas.ToString())
+        .Distinct()
+        .OrderByDescending(h => h);
+    private IEnumerable<string> AniosDisponibles => cursos
+        .Select(c => c.FechaFin.Year.ToString())
+        .Distinct()
+        .OrderByDescending(a => a);
+    private IEnumerable<CursoCapacitacionDto> Filtrados =>
+        cursos
+            .Where(c =>
+                (string.IsNullOrWhiteSpace(searchTerm)
+                    || (c.Nombre?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+                && (string.IsNullOrWhiteSpace(selectedHoras) || c.Horas.ToString() == selectedHoras)
+                && (string.IsNullOrWhiteSpace(selectedAnio) || c.FechaFin.Year.ToString() == selectedAnio)
+            );
+    private void LimpiarFiltros()
+    {
+        searchTerm = string.Empty;
+        selectedHoras = "";
+        selectedAnio = "";
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -25,14 +54,154 @@
         {
             cursos = dashboard?.Select(r => new CursoCapacitacionDto
             {
+                Id = r.Id, // <-- Asegura que el Id se asigne correctamente
                 Nombre = r.Nombre,
                 Certificado = r.Certificado,
                 FechaFin = r.FechaFin,
-                Horas = r.Horas
+                Horas = r.Horas,
+                FechaInicio = r.FechaInicio,
+                DocenteId = r.DocenteId,
+                Externo = r.Externo // <-- AGREGADO
             }).ToList() ?? new List<CursoCapacitacionDto>();
 
         }
         isLoading = false;
+    }
+
+    private async Task ImportarCursosExternos()
+    {
+        try
+        {
+            var http = new HttpClient();
+            var cursosExternos = await http.GetFromJsonAsync<List<CursoCapacitacionDto>>("http://localhost:3000/CursoCapacitacion");
+            var soloExternos = cursosExternos?.Where(c => c.Externo).ToList() ?? new List<CursoCapacitacionDto>();
+            
+            // Crear conjunto de cursos actuales para comparar duplicados
+            var cursosActuales = cursos
+                .Select(c => (c.Nombre.Trim().ToLower(), c.FechaInicio.Date, c.FechaFin.Date, c.Horas))
+                .ToHashSet();
+            
+            int importados = 0, duplicados = 0;
+            
+            foreach (var curso in soloExternos)
+            {
+                var key = (curso.Nombre.Trim().ToLower(), curso.FechaInicio.Date, curso.FechaFin.Date, curso.Horas);
+                if (!cursosActuales.Contains(key))
+                {
+                    var response = await DocenteService.ImportarCursoExternoAsync(curso);
+                    if (response)
+                        importados++;
+                    else
+                        duplicados++;
+                }
+                else
+                {
+                    duplicados++;
+                }
+            }
+            
+            await OnInitializedAsync();
+            
+            if (importados > 0)
+                modalMessage = $"Se importaron {importados} curso(s) nuevo(s).";
+            else
+                modalMessage = "No se importaron cursos porque ya existen.";
+                
+            showModal = true;
+        }
+        catch (Exception ex)
+        {
+            modalMessage = $"Error al importar cursos: {ex.Message}";
+            showModal = true;
+        }
+    }
+
+    private void CerrarModal()
+    {
+        showModal = false;
+    }
+
+    private bool showPdfModal = false;
+    private string? pdfUrl;
+
+    private void VerCertificado(int cursoId)
+    {
+        pdfUrl = $"http://localhost:5015/api/CursoCapacitacion/certificado/{cursoId}";
+        showPdfModal = true;
+    }
+
+    private void CerrarPdfModal()
+    {
+        showPdfModal = false;
+        pdfUrl = null;
+    }
+
+    private bool showEditModal = false;
+    private CursoCapacitacionDto? cursoEditando;
+    private string editNombre = string.Empty;
+    private int editHoras;
+    private DateTime editFechaInicio;
+    private DateTime editFechaFin;
+    private IBrowserFile? editCertificadoFile;
+
+    private async Task OnCertificadoFileChanged(InputFileChangeEventArgs e)
+    {
+        editCertificadoFile = e.File;
+        if (editCertificadoFile != null)
+        {
+            using var stream = editCertificadoFile.OpenReadStream(5 * 1024 * 1024); // 5MB max
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            if (cursoEditando != null)
+                cursoEditando.Certificado = ms.ToArray();
+        }
+    }
+
+    private async Task EliminarCurso(int cursoId)
+    {
+        var response = await DocenteService.EliminarCursoAsync(cursoId);
+        if (response)
+        {
+            cursos = cursos.Where(c => c.Id != cursoId).ToList();
+        }
+        else
+        {
+            modalMessage = "No se pudo eliminar el curso.";
+            showModal = true;
+        }
+    }
+
+    private void EditarCurso(CursoCapacitacionDto curso)
+    {
+        cursoEditando = curso;
+        editNombre = curso.Nombre;
+        editHoras = curso.Horas;
+        editFechaInicio = curso.FechaInicio;
+        editFechaFin = curso.FechaFin;
+        showEditModal = true;
+    }
+
+    private async Task GuardarEdicionCurso()
+    {
+        if (cursoEditando == null) return;
+        cursoEditando.Nombre = editNombre;
+        cursoEditando.Horas = editHoras;
+        cursoEditando.FechaInicio = editFechaInicio;
+        cursoEditando.FechaFin = editFechaFin;
+        var response = await DocenteService.EditarCursoAsync(cursoEditando);
+        if (!response)
+        {
+            modalMessage = "No se pudo editar el curso.";
+            showModal = true;
+        }
+        showEditModal = false;
+        await OnInitializedAsync();
+    }
+
+    private void CancelarEdicionCurso()
+    {
+        showEditModal = false;
+        cursoEditando = null;
     }
 }
 
@@ -55,11 +224,18 @@ else
                             Has completado @TrainingHours de @RequiredHours horas requeridas
                         </p>
                     </div>
-                    <button
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
-                        @onclick="IrASubirPublicacion">
-                        Registrar Nuevo Curso
-                    </button>
+                    <div class="flex gap-2">
+                        <button
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                            @onclick="IrASubirPublicacion">
+                            Registrar Nuevo Curso
+                        </button>
+                        <button
+                            class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                            @onclick="ImportarCursosExternos">
+                            Importar datos
+                        </button>
+                    </div>
                 </div>
                 <div class="space-y-4">
                     <div class="w-full bg-gray-200 rounded-full h-2">
@@ -67,27 +243,57 @@ else
                             style="width: @(Math.Min((double)TrainingHours / RequiredHours * 100, 100))%;"></div>
                     </div>
 
+                    <div class="flex flex-row gap-2 mb-4">
+                        <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedHoras">
+                            <option value="">Todas las horas</option>
+                            @foreach (var horas in HorasDisponibles)
+                            {
+                                <option value="@horas">@horas</option>
+                            }
+                        </select>
+                        <select class="border rounded-md px-2 py-2 text-sm" @bind="selectedAnio">
+                            <option value="">Todos los años</option>
+                            @foreach (var anio in AniosDisponibles)
+                            {
+                                <option value="@anio">@anio</option>
+                            }
+                        </select>
+                        <input class="w-full border rounded-md px-3 py-2 text-sm" placeholder="Buscar curso..." @bind="searchTerm" />
+                        <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-3 py-2 rounded-md text-sm" @onclick="LimpiarFiltros" title="Limpiar filtros">
+                            Limpiar
+                        </button>
+                    </div>
                     <div class="border rounded-lg divide-y">
-                        @if (cursos != null && cursos.Any())
+                        @if (Filtrados != null && Filtrados.Any())
                         {
-                            @foreach (var course in cursos)
+                            @foreach (var course in Filtrados)
                             {
                                 <div class="p-4">
-                                    <div class="font-medium">@course.Nombre</div>
+                                    <div class="font-medium flex items-center gap-2">
+                                        @course.Nombre
+                                        @if (course.Externo == true)
+                                        {
+                                            <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-300" title="Importado de fuente externa">Externo</span>
+                                        }
+                                        else if (course.Externo == false)
+                                        {
+                                            <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-300" title="Registrado localmente">Local</span>
+                                            <button class="ml-2 text-yellow-600 underline text-xs" @onclick="() => EditarCurso(course)">Editar</button>
+                                            <button class="ml-2 text-red-600 underline text-xs" @onclick="() => EliminarCurso(course.Id)">Eliminar</button>
+                                        }
+                                    </div>
                                     <div class="text-sm text-gray-500 mt-1">@course.Horas horas -
                                         @course.FechaFin.ToShortDateString()</div>
                                     @if (course.Certificado != null)
                                     {
-                                        <span
-                                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 mt-2">
                                             Certificado disponible
                                         </span>
+                                        <button class="ml-2 text-blue-600 underline text-xs" @onclick="() => VerCertificado(course.Id)">Ver certificado</button>
                                     }
-
                                     else
                                     {
-                                        <span
-                                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-gray-100 text-gray-400 mt-2">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-gray-100 text-gray-400 mt-2">
                                             Sin certificado
                                         </span>
                                     }
@@ -100,6 +306,65 @@ else
                         }
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+        <div class="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full text-center">
+            <div class="text-lg font-semibold mb-4">Importación de Cursos</div>
+            <div class="mb-6">@modalMessage</div>
+            <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md" @onclick="CerrarModal">Cerrar</button>
+        </div>
+    </div>
+}
+
+@if (showPdfModal && pdfUrl != null)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-4 max-w-3xl w-full relative">
+            <button class="absolute top-2 right-2 text-gray-600" @onclick="CerrarPdfModal">✕</button>
+            <iframe src="@pdfUrl" width="100%" height="600px"></iframe>
+        </div>
+    </div>
+}
+
+@if (showEditModal && cursoEditando != null)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-6 max-w-md w-full relative">
+            <button class="absolute top-2 right-2 text-gray-600" @onclick="CancelarEdicionCurso">✕</button>
+            <h3 class="text-lg font-semibold mb-4">Editar Curso</h3>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Nombre</label>
+                <input class="w-full border rounded-md px-3 py-2 text-sm" @bind="editNombre" />
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Horas</label>
+                <input type="number" class="w-full border rounded-md px-3 py-2 text-sm" @bind="editHoras" />
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Fecha Inicio</label>
+                <input type="date" class="w-full border rounded-md px-3 py-2 text-sm" @bind="editFechaInicio" />
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Fecha Fin</label>
+                <input type="date" class="w-full border rounded-md px-3 py-2 text-sm" @bind="editFechaFin" />
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Certificado PDF</label>
+                <InputFile OnChange="OnCertificadoFileChanged" accept="application/pdf" />
+                @if (cursoEditando.Certificado != null)
+                {
+                    <span class="ml-2 text-green-600 text-xs">Certificado cargado</span>
+                }
+            </div>
+            <div class="flex justify-end gap-2">
+                <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium px-4 py-2 rounded-md" @onclick="CancelarEdicionCurso">Cancelar</button>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-md" @onclick="GuardarEdicionCurso">Guardar</button>
             </div>
         </div>
     </div>

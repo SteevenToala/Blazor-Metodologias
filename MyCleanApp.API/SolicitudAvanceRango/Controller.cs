@@ -11,51 +11,236 @@ public class SolicitudAvanceRangoController : ControllerBase
     public SolicitudAvanceRangoController(AppDbContext context) => _context = context;
 
     [HttpGet]
-    public async Task<IEnumerable<SolicitudAvanceRango>> Get()
+    public async Task<ActionResult<IEnumerable<object>>> Get()
     {
-        return await _context.SolicitudAvanceRango
-            .Include(s => s.Docente)
-            .Include(s => s.NuevoNivelAcademico)
-            .ToListAsync();
+        try
+        {
+            var solicitudes = await _context.SolicitudAvanceRango
+                .Include(s => s.Docente)
+                    .ThenInclude(d => d.Usuario)
+                        .ThenInclude(u => u.Persona)
+                .Include(s => s.Docente)
+                    .ThenInclude(d => d.NivelAcademico)
+                .Include(s => s.NuevoNivelAcademico)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.DocenteId,
+                    s.FechaSolicitud,
+                    Estado = s.Estado ?? "PENDIENTE",
+                    s.FechaRespuesta,
+                    Observaciones = s.Observaciones ?? "",
+                    s.NuevoNivelAcademicoId,
+                    DocenteNombre = s.Docente != null && s.Docente.Usuario != null && s.Docente.Usuario.Persona != null
+                        ? (s.Docente.Usuario.Persona.Nombres ?? "") + " " + (s.Docente.Usuario.Persona.Apellidos ?? "")
+                        : "Sin información",
+                    NivelActual = s.Docente != null && s.Docente.NivelAcademico != null
+                        ? s.Docente.NivelAcademico.nombre ?? "Sin nivel"
+                        : "Sin nivel",
+                    NuevoNivel = s.NuevoNivelAcademico != null
+                        ? s.NuevoNivelAcademico.nombre ?? "Sin nivel"
+                        : "Sin nivel"
+                })
+                .ToListAsync();
+            
+            return Ok(solicitudes);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<SolicitudAvanceRango>> Get(int id)
+    public async Task<ActionResult<object>> Get(int id)
     {
-        var solicitud = await _context.SolicitudAvanceRango
-            .Include(s => s.Docente)
-            .Include(s => s.NuevoNivelAcademico)
-            .FirstOrDefaultAsync(s => s.Id == id);
+        try
+        {
+            var solicitud = await _context.SolicitudAvanceRango
+                .Include(s => s.Docente)
+                    .ThenInclude(d => d.Usuario)
+                        .ThenInclude(u => u.Persona)
+                .Include(s => s.Docente)
+                    .ThenInclude(d => d.NivelAcademico)
+                .Include(s => s.NuevoNivelAcademico)
+                .Where(s => s.Id == id)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.DocenteId,
+                    s.FechaSolicitud,
+                    Estado = s.Estado ?? "PENDIENTE",
+                    s.FechaRespuesta,
+                    Observaciones = s.Observaciones ?? "",
+                    s.NuevoNivelAcademicoId,
+                    DocenteNombre = s.Docente != null && s.Docente.Usuario != null && s.Docente.Usuario.Persona != null
+                        ? (s.Docente.Usuario.Persona.Nombres ?? "") + " " + (s.Docente.Usuario.Persona.Apellidos ?? "")
+                        : "Sin información",
+                    NivelActual = s.Docente != null && s.Docente.NivelAcademico != null
+                        ? s.Docente.NivelAcademico.nombre ?? "Sin nivel"
+                        : "Sin nivel",
+                    NuevoNivel = s.NuevoNivelAcademico != null
+                        ? s.NuevoNivelAcademico.nombre ?? "Sin nivel"
+                        : "Sin nivel"
+                })
+                .FirstOrDefaultAsync();
 
-        return solicitud == null ? NotFound() : Ok(solicitud);
+            return solicitud == null ? NotFound() : Ok(solicitud);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
     }
 
     [HttpPost]
     public async Task<ActionResult> Post([FromBody] SolicitudAvanceRango solicitud)
     {
-        _context.SolicitudAvanceRango.Add(solicitud);
-        await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(Get), new { id = solicitud.Id }, solicitud);
+        try
+        {
+            _context.SolicitudAvanceRango.Add(solicitud);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(Get), new { id = solicitud.Id }, solicitud);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Put(int id, [FromBody] SolicitudAvanceRango solicitud)
     {
-        if (id != solicitud.Id) return BadRequest();
-
-        _context.Entry(solicitud).State = EntityState.Modified;
-        await _context.SaveChangesAsync();
-        return NoContent();
+        try
+        {
+            if (id != solicitud.Id) return BadRequest();
+            
+            _context.Entry(solicitud).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
-        if (solicitud == null) return NotFound();
+        try
+        {
+            var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
+            if (solicitud == null) return NotFound();
 
-        _context.SolicitudAvanceRango.Remove(solicitud);
-        await _context.SaveChangesAsync();
-        return NoContent();
+            _context.SolicitudAvanceRango.Remove(solicitud);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
     }
+
+    [HttpPost("{id}/aprobar")]
+    public async Task<IActionResult> AprobarSolicitud(int id, [FromBody] AprobacionRequest request)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            // Buscar la solicitud con sus relaciones
+            var solicitud = await _context.SolicitudAvanceRango
+                .Include(s => s.Docente)
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (solicitud == null)
+                return NotFound(new { error = "Solicitud no encontrada" });
+
+            if (solicitud.Estado == "APROBADA")
+                return BadRequest(new { error = "La solicitud ya ha sido aprobada" });
+
+            // Actualizar el estado de la solicitud
+            solicitud.Estado = "APROBADA";
+            solicitud.FechaRespuesta = DateTime.Now;
+            solicitud.Observaciones = request.Observaciones ?? "Promoción aprobada";
+
+            // Actualizar el nivel del docente
+            var docente = solicitud.Docente;
+            if (docente != null)
+            {
+                docente.NivelAcademicoId = solicitud.NuevoNivelAcademicoId;
+                docente.FechaInicioNivel = DateTime.Now;
+                _context.Entry(docente).State = EntityState.Modified;
+
+                // Resetear la evaluación del docente a 0 al ser promovido
+                var evaluacionDocente = await _context.EvaluacionDocente
+                    .FirstOrDefaultAsync(e => e.DocenteId == docente.Id);
+                
+                if (evaluacionDocente != null)
+                {
+                    evaluacionDocente.Puntaje = 0;
+                    evaluacionDocente.Periodo = $"{DateTime.Now.Year}{(DateTime.Now.Month <= 6 ? "A" : "B")}";
+                    _context.Entry(evaluacionDocente).State = EntityState.Modified;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(new 
+            { 
+                message = "Solicitud aprobada exitosamente",
+                solicitudId = id,
+                nuevoNivelId = solicitud.NuevoNivelAcademicoId,
+                fechaPromocion = DateTime.Now
+            });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/rechazar")]
+    public async Task<IActionResult> RechazarSolicitud(int id, [FromBody] RechazoRequest request)
+    {
+        try
+        {
+            var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
+            if (solicitud == null)
+                return NotFound(new { error = "Solicitud no encontrada" });
+
+            if (solicitud.Estado == "RECHAZADA")
+                return BadRequest(new { error = "La solicitud ya ha sido rechazada" });
+
+            solicitud.Estado = "RECHAZADA";
+            solicitud.FechaRespuesta = DateTime.Now;
+            solicitud.Observaciones = request.Motivo ?? "Solicitud rechazada";
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new 
+            { 
+                message = "Solicitud rechazada",
+                solicitudId = id,
+                motivo = request.Motivo
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+        }
+    }
+}
+
+public class AprobacionRequest
+{
+    public string? Observaciones { get; set; }
+}
+
+public class RechazoRequest
+{
+    public string? Motivo { get; set; }
 }
