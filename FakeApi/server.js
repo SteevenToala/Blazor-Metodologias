@@ -14,6 +14,17 @@ function readData() {
   return JSON.parse(data)
 }
 
+// Función para escribir datos
+function writeData(db) {
+  fs.writeFileSync('db.json', JSON.stringify(db, null, 2))
+}
+
+// Función para generar ID único
+function generateId(collection) {
+  if (!collection || collection.length === 0) return 1
+  return Math.max(...collection.map(item => item.id)) + 1
+}
+
 // Endpoint personalizado para total docentes
 app.get('/totalDocentes', (req, res) => {
   const db = readData()
@@ -28,6 +39,134 @@ app.get('/Usuario', (req, res) => {
   res.json(db.Usuario || [])
 })
 
+// Rutas más específicas primero (con múltiples segmentos)
+app.get('/CursoCapacitacion/docente/:docenteId', (req, res) => {
+  const db = readData()
+  const docenteId = parseInt(req.params.docenteId)
+  const cursos = db.CursoCapacitacion?.filter(c => c.docenteId === docenteId) || []
+  res.json(cursos)
+})
+
+app.get('/PublicacionAcademica/docente/:docenteId', (req, res) => {
+  const db = readData()
+  const docenteId = parseInt(req.params.docenteId)
+  const publicaciones = db.PublicacionAcademica?.filter(p => p.docenteId === docenteId) || []
+  res.json(publicaciones)
+})
+
+app.get('/ProyectoInvestigacion/docente/:docenteId', (req, res) => {
+  const db = readData()
+  const docenteId = parseInt(req.params.docenteId)
+  const proyectos = db.ProyectoInvestigacion?.filter(p => p.docenteId === docenteId) || []
+  res.json(proyectos)
+})
+
+// Endpoints por ID específico
+app.get('/CursoCapacitacion/:id', (req, res) => {
+  const db = readData()
+  const id = parseInt(req.params.id)
+  const curso = db.CursoCapacitacion?.find(c => c.id === id)
+  
+  if (!curso) return res.status(404).json({ error: 'Curso no encontrado' })
+  res.json(curso)
+})
+
+app.get('/PublicacionAcademica/:id', (req, res) => {
+  const db = readData()
+  const id = parseInt(req.params.id)
+  const publicacion = db.PublicacionAcademica?.find(p => p.id === id)
+  
+  if (!publicacion) return res.status(404).json({ error: 'Publicación no encontrada' })
+  res.json(publicacion)
+})
+
+app.get('/ProyectoInvestigacion/:id', (req, res) => {
+  const db = readData()
+  const id = parseInt(req.params.id)
+  const proyecto = db.ProyectoInvestigacion?.find(p => p.id === id)
+  
+  if (!proyecto) return res.status(404).json({ error: 'Proyecto no encontrado' })
+  res.json(proyecto)
+})
+
+// Endpoints principales (GET/POST)
+app.get('/CursoCapacitacion', (req, res) => {
+  const db = readData()
+  res.json(db.CursoCapacitacion || [])
+})
+
+app.post('/CursoCapacitacion', (req, res) => {
+  const db = readData()
+  if (!db.CursoCapacitacion) db.CursoCapacitacion = []
+  
+  const newCurso = {
+    id: generateId(db.CursoCapacitacion),
+    ...req.body
+  }
+  
+  db.CursoCapacitacion.push(newCurso)
+  writeData(db)
+  res.status(201).json(newCurso)
+})
+
+app.get('/PublicacionAcademica', (req, res) => {
+  const db = readData()
+  res.json(db.PublicacionAcademica || [])
+})
+
+app.post('/PublicacionAcademica', (req, res) => {
+  const db = readData()
+  if (!db.PublicacionAcademica) db.PublicacionAcademica = []
+  
+  const newPublicacion = {
+    id: generateId(db.PublicacionAcademica),
+    ...req.body
+  }
+  
+  db.PublicacionAcademica.push(newPublicacion)
+  writeData(db)
+  res.status(201).json(newPublicacion)
+})
+
+app.get('/ProyectoInvestigacion', (req, res) => {
+  const db = readData()
+  res.json(db.ProyectoInvestigacion || [])
+})
+
+app.post('/ProyectoInvestigacion', (req, res) => {
+  const db = readData()
+  if (!db.ProyectoInvestigacion) db.ProyectoInvestigacion = []
+  
+  const newProyecto = {
+    id: generateId(db.ProyectoInvestigacion),
+    ...req.body
+  }
+  
+  db.ProyectoInvestigacion.push(newProyecto)
+  writeData(db)
+  res.status(201).json(newProyecto)
+})
+
+// Endpoints adicionales
+app.get('/Docente', (req, res) => {
+  const db = readData()
+  res.json(db.Docente || [])
+})
+
+app.get('/Persona', (req, res) => {
+  const db = readData()
+  res.json(db.Persona || [])
+})
+
+app.get('/NivelAcademico', (req, res) => {
+  const db = readData()
+  res.json(db.NivelAcademico || [])
+})
+
+app.get('/EvaluacionDocente', (req, res) => {
+  const db = readData()
+  res.json(db.EvaluacionDocente || [])
+})
 
 // Buscar datos completos por cédula
 app.get('/persona/:cedula', (req, res) => {
@@ -113,8 +252,25 @@ app.get('/persona/:cedula', (req, res) => {
   })
 })
 
+// Manejo de errores generales
+app.use((err, req, res, next) => {
+  console.error('Error:', err)
+  res.status(500).json({ error: 'Error interno del servidor' })
+})
 
 // Levantar servidor
 app.listen(PORT, () => {
-  console.log(`API corriendo en http://localhost:${PORT}`)
+  console.log(` Fake API Server corriendo en http://localhost:${PORT}`)
+  console.log(` Endpoints disponibles:`)
+  console.log(`   GET  /totalDocentes`)
+  console.log(`   GET  /Usuario`)
+  console.log(`   GET  /CursoCapacitacion`)
+  console.log(`   POST /CursoCapacitacion`)
+  console.log(`   GET  /PublicacionAcademica`) 
+  console.log(`   POST /PublicacionAcademica`)
+  console.log(`   GET  /ProyectoInvestigacion`)
+  console.log(`   POST /ProyectoInvestigacion`)
+  console.log(`   GET  /persona/:cedula`)
+  console.log(`   GET  /Docente, /Persona, /NivelAcademico, /EvaluacionDocente`)
+  console.log(`💡 Tip: Usa solo 'node server.js' para iniciar`)
 })
