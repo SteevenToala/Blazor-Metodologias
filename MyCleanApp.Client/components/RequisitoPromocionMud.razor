@@ -1,0 +1,174 @@
+@using MyCleanApp.Client.Services
+@using MudBlazor
+@inject DocenteService DocenteService
+@inject IJSRuntime JSRuntime
+
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudText Typo="Typo.h5" Class="mb-2" Style="color: #8B1538;">
+        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Class="me-2" /> Requisitos para Promoción
+    </MudText>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center my-6">
+            <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
+        </div>
+    }
+    else if (requisitosPromocion == null)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Filled" Dense>
+            <MudIcon Icon="@Icons.Material.Filled.Info" Class="me-2" /> No se pudieron cargar los requisitos de promoción.
+        </MudAlert>
+    }
+    else if (!string.IsNullOrEmpty(requisitosPromocion.ProximoNivel) && requisitosPromocion.ProximoNivel != "N/A")
+    {
+        <MudPaper Class="pa-3 mb-4" Style="background-color: #f8f9fa; border-left: 4px solid #8B1538;">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudText><b>Nivel Actual:</b> @requisitosPromocion.NivelActual</MudText>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText><b>Próximo Nivel:</b> @requisitosPromocion.ProximoNivel</MudText>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-3 mb-4" Style="border: 1px solid #dee2e6;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <MudText Typo="Typo.subtitle1"><b>Progreso General</b></MudText>
+                <MudChip T="string" Color="@(requisitosPromocion.PuedePromoverse ? Color.Success : Color.Warning)" Variant="Variant.Filled">
+                    @requisitosPromocion.ResumenCumplimiento.RequisitosCumplidos/@requisitosPromocion.ResumenCumplimiento.TotalRequisitos
+                </MudChip>
+            </div>
+            <MudProgressLinear Color="@(requisitosPromocion.PuedePromoverse ? Color.Success : Color.Primary)" Value="@requisitosPromocion.ResumenCumplimiento.PorcentajeGeneral" Rounded Height="16">
+            </MudProgressLinear>
+            <MudText Typo="Typo.caption" Align="Align.Center" Class="w-100 mt-1">
+                @requisitosPromocion.ResumenCumplimiento.PorcentajeGeneral.ToString("F1")%
+            </MudText>
+        </MudPaper>
+
+        <MudGrid Class="mb-4">
+            @foreach (var requisito in requisitosPromocion.Requisitos)
+            {
+                <MudItem xs="12" md="6" lg="4">
+                    <MudPaper Class="pa-3 mb-3" Style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <MudText Class="requirement-name">
+                                <MudIcon Icon="@GetMudIcon(requisito.TipoRequisito)" Class="me-2" />
+                                @requisito.TipoRequisito
+                            </MudText>
+                            <MudChip T="string" Color="@(requisito.Cumple ? Color.Success : Color.Error)" Variant="Variant.Filled">
+                                @requisito.ValorActual.ToString("F1")/@requisito.ValorRequerido.ToString("F1")
+                            </MudChip>
+                        </div>
+                        <MudProgressLinear Color="@(requisito.Cumple ? Color.Success : Color.Warning)" Value="@Math.Min(requisito.Porcentaje, 100)" Height="8" Rounded Class="mb-1" />
+                        <MudText Typo="Typo.caption">
+                            @requisito.Porcentaje.ToString("F1")% completado
+                        </MudText>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+
+        @if (requisitosPromocion.PuedePromoverse)
+        {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Filled" Dense Class="mb-2">
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Class="me-2" /> ¡Felicitaciones! Cumples con todos los requisitos para la promoción.
+            </MudAlert>
+            <div class="d-flex justify-center">
+                <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Large" OnClick="SolicitarPromocion" Disabled="@isSoliciting">
+                    @if (isSoliciting)
+                    {
+                        <MudProgressCircular Indeterminate Color="Color.Inherit" Size="Size.Small" Class="me-2" />
+                    }
+                    <MudIcon Icon="fas fa-paper-plane" Class="me-2" /> Solicitar Promoción
+                </MudButton>
+            </div>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Filled" Dense>
+                @* <MudIcon Icon="@Icons.Material.Filled.Info" Class="me-2" /> *@
+                Aún no cumples con todos los requisitos. Continúa trabajando en las áreas pendientes.
+            </MudAlert>
+        }
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Success" Variant="Variant.Filled" Dense>
+            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="me-2" />
+            Has alcanzado el nivel académico máximo. ¡Felicitaciones!
+        </MudAlert>
+    }
+</MudPaper>
+
+@code {
+    private RequisitoPromocionResponse? requisitosPromocion;
+    private bool isLoading = true;
+    private bool isSoliciting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarRequisitos();
+    }
+
+    private async Task CargarRequisitos()
+    {
+        isLoading = true;
+        try
+        {
+            requisitosPromocion = await DocenteService.ObtenerRequisitosPromocionAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar requisitos: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al cargar los requisitos de promoción");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SolicitarPromocion()
+    {
+        isSoliciting = true;
+        try
+        {
+            var success = await DocenteService.SolicitarPromocionAsync();
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Solicitud de promoción enviada exitosamente");
+                await CargarRequisitos();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Error al enviar la solicitud de promoción");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al solicitar promoción: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "Error al procesar la solicitud");
+        }
+        finally
+        {
+            isSoliciting = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetMudIcon(string tipoRequisito)
+    {
+        return tipoRequisito switch
+        {
+            "Años en el rango" => Icons.Material.Filled.CalendarToday,
+            "Papers" => Icons.Material.Filled.Description,
+            "Puntaje Evaluación" => Icons.Material.Filled.Star,
+            "Horas Capacitación" => Icons.Material.Filled.School,
+            "Investigaciones" => Icons.Material.Filled.Science,
+            _ => Icons.Material.Filled.CheckCircle
+        };
+    }
+}

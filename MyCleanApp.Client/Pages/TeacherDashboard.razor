@@ -1,5 +1,7 @@
 @using MyCleanApp.Client.Components
+
 @using MyCleanApp.Client.DTOs
+@using MudBlazor
 @inject LocalStorageService LocalStorage
 @inject NavigationManager Navigation
 @inject EvaluacionService EvaluacionService
@@ -7,25 +9,174 @@
 
 @page "/teacher-dashboard"
 
+@if (dashBoardDocente == null)
+{
+    <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-16">
+        <div class="d-flex justify-center">
+            <MudProgressCircular style="color: #8B1538;" Size="Size.Large" Indeterminate="true" />
+        </div>
+        <MudText Align="Align.Center" Class="mt-4" Color="Color.Secondary">Cargando datos del dashboard...</MudText>
+    </MudContainer>
+}
+else
+{
+    <MudLayout>
+        <MudAppBar Elevation="1" Style="background-color: #8B1538;">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+            <MudText Typo="Typo.h6">Panel del Docente</MudText>
+            <MudSpacer />
+            <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" OnClick="@LogoutHandler" />
+        </MudAppBar>
+
+        <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+            <MudNavMenu Class="pt-4">
+                 @foreach (var item in SideMenu)
+                 {
+                     <MudNavLink OnClick="@(() => CambiarSeccion(item.id))"
+                                 Icon="@item.icon"
+                                 Style="@GetNavLinkStyle(item.id)"
+                                 IconColor="@(selectedSection == item.id ? Color.Primary : Color.Inherit)">
+                         @item.label
+                     </MudNavLink>
+                 }
+            </MudNavMenu>
+        </MudDrawer>
+
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.False" Class="pa-4 pt-6">
+                @switch (selectedSection)
+                {
+                    case "overview":
+                        <MudPaper Elevation="2" Class="pa-6 mb-6" Style="background: linear-gradient(135deg, #8B1538 0%, #A61E4D 100%); color: white;">
+                            <div class="d-flex flex-column flex-md-row align-start justify-space-between gap-4">
+                                <div>
+                                    <MudText Typo="Typo.h3" Class="mb-2 font-weight-bold">
+                                        Bienvenido, @(loginResponse?.usuario?.Nombre ?? "Usuario")
+                                    </MudText>
+                                    <div class="d-flex align-center">
+                                        <MudText Typo="Typo.body1" Class="mr-2">Nivel actual:</MudText>
+                                        <MudChip T="string" Color="Color.Surface" Label="true" Size="Size.Small" Style="background-color: rgba(255, 255, 255, 0.9); color: #8B1538; font-weight: bold;">
+                                            @dashBoardDocente.NivelAcademico
+                                        </MudChip>
+                                    </div>
+                                </div>
+                            </div>
+                        </MudPaper>
+                        <MudGrid Spacing="4">
+                            <MudItem xs="12">
+                                @{
+                                    var nivelActual = dashBoardDocente.NivelAcademico;
+                                    var prefijo = nivelActual.Substring(0, nivelActual.Length - 1);
+                                    var numero = int.TryParse(nivelActual.Substring(nivelActual.Length - 1), out var n) ? n : 1;
+                                    var siguienteNivel = numero < 5 ? $"{prefijo}{numero + 1}" : nivelActual;
+                                    var requisitosCumplidos = requirements.Count(r => r.Completed);
+                                    var totalRequisitos = requirements.Count;
+                                    var mensaje = requisitosCumplidos == totalRequisitos
+                                        ? $"¡Felicidades! Cumples con todos los requisitos para avanzar a {siguienteNivel}"
+                                        : $"Progreso hacia {siguienteNivel}";
+                                }
+                                <MudAlert Severity="@(progressPercentage == 100 ? Severity.Success : Severity.Info)" Variant="Variant.Filled" Style="@(progressPercentage == 100 ? "background-color: #2E7D32;" : "background-color: #8B1538;")">
+                                    <div class="d-flex align-center">
+                                        <MudIcon Icon="@(progressPercentage == 100 ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.TrendingUp)" Class="mr-3" />
+                                        <div>
+                                            <MudText Typo="Typo.h6" Class="mb-1">@mensaje</MudText>
+                                            <MudText Typo="Typo.body2">
+                                                Has completado @requisitosCumplidos de @totalRequisitos requisitos necesarios.
+                                            </MudText>
+                                        </div>
+                                    </div>
+                                </MudAlert>
+                            </MudItem>
+                            @foreach (var requirement in requirements)
+                            {
+                                <MudItem xs="12" sm="6" md="4">
+                                    <MudCard Elevation="3" Style="height: 100%; border-left: 4px solid #8B1538;">
+                                        <MudCardContent Class="pa-4">
+                                            <div class="d-flex align-center mb-3">
+                                                <MudIcon Icon="@GetRequirementIcon(requirement.Name)" Style="color: #8B1538;" Class="mr-2" />
+                                                <MudText Typo="Typo.body2" Style="color: #666; font-weight: 500;">
+                                                    @requirement.Name
+                                                </MudText>
+                                            </div>
+                                            <MudText Typo="Typo.h4" Class="mb-3" Style="font-weight: bold; color: #333;">
+                                                @requirement.Current / @requirement.Required
+                                            </MudText>
+                                            @{
+                                                var percentage = requirement.Required > 0 ? Math.Min((double)requirement.Current / requirement.Required * 100, 100) : 0;
+                                            }
+                                            <MudProgressLinear Color="@(requirement.Completed ? Color.Success : Color.Primary)" Value="@percentage" Size="Size.Medium" Rounded="true" Style="@(requirement.Completed ? "--mud-palette-success: #8B1538;" : "--mud-palette-primary: #8B1538;")" />
+                                            @if (requirement.Completed)
+                                            {
+                                                <div class="d-flex align-center mt-2">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Check" style="color: #8B1538;" Size="Size.Small" Class="mr-1" />
+                                                    <MudText Typo="Typo.caption" Style="color: #8B1538;">Completado</MudText>
+                                                </div>
+                                            }
+                                        </MudCardContent>
+                                    </MudCard>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                        break;
+                    case "requirements":
+                        <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            @* <MudText Typo="Typo.h5" Class="mb-2" Style="color: #8B1538;">Requisitos de Promoción</MudText> *@
+                            <RequisitoPromocionMud />
+                        </MudPaper>
+                        break;
+                    case "papers":
+                         <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            @* <MudText Typo="Typo.h5" Class="mb-2" Style="color: #8B1538;">Publicaciones Académicas</MudText> *@
+                            <TeacherDashboardPapersMud PublicacionesAcademicas="publicacionesAcademicas" OnImportarCompletado="RecargarPublicacionesAcademicas" />
+                        </MudPaper>
+                        break;
+                    case "training":
+                        <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            @* <MudText Typo="Typo.h5" Class="mb-2" Style="color: #8B1538;">Capacitaciones</MudText> *@
+                            <TeacherDashboardTraining TrainingHours="@dashBoardDocente.HorasCapacitacion" RequiredHours="@dashBoardDocente.GetValorRequerido("Horas Capacitación")" />
+                        </MudPaper>
+                        break;
+                    case "research":
+                         <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            @* <MudText Typo="Typo.h5" Class="mb-2" Style="color: #8B15_38;">Investigación</MudText> *@
+                            <TeacherDashboardResearch ProyectosInvestigacion="proyectosInvestigacion" OnProyectosActualizados="RecargarProyectosInvestigacion" />
+                        </MudPaper>
+                        break;
+                }
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+}
+
+
 @code {
+    private bool _drawerOpen = true;
+
+    private void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
     private void IrASubirPublicacion()
     {
         Navigation.NavigateTo("/subir-publicacion");
     }
+
     private LoginResponse? loginResponse;
     private DashBoardDocente? dashBoardDocente;
     private List<PublicacionAcademicaDto> publicacionesAcademicas = new();
     private List<ProyectoInvestigacionDto> proyectosInvestigacion = new();
     private List<Requirement> requirements = new();
     private string nextLevel = string.Empty;
-    private string activeTab = "overview";
-    private List<(string id, string label)> Tabs = new()
+    private string selectedSection = "overview";
+
+    private List<(string id, string label, string icon)> SideMenu = new()
     {
-        ("overview", "Resumen"),
-        ("requirements", "Requisitos de Promoción"),
-        ("papers", "Publicaciones"),
-        ("training", "Capacitaciones"),
-        ("research", "Investigación")
+        ("overview", "Resumen", Icons.Material.Filled.Dashboard),
+        ("requirements", "Requisitos de Promoción", Icons.Material.Filled.AssignmentTurnedIn),
+        ("papers", "Publicaciones", Icons.Material.Filled.Description),
+        ("training", "Capacitaciones", Icons.Material.Filled.School),
+        ("research", "Investigación", Icons.Material.Filled.Science)
     };
     private async Task RecargarPublicacionesAcademicas()
     {
@@ -125,41 +276,11 @@
                     
                     requirements = new List<Requirement>
                     {
-                        new Requirement 
-                        { 
-                            Name = "Años en nivel actual", 
-                            Current = dashBoardDocente.AniosEnNivel, 
-                            Required = 3, 
-                            Completed = dashBoardDocente.AniosEnNivel >= 3 
-                        },
-                        new Requirement 
-                        { 
-                            Name = "Publicaciones académicas", 
-                            Current = dashBoardDocente.PublicacionesAcademicas, 
-                            Required = 2, 
-                            Completed = dashBoardDocente.PublicacionesAcademicas >= 2 
-                        },
-                        new Requirement 
-                        { 
-                            Name = "Puntaje de evaluación", 
-                            Current = (int)dashBoardDocente.PuntajeEvaluacion, 
-                            Required = 85, 
-                            Completed = dashBoardDocente.PuntajeEvaluacion >= 85 
-                        },
-                        new Requirement 
-                        { 
-                            Name = "Horas de capacitación", 
-                            Current = dashBoardDocente.HorasCapacitacion, 
-                            Required = 40, 
-                            Completed = dashBoardDocente.HorasCapacitacion >= 40 
-                        },
-                        new Requirement 
-                        { 
-                            Name = "Investigaciones", 
-                            Current = proyectosInvestigacion?.Count ?? 0, 
-                            Required = 2, 
-                            Completed = (proyectosInvestigacion?.Count ?? 0) >= 2 
-                        }
+                        new Requirement { Name = "Años en nivel actual", Current = dashBoardDocente.AniosEnNivel, Required = 3, Completed = dashBoardDocente.AniosEnNivel >= 3 },
+                        new Requirement { Name = "Publicaciones académicas", Current = dashBoardDocente.PublicacionesAcademicas, Required = 2, Completed = dashBoardDocente.PublicacionesAcademicas >= 2 },
+                        new Requirement { Name = "Puntaje de evaluación", Current = (int)dashBoardDocente.PuntajeEvaluacion, Required = 85, Completed = dashBoardDocente.PuntajeEvaluacion >= 85 },
+                        new Requirement { Name = "Horas de capacitación", Current = dashBoardDocente.HorasCapacitacion, Required = 40, Completed = dashBoardDocente.HorasCapacitacion >= 40 },
+                        new Requirement { Name = "Investigaciones", Current = proyectosInvestigacion?.Count ?? 0, Required = 2, Completed = (proyectosInvestigacion?.Count ?? 0) >= 2 }
                     };
                 }
             }
@@ -176,163 +297,42 @@
     }
 
     private double progressPercentage => requirements.Count == 0 ? 0 : (requirements.Count(r => r.Completed) * 100.0 / requirements.Count);
-}
 
-@if (dashBoardDocente == null)
-{
-    <div class="text-center py-8 text-gray-500">Cargando datos...</div>
-}
-else
-{
-<div class="container mx-auto px-4 py-8">
-    <div class="flex flex-col md:flex-row items-start justify-between mb-8 gap-4">
-        <div>
-            <h1 class="text-3xl font-bold">
-                Bienvenido, @(loginResponse?.usuario?.Nombre ?? "Usuario")
-            </h1>
-            <p class="text-gray-600 mt-1">
-                Nivel actual:
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-gray-300 bg-blue-50 text-gray-700 ml-1 font-semibold">
-                    @dashBoardDocente.NivelAcademico
-                </span>
-            </p>
-        </div>
-    </div>
-    <div class="space-y-4">
-        <div class="border-b border-gray-200">
-            <nav class="-mb-px flex space-x-8">
-                @foreach (var tab in Tabs)
-                {
-                    <button @onclick="() => activeTab = tab.id"
-                            class="py-2 px-1 border-b-2 font-medium text-sm @(activeTab == tab.id ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300")">
-                        @tab.label
-                    </button>
-                }
-            </nav>
-        </div>
-        @if (activeTab == "overview")
+    private string GetRequirementIcon(string requirementName)
+    {
+        return requirementName.ToLower() switch
         {
-            <div class="space-y-4">
-                <div class="border rounded-lg p-4 @(progressPercentage == 100 ? "border-green-500 bg-green-50" : "border-amber-500 bg-amber-50")">
-                    <div class="flex">
-                        <svg class="h-5 w-5 @(progressPercentage == 100 ? "text-green-500" : "text-amber-500")"
-                             fill="none"
-                             stroke="currentColor"
-                             viewBox="0 0 24 24">
-                            <path stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  stroke-width="2"
-                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
-                        <div class="ml-3">
-                            <h3 class="text-sm font-medium">
-                                @{
-                                    // Calcular el siguiente nivel
-                                    var nivelActual = dashBoardDocente.NivelAcademico;
-                                    var prefijo = nivelActual.Substring(0, nivelActual.Length - 1);
-                                    var numero = int.TryParse(nivelActual.Substring(nivelActual.Length - 1), out var n) ? n : 1;
-                                    var siguienteNivel = numero < 5 ? $"{prefijo}{numero + 1}" : nivelActual;
+            "años en el rango" or "años en nivel actual" => Icons.Material.Filled.CalendarToday,
+            "papers" or "publicaciones académicas" => Icons.Material.Filled.Description,
+            "puntaje evaluación" or "puntaje de evaluación" => Icons.Material.Filled.Star,
+            "horas capacitación" or "horas de capacitación" => Icons.Material.Filled.Schedule,
+            "investigaciones" or "meses en investigación" => Icons.Material.Filled.Science,
+            _ => Icons.Material.Filled.CheckCircle
+        };
+    }
 
-                                    // Usar la lista unificada de requirements para el conteo
-                                    var requisitosCumplidos = requirements.Count(r => r.Completed);
-                                    var totalRequisitos = requirements.Count;
-
-                                    var mensaje = requisitosCumplidos == totalRequisitos
-                                        ? $"¡Felicidades! Cumples con todos los requisitos para avanzar a {siguienteNivel}"
-                                        : $"Progreso hacia {siguienteNivel}";
-                                }
-                                @mensaje
-                            </h3>
-                            <div class="mt-2 text-sm">
-                                Has completado @requisitosCumplidos de @totalRequisitos requisitos necesarios para avanzar al siguiente nivel.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    @foreach (var requirement in requirements)
-                    {
-                        <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-                            <div class="p-4 pb-2">
-                                <div class="flex items-center text-sm font-medium text-gray-600">
-                                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @switch (requirement.Name.ToLower())
-                                        {
-                                            case "años en el rango":
-                                            case "años en nivel actual":
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                break;
-                                            case "papers":
-                                            case "publicaciones académicas":
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                break;
-                                            case "puntaje evaluación":
-                                            case "puntaje de evaluación":
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                                                break;
-                                            case "horas capacitación":
-                                            case "horas de capacitación":
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                break;
-                                            case "investigaciones":
-                                            case "meses en investigación":
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                                                break;
-                                            default:
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                break;
-                                        }
-                                    </svg>
-                                    @requirement.Name
-                                </div>
-                            </div>
-                            <div class="p-4 pt-0">
-                                <div class="text-2xl font-bold">
-                                    @requirement.Current / @requirement.Required
-                                </div>
-                                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                    @{
-                                        var percentage = requirement.Required > 0 
-                                            ? Math.Min((double)requirement.Current / requirement.Required * 100, 100) 
-                                            : 0;
-                                        var colorClass = requirement.Completed ? "bg-green-600" : "bg-blue-600";
-                                    }
-                                    <div class="@colorClass h-2 rounded-full transition-all duration-300"
-                                        style="width: @(percentage.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))%;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    }
-                </div>
-
-            </div>  
-        }
-
-        @if (activeTab == "requirements")
+    private string GetNavLinkStyle(string id)
+    {
+        if (selectedSection == id)
         {
-            <RequisitoPromocion />
+            return "color: #8B1538; background-color: #F8F0F2; border-right: 3px solid #8B1538; font-weight: bold;";
         }
+        return "color: #333; font-weight: normal;";
+    }
 
-       @if (activeTab == "papers")
-        {
-            <TeacherDashboardPapers PublicacionesAcademicas="publicacionesAcademicas" OnImportarCompletado="RecargarPublicacionesAcademicas" />
-        }
-        @if (activeTab == "training")
-        {
-            <TeacherDashboardTraining  
-                TrainingHours="@dashBoardDocente.HorasCapacitacion"
-                RequiredHours="@dashBoardDocente.GetValorRequerido("Horas Capacitación")" />
-        }
+    private void CambiarSeccion(string id)
+    {
+        selectedSection = id;
+        StateHasChanged();
+    }
 
-        @if (activeTab == "research")
-        {
-            <div class="flex justify-end mb-4">
-        </div>
-    <TeacherDashboardResearch 
-        ProyectosInvestigacion="proyectosInvestigacion" 
-        OnProyectosActualizados="RecargarProyectosInvestigacion" />
-        }
-    </div>
-</div>
+    private async void LogoutHandler()
+    {
+        // Limpiar sesión y local storage
+        await LocalStorage.EliminarAsync("loginResponse");
+        loginResponse = null;
+        dashBoardDocente = null;
+        // Redirigir al login
+        Navigation.NavigateTo("/login", true);
+    }
 }

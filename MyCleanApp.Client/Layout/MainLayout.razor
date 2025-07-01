@@ -1,26 +1,28 @@
 ﻿@namespace MyCleanApp.Client.Layout
 @inherits LayoutComponentBase
-@using Microsoft.AspNetCore.Components
-@using MyCleanApp.Client.Layout
-@code {
-    private NavMenu? navMenuRef;
-    public void NotificarCambioLogin()
-    {
-        navMenuRef?.OnLoginChanged();
-    }
-}
+
 <div class="page">
-    <div class="sidebar">
-        <NavMenu @ref="navMenuRef" />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
+    <main class="main-content">
+        <article class="content">
             @Body
         </article>
     </main>
 </div>
+
+<style>
+    .page {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    .main-content {
+        flex: 1;
+    }
+
+    .content {
+        padding: 0;
+        width: 100%;
+    }
+</style>

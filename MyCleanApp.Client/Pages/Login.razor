@@ -1,6 +1,7 @@
 @page "/login"
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
+@using MudBlazor
 @inject NavigationManager Navigation
 @inject HttpClient Http
 @inject IJSRuntime JS
@@ -77,65 +78,118 @@ protected override async Task OnInitializedAsync()
     }
 }
 
-<div class="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
-    <div class="w-full max-w-md">
-        <div class="bg-white rounded-2xl shadow-2xl p-8 border border-blue-100">
-            <div class="flex justify-center mb-4">
-                @if (RoleParam == "admin")
-                {
-                    <div class="bg-blue-100 p-3 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 17.232A3.001 3.001 0 0112 19a3.001 3.001 0 01-3.232-1.768M12 14a5 5 0 100-10 5 5 0 000 10zm7 7a7 7 0 10-14 0h14z" /></svg>
-                    </div>
-                }
-                else
-                {
-                    <div class="bg-blue-100 p-3 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 7v-6m0 0l-9-5m9 5l9-5" /></svg>
-                    </div>
-                }
-            </div>
-            <h2 class="text-2xl text-center font-bold mb-2 text-blue-800">@(RoleParam == "admin" ? "Acceso Administrador" : "Acceso Docente")</h2>
-            <p class="text-center text-gray-500 mb-6">Introduce tus credenciales para acceder al sistema</p>
-            <Microsoft.AspNetCore.Components.Forms.EditForm Model="Model" OnValidSubmit="HandleSubmit">
-                <div class="space-y-4">
-                    <div class="space-y-2">
-                        <label for="email" class="block text-sm font-semibold text-blue-900">Correo electrónico</label>
-                        <InputText id="email" class="w-full border border-blue-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none text-base" @bind-Value="Model.EmailField" type="email" required />
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-center justify-between">
-                            <label for="password" class="block text-sm font-semibold text-blue-900">Contraseña</label>
-                            <button type="button" class="text-xs text-blue-700 hover:underline bg-transparent border-0 p-0">¿Olvidaste tu contraseña?</button>
-                        </div>
-                        <div class="relative">
-                            <InputText id="password" class="w-full border border-blue-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none text-base" @bind-Value="Model.PasswordField" type="@PasswordInputType" required />
-                            <button type="button" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-blue-500 focus:outline-none" @onclick="TogglePasswordVisibility" tabindex="-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    @if (ShowPassword)
-                                    {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm-9.707 2.293a1 1 0 010-1.414C7.387 9.387 9.613 8 12 8c2.387 0 4.613 1.387 6.707 3.293a1 1 0 010 1.414C16.613 14.613 14.387 16 12 16c-2.387 0-4.613-1.387-6.707-3.293z" />
-                                    }
-                                    else
-                                    {
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm-9.707 2.293a1 1 0 010-1.414C7.387 9.387 9.613 8 12 8c2.387 0 4.613 1.387 6.707 3.293a1 1 0 010 1.414C16.613 14.613 14.387 16 12 16c-2.387 0-4.613-1.387-6.707-3.293z" />
-                                        <line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="2" />
-                                    }
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="mt-6">
-                    <button type="submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white rounded-lg px-4 py-2 font-semibold flex items-center justify-center gap-2 shadow-md transition-all">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0-1.104.896-2 2-2s2 .896 2 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2c0-1.104.896-2 2-2z" /></svg>
+<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center min-vh-100">
+    <MudPaper Elevation="8" Class="pa-8 ma-4" Style="border-radius: 16px; border: 2px solid #8B1538; background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%); box-shadow: 0 16px 48px rgba(139, 21, 56, 0.15);">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-6">
+            <MudAvatar Size="Size.Large" Style="background: linear-gradient(135deg, #8B1538 0%, #A91B47 100%); margin: 0 auto 16px auto;">
+                <MudIcon Icon="@Icons.Material.Filled.School" Style="color: #ffffff;" Size="Size.Large" />
+            </MudAvatar>
+            
+            <MudText Typo="Typo.h4" Style="color: #8B1538;" Class="font-weight-bold mb-2">
+                Acceso Docente
+            </MudText>
+            
+            <MudText Typo="Typo.body2" Style="color: #2d2d2d;">
+                Introduce tus credenciales para acceder al sistema
+            </MudText>
+        </div>
+
+        <!-- Login Form -->
+        <EditForm Model="Model" OnValidSubmit="HandleSubmit">
+            <MudGrid Spacing="3">
+                
+                <!-- Email Field -->
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Model.EmailField"
+                                  Label="Correo electrónico"
+                                  Variant="Variant.Outlined"
+                                  InputType="InputType.Email"
+                                  Required="true"
+                                  Style="--mud-palette-primary: #8B1538; --mud-palette-primary-text: #8B1538;"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Email"
+                                  IconSize="Size.Medium" />
+                </MudItem>
+
+                <!-- Password Field -->
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Model.PasswordField"
+                                  Label="Contraseña"
+                                  Variant="Variant.Outlined"
+                                  InputType="@(ShowPassword ? InputType.Text : InputType.Password)"
+                                  Required="true"
+                                  Style="--mud-palette-primary: #8B1538; --mud-palette-primary-text: #8B1538;"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@(ShowPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                                  OnAdornmentClick="TogglePasswordVisibility"
+                                  AdornmentColor="Color.Secondary" />
+                </MudItem>
+
+                <!-- Forgot Password Link -->
+                <MudItem xs="12" Class="text-right">
+                    <MudLink Href="#" Style="color: #8B1538;" Typo="Typo.caption">
+                        ¿Olvidaste tu contraseña?
+                    </MudLink>
+                </MudItem>
+
+                <!-- Submit Button -->
+                <MudItem xs="12">
+                    <MudButton ButtonType="ButtonType.Submit"
+                               Variant="Variant.Filled"
+                               Style="background: linear-gradient(135deg, #8B1538 0%, #A91B47 100%); color: white; text-transform: none; font-weight: bold;"
+                               FullWidth="true"
+                               Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.Login"
+                               Class="mt-3">
                         Iniciar Sesión
-                    </button>
-                </div>
+                    </MudButton>
+                </MudItem>
+
+                <!-- Error Message -->
                 @if (!string.IsNullOrEmpty(ErrorMsg))
                 {
-                    <div class="text-red-600 mt-2">@ErrorMsg</div>
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Error" 
+                                  Style="background-color: rgba(244, 67, 54, 0.1); border: 1px solid #f44336;">
+                            @ErrorMsg
+                        </MudAlert>
+                    </MudItem>
                 }
-            </Microsoft.AspNetCore.Components.Forms.EditForm>
+
+            </MudGrid>
+        </EditForm>
+
+        <!-- Additional Info -->
+        <MudDivider Class="my-6" Style="border-color: rgba(139, 21, 56, 0.2);" />
+        
+        <div class="text-center">
+            <MudText Typo="Typo.caption" Style="color: #666;">
+                <MudIcon Icon="@Icons.Material.Filled.Security" Size="Size.Small" Style="color: #8B1538;" Class="mr-1" />
+                Acceso seguro con autenticación verificada
+            </MudText>
         </div>
-    </div>
-</div>
+
+    </MudPaper>
+</MudContainer>
+
+<style>
+    /* Custom styles for the login page */
+    .min-vh-100 {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+    }
+
+    /* Button hover effects */
+    .mud-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(139, 21, 56, 0.3) !important;
+        transition: all 0.3s ease;
+    }
+
+    /* TextField focus styling */
+    .mud-input-control-input-container:focus-within {
+        border-color: #8B1538 !important;
+    }
+</style>
