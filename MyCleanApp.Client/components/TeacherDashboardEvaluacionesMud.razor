@@ -1,6 +1,7 @@
 @using System
 @using System.Collections.Generic
 @using System.IO
+@using System.Net.Http
 @using System.Net.Http.Json
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
@@ -162,11 +163,16 @@
                                                 <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2" Class="mt-1">
                                                     @if (eval.Certificado != null)
                                                     {
-                                                        <MudButton Size="Size.Small" 
-                                                                   Color="Color.Primary"
-                                                                   Variant="Variant.Text" 
-                                                                   OnClick="@(() => VerCertificado(eval.Id))" 
-                                                                   StartIcon="@Icons.Material.Filled.PictureAsPdf">Ver Certificado</MudButton>
+                                                        <MudButtonGroup Variant="Variant.Text" Color="Color.Primary" Size="Size.Small">
+                                                            <MudButton OnClick="@(() => VerCertificado(eval.Id))" 
+                                                                       StartIcon="@Icons.Material.Filled.PictureAsPdf">
+                                                                Ver Certificado
+                                                            </MudButton>
+                                                            <MudButton OnClick="@(() => AbrirPdfEnNuevaPestana(eval.Id))" 
+                                                                       StartIcon="@Icons.Material.Filled.OpenInNew"
+                                                                       Title="Abrir en nueva pestaña">
+                                                            </MudButton>
+                                                        </MudButtonGroup>
                                                     }
                                                 </MudStack>
                                             </MudStack>
@@ -441,16 +447,65 @@
     </MudOverlay>
 }
 
-<MudDialog @bind-Open="showPdfModal">
-    <DialogContent>
-        <MudText Typo="Typo.h6">Certificado de Evaluación</MudText>
-        @if (pdfUrl != null)
-        {
-            <iframe src="@pdfUrl" style="width:100%; height:600px; border:none;"></iframe>
-        }
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CerrarPdfModal" Class="mt-4">Cerrar</MudButton>
-    </DialogContent>
-</MudDialog>
+@* Modal de visualización de PDF - Mismo patrón que TeacherDashboardPapersMud *@
+@if (showPdfModal)
+{
+    <MudOverlay Visible="true" DarkBackground="true" Absolute="false">
+        <MudCard Style="max-width: 70vw; width: 70vw; height: 90vh; margin: auto; margin-top: 20px;margin-left: 100px;">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5">
+                        <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Class="mr-2" />
+                        Visualizar Certificado PDF
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Dark">
+                        Certificado de la evaluación docente
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent Class="pa-0" Style="height: calc(90vh - 150px); overflow: hidden;">
+                @if (pdfUrl != null)
+                {
+                    <div style="position: relative; width: 100%; height: 100%;">
+                        <iframe 
+                            src="@pdfUrl" 
+                            style="width: 100%; height: 100%; border: none;"
+                            title="Certificado PDF"
+                            frameborder="0"
+                            loading="lazy">
+                            <p>Tu navegador no soporta la visualización de PDFs. 
+                               <a href="@pdfUrl" target="_blank">Haz clic aquí para descargar el archivo</a>
+                            </p>
+                        </iframe>
+                    </div>
+                }
+                else
+                {
+                    <MudContainer Class="pa-4">
+                        <MudAlert Severity="Severity.Error">
+                            <MudText>No se pudo cargar el certificado PDF.</MudText>
+                        </MudAlert>
+                    </MudContainer>
+                }
+            </MudCardContent>
+            <MudCardActions Class="d-flex justify-space-between pa-4">
+                <MudButton Variant="Variant.Outlined" 
+                           Color="Color.Primary" 
+                           OnClick="@(() => AbrirPdfEnNuevaPestana(ObtenerIdDesdePdfUrl()))"
+                           StartIcon="@Icons.Material.Filled.OpenInNew"
+                           Disabled="@(pdfUrl == null)">
+                    Abrir en nueva pestaña
+                </MudButton>
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           OnClick="CerrarPdfModal" 
+                           StartIcon="@Icons.Material.Filled.Close">
+                    Cerrar
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudOverlay>
+}
 
 @code {
     // Estado interno - no parámetros  
@@ -582,8 +637,42 @@
     private void CerrarModalImportar() => showModalImportar = false;
     private void CerrarPdfModal()
     {
+        Console.WriteLine("[DEBUG] Cerrando modal PDF");
         showPdfModal = false;
         pdfUrl = null;
+        StateHasChanged();
+    }
+
+    private void AbrirPdfEnNuevaPestana(int evaluacionId)
+    {
+        try
+        {
+            var url = $"http://localhost:5015/api/EvaluacionDocente/archivo/{evaluacionId}";
+            Console.WriteLine($"[DEBUG] Abriendo PDF en nueva pestaña: {url}");
+            Navigation.NavigateTo(url, true);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Error al abrir PDF en nueva pestaña: {ex.Message}");
+            modalMessageImportar = $"❌ Error al abrir el certificado: {ex.Message}";
+            showModalImportar = true;
+        }
+    }
+
+    private int ObtenerIdDesdePdfUrl()
+    {
+        if (string.IsNullOrEmpty(pdfUrl)) return 0;
+        
+        try
+        {
+            var segments = pdfUrl.Split('/');
+            var idStr = segments.LastOrDefault();
+            return int.TryParse(idStr, out var id) ? id : 0;
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     // Métodos de lógica de negocio (CRUD)
@@ -593,10 +682,83 @@
         showModalImportar = true;
     }
 
-    private void VerCertificado(int evaluacionId)
+    private async void VerCertificado(int evaluacionId)
     {
-        pdfUrl = $"http://localhost:5015/api/EvaluacionDocente/archivo/{evaluacionId}";
-        showPdfModal = true;
+        try
+        {
+            Console.WriteLine($"[DEBUG] Intentando ver certificado de evaluación ID: {evaluacionId}");
+            
+            // Verificar que la evaluación existe y tiene certificado
+            var evaluacion = EvaluacionesDocentes.FirstOrDefault(e => e.Id == evaluacionId);
+            if (evaluacion == null)
+            {
+                Console.WriteLine($"[ERROR] No se encontró la evaluación con ID: {evaluacionId}");
+                modalMessageImportar = "❌ Error: No se encontró la evaluación seleccionada.";
+                showModalImportar = true;
+                return;
+            }
+
+            if (evaluacion.Certificado == null || evaluacion.Certificado.Length == 0)
+            {
+                Console.WriteLine($"[ERROR] La evaluación {evaluacionId} no tiene certificado asociado");
+                modalMessageImportar = "❌ Esta evaluación no tiene un certificado PDF asociado.";
+                showModalImportar = true;
+                return;
+            }
+
+            Console.WriteLine($"[DEBUG] Evaluación encontrada: {evaluacion.TipoEvaluacion}");
+            Console.WriteLine($"[DEBUG] Certificado presente: {evaluacion.Certificado.Length} bytes");
+            
+            // Construir la URL del PDF
+            pdfUrl = $"http://localhost:5015/api/EvaluacionDocente/archivo/{evaluacionId}";
+            
+            Console.WriteLine($"[DEBUG] URL construida: {pdfUrl}");
+            
+            // Probar la URL antes de mostrar el modal
+            try
+            {
+                var http = new HttpClient();
+                http.Timeout = TimeSpan.FromSeconds(5);
+                var response = await http.GetAsync(pdfUrl, HttpCompletionOption.ResponseHeadersRead);
+                
+                Console.WriteLine($"[DEBUG] Response status: {response.StatusCode}");
+                Console.WriteLine($"[DEBUG] Content-Type: {response.Content.Headers.ContentType}");
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"[ERROR] El servidor devolvió error: {response.StatusCode}");
+                    modalMessageImportar = $"❌ Error del servidor: {response.StatusCode}. No se puede mostrar el certificado.";
+                    showModalImportar = true;
+                    return;
+                }
+            }
+            catch (Exception httpEx)
+            {
+                Console.WriteLine($"[ERROR] Error al verificar la URL: {httpEx.Message}");
+                modalMessageImportar = $"❌ Error de conexión: {httpEx.Message}";
+                showModalImportar = true;
+                return;
+            }
+            
+            // Mostrar el modal
+            showPdfModal = true;
+            
+            Console.WriteLine($"[DEBUG] Modal PDF abierto: {showPdfModal}");
+            
+            StateHasChanged(); // Forzar actualización de la UI
+            
+            // Pequeño delay para asegurar que el modal se renderice
+            await Task.Delay(100);
+            
+            Console.WriteLine($"[DEBUG] Estado final - showPdfModal: {showPdfModal}, pdfUrl: {pdfUrl}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Error al abrir visor de PDF: {ex.Message}");
+            Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
+            modalMessageImportar = $"❌ Error al abrir el certificado PDF: {ex.Message}";
+            showModalImportar = true;
+        }
     }
 
     private async Task EditarEvaluacion(EvaluacionClienteType eval)
