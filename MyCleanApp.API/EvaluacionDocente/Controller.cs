@@ -163,9 +163,18 @@ public class EvaluacionDocenteController : ControllerBase
             if (evaluacion == null)
                 return NotFound();
 
-            // Update only the fields that can be modified
+            // Update the fields that can be modified
             evaluacion.Puntaje = updateDto.Puntaje;
             evaluacion.Periodo = updateDto.Periodo;
+            evaluacion.TipoEvaluacion = updateDto.TipoEvaluacion;
+            evaluacion.FechaEvaluacion = updateDto.FechaEvaluacion;
+            evaluacion.Observaciones = updateDto.Observaciones;
+            
+            // Solo actualizar el certificado si se proporciona uno nuevo
+            if (updateDto.Certificado != null)
+            {
+                evaluacion.Certificado = updateDto.Certificado;
+            }
 
             _context.Entry(evaluacion).State = EntityState.Modified;
             await _context.SaveChangesAsync();

@@ -1,5 +1,6 @@
 @using System
 @using System.Collections.Generic
+@using System.IO
 @using System.Net.Http.Json
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
@@ -178,7 +179,7 @@
                                                     <MudButton Size="Size.Small" 
                                                                Color="Color.Warning"
                                                                Variant="Variant.Filled" 
-                                                               OnClick="@(() => EditarEvaluacion(eval))" 
+                                                               OnClick="@(async () => await EditarEvaluacion(eval))" 
                                                                StartIcon="@Icons.Material.Filled.Edit"
                                                                Class="edit-btn">
                                                         Editar
@@ -266,102 +267,179 @@
     </DialogContent>
 </MudDialog>
 
-<MudDialog @bind-Open="showEditModal" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true })">
-    <DialogContent>
-        <MudContainer Class="pa-6">
-            <MudText Typo="Typo.h5" Class="mb-4" Color="Color.Primary">
-                <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
-                Editar Evaluación Docente
-            </MudText>
-            
-            @if (evaluacionEditando != null)
-            {
-                <MudGrid Spacing="3">
-                    <MudItem xs="12" sm="6">
-                        <MudSelect T="string" 
-                                   Label="Tipo de Evaluación" 
-                                   @bind-Value="evaluacionEditando.TipoEvaluacion" 
-                                   Variant="Variant.Outlined" 
-                                   Required="true">
-                            <MudSelectItem Value="@("ESTUDIANTES")">Evaluación por Estudiantes</MudSelectItem>
-                            <MudSelectItem Value="@("PARES")">Evaluación por Pares</MudSelectItem>
-                            <MudSelectItem Value="@("AUTOEVALUACION")">Autoevaluación</MudSelectItem>
-                            <MudSelectItem Value="@("DIRECTIVOS")">Evaluación por Directivos</MudSelectItem>
-                        </MudSelect>
-                    </MudItem>
-                    
-                    <MudItem xs="12" sm="6">
-                        <MudTextField T="string" 
-                                      Label="Período" 
-                                      @bind-Value="evaluacionEditando.Periodo" 
-                                      Variant="Variant.Outlined" 
-                                      Required="true"
-                                      Placeholder="Ej: 2024A, 2024B" />
-                    </MudItem>
-                    
-                    <MudItem xs="12" sm="6">
-                        <MudNumericField T="double" 
-                                         Label="Puntaje (%)" 
-                                         @bind-Value="evaluacionEditando.Puntaje" 
-                                         Variant="Variant.Outlined" 
-                                         Required="true"
-                                         Min="0" 
-                                         Max="100"
-                                         Step="0.1" />
-                    </MudItem>
-                    
-                    <MudItem xs="12" sm="6">
-                        <MudDatePicker Label="Fecha de Evaluación" 
-                                       @bind-Date="fechaEvaluacionEdit" 
-                                       Variant="Variant.Outlined" 
-                                       Required="true" />
-                    </MudItem>
-                    
-                    <MudItem xs="12">
-                        <MudTextField T="string" 
-                                      Label="Observaciones" 
-                                      @bind-Value="evaluacionEditando.Observaciones" 
-                                      Variant="Variant.Outlined" 
-                                      Lines="3"
-                                      Placeholder="Comentarios adicionales sobre la evaluación..." />
-                    </MudItem>
-                    
-                    <MudItem xs="12">
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">
-                            <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-1" />
-                            Los certificados PDF se pueden subir después de guardar los cambios.
-                        </MudText>
-                    </MudItem>
-                </MudGrid>
-                
-                <MudDivider Class="my-4" />
-                
-                <MudStack Direction="Row" Justify="Justify.FlexEnd" Spacing="2">
-                    <MudButton Variant="Variant.Text" 
-                               OnClick="CerrarModalEdicion"
-                               StartIcon="@Icons.Material.Filled.Cancel">
-                        Cancelar
-                    </MudButton>
-                    <MudButton Variant="Variant.Filled" 
-                               Color="Color.Primary" 
-                               OnClick="GuardarCambiosEvaluacion"
-                               StartIcon="@Icons.Material.Filled.Save"
-                               Disabled="isLoading">
-                        @if (isLoading)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                            <span class="ml-2">Guardando...</span>
-                        }
-                        else
-                        {
-                            <span>Guardar Cambios</span>
-                        }
-                    </MudButton>
+@* Modal de edición - Usando MudOverlay como en TeacherDashboardPapersMud *@
+@if (showEditModal)
+{
+    <MudOverlay Visible="true" DarkBackground="true" Absolute="false">
+        <MudCard Style="max-width: 700px; margin: auto; margin-top: 50px; max-height: 90vh; overflow-y: auto;">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Color="Color.Primary">
+                        <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+                        Editar Evaluación Docente
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Dark">
+                        Modifica los datos de la evaluación seleccionada
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudStack Spacing="4">
+                    @if (evaluacionEditando != null)
+                    {
+                        <MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Info">
+                            <strong>Evaluación:</strong> @(evaluacionEditando.TipoEvaluacion ?? "Ninguna seleccionada")
+                        </MudAlert>
+                        
+                        <MudGrid Spacing="3">
+                            <MudItem xs="12" sm="6">
+                                <MudSelect T="string" 
+                                           Label="Tipo de Evaluación *" 
+                                           @bind-Value="editTipoEvaluacion" 
+                                           Variant="Variant.Outlined" 
+                                           Required="true"
+                                           Error="@(string.IsNullOrWhiteSpace(editTipoEvaluacion))"
+                                           ErrorText="El tipo de evaluación es requerido">
+                                    <MudSelectItem Value="@("ESTUDIANTES")">Evaluación por Estudiantes</MudSelectItem>
+                                    <MudSelectItem Value="@("PARES")">Evaluación por Pares</MudSelectItem>
+                                    <MudSelectItem Value="@("AUTOEVALUACION")">Autoevaluación</MudSelectItem>
+                                    <MudSelectItem Value="@("DIRECTIVOS")">Evaluación por Directivos</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            
+                            <MudItem xs="12" sm="6">
+                                <MudTextField T="string" 
+                                              Label="Período *" 
+                                              @bind-Value="editPeriodo" 
+                                              Variant="Variant.Outlined" 
+                                              Required="true"
+                                              Error="@(string.IsNullOrWhiteSpace(editPeriodo))"
+                                              ErrorText="El período es requerido"
+                                              Placeholder="Ej: 2024A, 2024B" />
+                            </MudItem>
+                            
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField T="double" 
+                                                 Label="Puntaje (%) *" 
+                                                 @bind-Value="editPuntaje" 
+                                                 Variant="Variant.Outlined" 
+                                                 Required="true"
+                                                 Min="0" 
+                                                 Max="100"
+                                                 Step="0.1"
+                                                 Error="@(editPuntaje < 0 || editPuntaje > 100)"
+                                                 ErrorText="El puntaje debe estar entre 0 y 100" />
+                            </MudItem>
+                            
+                            <MudItem xs="12" sm="6">
+                                <MudDatePicker Label="Fecha de Evaluación *" 
+                                               @bind-Date="editFechaEvaluacion" 
+                                               Variant="Variant.Outlined" 
+                                               Required="true" />
+                            </MudItem>
+                            
+                            <MudItem xs="12">
+                                <MudTextField T="string" 
+                                              Label="Observaciones" 
+                                              @bind-Value="editObservaciones" 
+                                              Variant="Variant.Outlined" 
+                                              Lines="3"
+                                              Placeholder="Comentarios adicionales sobre la evaluación..." />
+                            </MudItem>
+                            
+                            <MudItem xs="12">
+                                <MudText Typo="Typo.h6" Class="mb-2">Certificado</MudText>
+                                
+                                @if (evaluacionEditando.Certificado != null && evaluacionEditando.Certificado.Length > 0)
+                                {
+                                    <MudAlert Severity="Severity.Info" Class="mb-2">
+                                        <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Class="mr-2" />
+                                        Certificado actual: @((evaluacionEditando.Certificado.Length / 1024.0).ToString("F1")) KB
+                                    </MudAlert>
+                                }
+                                else
+                                {
+                                    <MudAlert Severity="Severity.Warning" Class="mb-2">
+                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Class="mr-2" />
+                                        No hay certificado asociado a esta evaluación
+                                    </MudAlert>
+                                }
+                                
+                                <MudStack Direction="Row" Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudFileUpload T="IBrowserFile" 
+                                                   FilesChanged="OnEditArchivoFileChanged"
+                                                   Accept=".pdf">
+                                        <ActivatorContent>
+                                            <MudButton Variant="Variant.Outlined"
+                                                       Color="Color.Primary"
+                                                       StartIcon="@Icons.Material.Filled.CloudUpload">
+                                                @(editArchivoFile != null ? "Cambiar Certificado" : "Subir Certificado") (PDF)
+                                            </MudButton>
+                                        </ActivatorContent>
+                                    </MudFileUpload>
+                                    
+                                    @if (evaluacionEditando.Certificado != null && evaluacionEditando.Certificado.Length > 0)
+                                    {
+                                        <MudButton Variant="Variant.Text"
+                                                   Color="Color.Error"
+                                                   StartIcon="@Icons.Material.Filled.Delete"
+                                                   OnClick="EliminarArchivoActual">
+                                            Eliminar Actual
+                                        </MudButton>
+                                    }
+                                </MudStack>
+                                
+                                @if (editArchivoFile != null)
+                                {
+                                    <MudAlert Severity="Severity.Success" Class="mt-2">
+                                        <MudIcon Icon="@Icons.Material.Filled.AttachFile" Class="mr-2" />
+                                        Nuevo archivo seleccionado: @editArchivoFile.Name (@((editArchivoFile.Size / 1024.0).ToString("F1")) KB)
+                                        <MudButton Size="Size.Small" 
+                                                   Variant="Variant.Text" 
+                                                   Color="Color.Error" 
+                                                   OnClick="LimpiarArchivoSeleccionado"
+                                                   StartIcon="@Icons.Material.Filled.Close"
+                                                   Style="margin-left: 10px;">
+                                            Cancelar
+                                        </MudButton>
+                                    </MudAlert>
+                                }
+                                
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+                                    <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-1" />
+                                    Solo archivos PDF son permitidos. Tamaño máximo: 10MB.
+                                </MudText>
+                            </MudItem>
+                        </MudGrid>
+                    }
                 </MudStack>
-            }
-        </MudContainer>
-    </DialogContent>
-</MudDialog>
+            </MudCardContent>
+            <MudCardActions Class="d-flex justify-space-between pa-4">
+                <MudButton Variant="Variant.Text" 
+                           Color="Color.Default"
+                           OnClick="CerrarModalEdicion"
+                           StartIcon="@Icons.Material.Filled.Cancel">
+                    Cancelar
+                </MudButton>
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           OnClick="GuardarCambiosEvaluacion"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           Disabled="@(isLoading || !FormularioValido())">
+                    @if (isLoading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                        <span class="ml-2">Guardando...</span>
+                    }
+                    else
+                    {
+                        <span>Guardar Cambios</span>
+                    }
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudOverlay>
+}
 
 <MudDialog @bind-Open="showPdfModal">
     <DialogContent>
@@ -422,6 +500,16 @@
     private bool showEditModal = false;
     private EvaluacionClienteType? evaluacionEditando;
     private DateTime? fechaEvaluacionEdit;
+    private IBrowserFile? certificadoFile;
+    private string nombreCertificadoActual = string.Empty;
+    
+    // Variables de edición separadas (patrón similar a papers)
+    private string editTipoEvaluacion = string.Empty;
+    private string editPeriodo = string.Empty;
+    private double editPuntaje = 0.0;
+    private DateTime? editFechaEvaluacion;
+    private string editObservaciones = string.Empty;
+    private IBrowserFile? editArchivoFile;
     
     protected override async Task OnInitializedAsync()
     {
@@ -511,105 +599,165 @@
         showPdfModal = true;
     }
 
-    private void EditarEvaluacion(EvaluacionClienteType eval)
+    private async Task EditarEvaluacion(EvaluacionClienteType eval)
     {
-        Console.WriteLine($"[DEBUG] Iniciando edición de evaluación: {eval.TipoEvaluacion}");
-        
-        // Crear una copia de la evaluación para editar
-        evaluacionEditando = new EvaluacionClienteType
+        try
         {
-            Id = eval.Id,
-            TipoEvaluacion = eval.TipoEvaluacion,
-            Periodo = eval.Periodo,
-            Puntaje = eval.Puntaje,
-            FechaEvaluacion = eval.FechaEvaluacion,
-            Observaciones = eval.Observaciones,
-            Externo = eval.Externo,
-            Certificado = eval.Certificado
-        };
-        
-        // Configurar la fecha para el DatePicker
-        fechaEvaluacionEdit = eval.FechaEvaluacion != DateTime.MinValue ? eval.FechaEvaluacion : DateTime.Now;
-        
-        showEditModal = true;
+            Console.WriteLine($"[DEBUG] Iniciando edición de evaluación: {eval.TipoEvaluacion}");
+            Console.WriteLine($"[DEBUG] Estado inicial showEditModal: {showEditModal}");
+            
+            // Establecer la evaluación que se está editando
+            evaluacionEditando = eval;
+            
+            // Cargar los valores en las variables de edición separadas
+            editTipoEvaluacion = eval.TipoEvaluacion ?? string.Empty;
+            editPeriodo = eval.Periodo ?? string.Empty;
+            editPuntaje = eval.Puntaje;
+            editFechaEvaluacion = eval.FechaEvaluacion != DateTime.MinValue ? eval.FechaEvaluacion : DateTime.Now;
+            editObservaciones = eval.Observaciones ?? string.Empty;
+            editArchivoFile = null; // Siempre empezar sin archivo seleccionado
+            
+            Console.WriteLine($"[DEBUG] Datos cargados - Tipo: {editTipoEvaluacion}, Período: {editPeriodo}");
+            
+            showEditModal = true;
+            
+            Console.WriteLine($"[DEBUG] showEditModal establecido a: {showEditModal}");
+            
+            StateHasChanged(); // Forzar actualización
+            
+            // Pequeño delay para asegurar que el estado se actualice
+            await Task.Delay(100);
+            
+            Console.WriteLine($"[DEBUG] Estado final showEditModal: {showEditModal}");
+            Console.WriteLine($"[DEBUG] evaluacionEditando: {evaluacionEditando?.TipoEvaluacion}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Error al abrir editor: {ex.Message}");
+            modalMessageImportar = $"❌ Error al abrir el editor: {ex.Message}";
+            showModalImportar = true;
+        }
     }
 
     private void CerrarModalEdicion()
     {
+        Console.WriteLine("[DEBUG] Cancelando edición de evaluación");
+        
+        // Limpiar todo el estado de edición
         showEditModal = false;
         evaluacionEditando = null;
+        
+        // Limpiar variables de edición separadas
+        editTipoEvaluacion = string.Empty;
+        editPeriodo = string.Empty;
+        editPuntaje = 0.0;
+        editFechaEvaluacion = null;
+        editObservaciones = string.Empty;
+        editArchivoFile = null;
+        
+        // Limpiar variables del modal anterior (mantener compatibilidad)
         fechaEvaluacionEdit = null;
+        certificadoFile = null;
+        nombreCertificadoActual = string.Empty;
+        
+        StateHasChanged();
+        
+        Console.WriteLine($"[DEBUG] Estado limpiado - showEditModal: {showEditModal}");
     }
 
     private async Task GuardarCambiosEvaluacion()
     {
-        if (evaluacionEditando == null)
-        {
-            modalMessageImportar = "❌ Error: No se pudo obtener la evaluación para editar.";
-            showModalImportar = true;
-            return;
-        }
+        if (evaluacionEditando == null || !FormularioValido()) return;
 
         try
         {
             isLoading = true;
             StateHasChanged();
 
-            // Actualizar la fecha de evaluación desde el DatePicker
-            if (fechaEvaluacionEdit.HasValue)
+            // Actualizar los campos básicos desde las variables de edición
+            evaluacionEditando.TipoEvaluacion = editTipoEvaluacion.Trim();
+            evaluacionEditando.Periodo = editPeriodo.Trim();
+            evaluacionEditando.Puntaje = editPuntaje;
+            evaluacionEditando.FechaEvaluacion = editFechaEvaluacion ?? DateTime.Now;
+            evaluacionEditando.Observaciones = editObservaciones?.Trim() ?? string.Empty;
+
+            // Convertir archivo de certificado a byte[] si se seleccionó un nuevo archivo
+            if (editArchivoFile != null)
             {
-                evaluacionEditando.FechaEvaluacion = fechaEvaluacionEdit.Value;
+                Console.WriteLine($"[DEBUG] Convirtiendo archivo de certificado: {editArchivoFile.Name} ({editArchivoFile.Size} bytes)");
+                
+                // Validar que sea un archivo PDF
+                if (!editArchivoFile.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    modalMessageImportar = "❌ Error: Solo se permiten archivos PDF para el certificado.";
+                    showModalImportar = true;
+                    return;
+                }
+                
+                // Validar tamaño del archivo (máximo 10MB)
+                const int maxSizeInBytes = 10 * 1024 * 1024; // 10MB
+                if (editArchivoFile.Size > maxSizeInBytes)
+                {
+                    modalMessageImportar = "❌ Error: El archivo es demasiado grande. Máximo permitido: 10MB.";
+                    showModalImportar = true;
+                    return;
+                }
+                
+                try
+                {
+                    // Leer el archivo y convertirlo a byte[]
+                    using var stream = editArchivoFile.OpenReadStream(maxSizeInBytes);
+                    using var memoryStream = new MemoryStream();
+                    await stream.CopyToAsync(memoryStream);
+                    evaluacionEditando.Certificado = memoryStream.ToArray();
+                    
+                    Console.WriteLine($"[DEBUG] Certificado convertido exitosamente: {evaluacionEditando.Certificado.Length} bytes");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ERROR] Error al convertir certificado: {ex.Message}");
+                    modalMessageImportar = $"❌ Error al procesar el certificado: {ex.Message}";
+                    showModalImportar = true;
+                    return;
+                }
             }
 
-            // Validaciones básicas
-            if (string.IsNullOrWhiteSpace(evaluacionEditando.TipoEvaluacion))
-            {
-                modalMessageImportar = "❌ Error: El tipo de evaluación es requerido.";
-                showModalImportar = true;
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(evaluacionEditando.Periodo))
-            {
-                modalMessageImportar = "❌ Error: El período es requerido.";
-                showModalImportar = true;
-                return;
-            }
-
-            if (evaluacionEditando.Puntaje < 0 || evaluacionEditando.Puntaje > 100)
-            {
-                modalMessageImportar = "❌ Error: El puntaje debe estar entre 0 y 100.";
-                showModalImportar = true;
-                return;
-            }
-
-            Console.WriteLine($"[DEBUG] Guardando cambios para evaluación ID: {evaluacionEditando.Id}");
+            Console.WriteLine($"[DEBUG] Guardando evaluación: {evaluacionEditando.TipoEvaluacion}");
+            Console.WriteLine($"[DEBUG] Archivo presente: {evaluacionEditando.Certificado != null}");
+            Console.WriteLine($"[DEBUG] Nuevo archivo: {editArchivoFile?.Name ?? "Ninguno"}");
 
             var response = await DocenteService.EditarEvaluacionAsync(evaluacionEditando);
+            
             if (response)
             {
-                modalMessageImportar = $"✅ La evaluación '{evaluacionEditando.TipoEvaluacion}' ha sido actualizada exitosamente.";
+                modalMessageImportar = "✅ Evaluación editada exitosamente.";
                 showModalImportar = true;
+                showEditModal = false;
                 
-                // Cerrar modal de edición
-                CerrarModalEdicion();
+                // Limpiar el estado de edición
+                evaluacionEditando = null;
+                editArchivoFile = null;
                 
+                // Notificar al componente padre para actualizar la lista
+                if (OnImportarCompletado.HasDelegate)
+                    await OnImportarCompletado.InvokeAsync();
+                    
                 // Recargar evaluaciones
                 await CargarEvaluaciones();
                 
-                if (OnImportarCompletado.HasDelegate)
-                    await OnImportarCompletado.InvokeAsync();
+                Console.WriteLine("[DEBUG] Evaluación guardada exitosamente");
             }
             else
             {
-                modalMessageImportar = "❌ Error: No se pudo actualizar la evaluación. Verifica tu conexión e intenta nuevamente.";
+                modalMessageImportar = "❌ Error: No se pudo editar la evaluación. Verifica los datos e intenta nuevamente.";
                 showModalImportar = true;
+                Console.WriteLine("[ERROR] Error al guardar evaluación en el servidor");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Error al guardar cambios: {ex.Message}");
-            modalMessageImportar = $"❌ Error inesperado al guardar: {ex.Message}";
+            Console.WriteLine($"[ERROR] Excepción al guardar: {ex.Message}");
+            modalMessageImportar = $"❌ Error inesperado: {ex.Message}";
             showModalImportar = true;
         }
         finally
@@ -668,4 +816,55 @@
             StateHasChanged();
         }
     }
+
+    private bool FormularioValido()
+    {
+        return !string.IsNullOrWhiteSpace(editTipoEvaluacion) &&
+               !string.IsNullOrWhiteSpace(editPeriodo) &&
+               editPuntaje >= 0 && editPuntaje <= 100 &&
+               editFechaEvaluacion.HasValue;
+    }
+
+    private void OnEditArchivoFileChanged(IBrowserFile file)
+    {
+        try
+        {
+            editArchivoFile = file;
+            
+            Console.WriteLine($"[DEBUG] Archivo seleccionado: {file.Name}, Tamaño: {file.Size} bytes");
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Error al seleccionar archivo: {ex.Message}");
+            modalMessageImportar = $"❌ Error al seleccionar archivo: {ex.Message}";
+            showModalImportar = true;
+        }
+    }
+
+    private void LimpiarArchivoSeleccionado()
+    {
+        editArchivoFile = null;
+        // Restaurar el archivo original si existía
+        if (evaluacionEditando != null)
+        {
+            // El archivo original se mantiene en la base de datos
+            // Solo limpiamos la selección del nuevo archivo
+            Console.WriteLine("[DEBUG] Archivo nuevo cancelado, manteniendo el original");
+        }
+        StateHasChanged();
+    }
+
+    private void EliminarArchivoActual()
+    {
+        if (evaluacionEditando != null)
+        {
+            evaluacionEditando.Certificado = null;
+            editArchivoFile = null;
+            Console.WriteLine("[DEBUG] Archivo actual marcado para eliminación");
+            StateHasChanged();
+        }
+    }
+
 }

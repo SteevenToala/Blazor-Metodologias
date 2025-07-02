@@ -971,7 +971,20 @@ public class DocenteService
         try
         {
             var httpClient = new HttpClient();
-            var response = await httpClient.PutAsJsonAsync($"http://localhost:5015/api/EvaluacionDocente/{evaluacion.Id}", evaluacion);
+            
+            // Convertir a DTO de actualización con los campos editables
+            var updateDto = new MyCleanApp.Client.DTOs.EvaluacionDocenteUpdateDto
+            {
+                Id = evaluacion.Id,
+                Puntaje = evaluacion.Puntaje,
+                Periodo = evaluacion.Periodo,
+                TipoEvaluacion = evaluacion.TipoEvaluacion,
+                FechaEvaluacion = evaluacion.FechaEvaluacion,
+                Observaciones = evaluacion.Observaciones,
+                Certificado = evaluacion.Certificado
+            };
+            
+            var response = await httpClient.PutAsJsonAsync($"http://localhost:5015/api/EvaluacionDocente/{evaluacion.Id}", updateDto);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
