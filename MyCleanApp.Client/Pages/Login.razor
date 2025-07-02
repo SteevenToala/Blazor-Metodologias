@@ -12,20 +12,19 @@
     private LoginResponse? loginResponse;
 protected override async Task OnInitializedAsync()
 {
-
     loginResponse = await LocalStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
-    if (loginResponse != null && loginResponse.usuario !=null)
+    if (loginResponse != null && loginResponse.usuario != null)
+    {
+        Console.WriteLine("Usuario logueado: " + loginResponse.usuario.Rol);
+        if (loginResponse.usuario.Rol == "ADMINISTRADOR")
         {
-            Console.WriteLine("Este es"+loginResponse.usuario.Rol);
-            if (loginResponse.usuario.Rol == "ADMINISTRADOR")
-            {
-                Navigation.NavigateTo("/admin-dashboard", true); // El true fuerza recarga
-            }
-            else 
-            {
-                Navigation.NavigateTo("/teacher-dashboard", true); // El true fuerza recarga
-            }
+            Navigation.NavigateTo("/admin-dashboard", true);
         }
+        else if (loginResponse.usuario.Rol == "DOCENTE")
+        {
+            Navigation.NavigateTo("/teacher-dashboard", true);
+        }
+    }
 }
     public class LoginModel
     {
@@ -51,23 +50,35 @@ protected override async Task OnInitializedAsync()
         var result = await AuthService.LoginAsync(loginData);
         if (result != null)
         {
-            if(result.usuario==null){
+            if (result.usuario == null)
+            {
                 ErrorMsg = "Usuario inválido en la respuesta del servidor.";
                 return;
             }
-            if (result.usuario.Rol != "DOCENTE")
+            
+            // Permitir acceso tanto a docentes como administradores
+            if (result.usuario.Rol != "DOCENTE" && result.usuario.Rol != "ADMINISTRADOR")
             {
-                ErrorMsg = "Solo los usuarios docentes pueden ingresar aquí.";
+                ErrorMsg = "Solo los usuarios docentes y administradores pueden ingresar al sistema.";
                 return;
             }
+            
             await LocalStorageService.GuardarObjetoAsync("loginResponse", result);
-            Navigation.NavigateTo("/teacher-dashboard", true);
+            
+            // Redirigir según el rol
+            if (result.usuario.Rol == "ADMINISTRADOR")
+            {
+                Navigation.NavigateTo("/admin-dashboard", true);
+            }
+            else if (result.usuario.Rol == "DOCENTE")
+            {
+                Navigation.NavigateTo("/teacher-dashboard", true);
+            }
         }
         else
         {
             ErrorMsg = "Credenciales inválidas o error en el servidor.";
         }
-
     }
 
     private bool ShowPassword { get; set; } = false;
@@ -88,12 +99,22 @@ protected override async Task OnInitializedAsync()
             </MudAvatar>
             
             <MudText Typo="Typo.h4" Style="color: #8B1538;" Class="font-weight-bold mb-2">
-                Acceso Docente
+                Acceso al Sistema
             </MudText>
             
             <MudText Typo="Typo.body2" Style="color: #2d2d2d;">
-                Introduce tus credenciales para acceder al sistema
+                Introduce tus credenciales para acceder
             </MudText>
+            
+            <!-- Botón para volver al home -->
+            <div class="mt-3">
+                <MudButton Variant="Variant.Text"
+                           Style="color: #8B1538; text-transform: none;"
+                           StartIcon="@Icons.Material.Filled.Home"
+                           OnClick="@(() => Navigation.NavigateTo("/"))">
+                    Volver al Inicio
+                </MudButton>
+            </div>
         </div>
 
         <!-- Login Form -->

@@ -26,30 +26,19 @@
                     <MudText Typo="Typo.h6" Style="color: #8B1538;" Class="mb-4 text-center">
                         Acceso al Sistema
                     </MudText>
-                    <MudGrid Spacing="3">
-                        <MudItem xs="12" md="6">
-                            <MudButton Href="/login-admin" 
-                                      Variant="Variant.Filled" 
-                                      Style="background-color: #8B1538; color: white;"
-                                      FullWidth="true"
-                                      StartIcon="@Icons.Material.Filled.AdminPanelSettings"
-                                      Size="Size.Large"
-                                      Class="pa-4">
-                                Administrador
-                            </MudButton>
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudButton Href="/login" 
-                                      Variant="Variant.Outlined" 
-                                      Style="border-color: #8B1538; color: #8B1538;"
-                                      FullWidth="true"
-                                      StartIcon="@Icons.Material.Filled.School"
-                                      Size="Size.Large"
-                                      Class="pa-4">
-                                Docente
-                            </MudButton>
-                        </MudItem>
-                    </MudGrid>
+                    <div class="text-center">
+                        <MudButton Href="/login" 
+                                  Variant="Variant.Filled" 
+                                  Style="background-color: #8B1538; color: white;"
+                                  StartIcon="@Icons.Material.Filled.Login"
+                                  Size="Size.Large"
+                                  Class="pa-4">
+                            Iniciar Sesión
+                        </MudButton>
+                        <MudText Typo="Typo.caption" Class="mt-3" Style="color: #666;">
+                            Para docentes y administradores
+                        </MudText>
+                    </div>
                 </MudPaper>
             </MudItem>
         </MudGrid>
@@ -67,7 +56,7 @@
                         Ya tienes una sesión activa en el sistema.
                     </MudText>
                     <div class="text-center">
-                        @if (loginResponse?.usuario?.Rol == "Administrador")
+                        @if (loginResponse?.usuario?.Rol == "ADMINISTRADOR")
                         {
                             <MudButton Href="/admin-dashboard" 
                                       Variant="Variant.Filled" 
@@ -78,7 +67,7 @@
                                 Ir al Panel de Administración
                             </MudButton>
                         }
-                        else
+                        else if (loginResponse?.usuario?.Rol == "DOCENTE")
                         {
                             <MudButton Href="/teacher-dashboard" 
                                       Variant="Variant.Filled" 
