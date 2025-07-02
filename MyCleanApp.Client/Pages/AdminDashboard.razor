@@ -1,9 +1,10 @@
+@page "/admin-dashboard"
+
+@using MyCleanApp.Client.Components
+
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
-@using MyCleanApp.Client.components
-
-@page "/admin-dashboard"
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
     <AdminDashboardHeader/>

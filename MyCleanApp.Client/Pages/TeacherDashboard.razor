@@ -1,13 +1,13 @@
-@using MyCleanApp.Client.components
+@page "/teacher-dashboard"
 
+@using MyCleanApp.Client.Components
 @using MyCleanApp.Client.DTOs
 @using MudBlazor
+
 @inject LocalStorageService LocalStorage
 @inject NavigationManager Navigation
 @inject EvaluacionService EvaluacionService
 @inject DocenteService DocenteService
-
-@page "/teacher-dashboard"
 
 @if (dashBoardDocente == null)
 {
