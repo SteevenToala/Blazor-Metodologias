@@ -1,6 +1,7 @@
 @* SECCIÓN 1: DIRECTIVAS DE RAZOR *@
 @using System
 @using System.Collections.Generic
+@using System.Net.Http
 @using System.Net.Http.Json
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
@@ -9,6 +10,33 @@
 
 @inject DocenteService DocenteService
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
+
+<style>
+    .publication-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    
+    .publication-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+        border-left-color: #8B1538;
+    }
+    
+    .edit-btn {
+        background: linear-gradient(45deg, #ff9800, #f57c00) !important;
+    }
+    
+    .delete-btn {
+        background: linear-gradient(45deg, #f44336, #d32f2f) !important;
+    }
+    
+    .edit-btn:hover, .delete-btn:hover {
+        transform: scale(1.05);
+        transition: transform 0.2s ease;
+    }
+</style>
 
 <MudCard Elevation="1">
     
@@ -69,112 +97,539 @@
         
         <MudDivider />
 
-        <MudList T="object" Dense="true" Class="mt-2">
-            @if (Filtradas != null && Filtradas.Any())
-            {
-                foreach (var pub in Filtradas)
+        @if (isLoading)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7" />
+        }
+        else
+        {
+            <MudGrid Class="mt-4" Spacing="3">
+                @if (Filtradas != null && Filtradas.Any())
                 {
-                    <MudListItem T="object" Class="px-0 py-2">
-                        <MudPaper Class="pa-3" Width="100%" Outlined="true">
-                            <MudGrid AlignItems="AlignItems.Center">
-                                
-                                <MudItem xs="11">
-                                    <MudStack>
-                                        <MudStack Direction="Row" Spacing="2" AlignItems="AlignItems.Center">
-                                            <MudText Typo="Typo.h6">@pub.Titulo</MudText>
-                                            @if (pub.Externo == true)
+                    foreach (var pub in Filtradas)
+                    {
+                        <MudItem xs="12">
+                            <MudCard Elevation="2" Class="publication-card">
+                                <MudCardContent>
+                                    <MudGrid AlignItems="AlignItems.Center">
+                                        
+                                        <MudItem xs="12" md="8">
+                                            <MudStack Spacing="2">
+                                                <MudStack Direction="Row" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                                                    <MudText Typo="Typo.h6" Color="Color.Primary">@pub.Titulo</MudText>
+                                                    @if (pub.Externo == true)
+                                                    {
+                                                        <MudChip T="string" Label="true" Color="Color.Warning" Variant="Variant.Filled" Size="Size.Small" Icon="@Icons.Material.Filled.Cloud">Externo</MudChip>
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudChip T="string" Label="true" Color="Color.Success" Variant="Variant.Filled" Size="Size.Small" Icon="@Icons.Material.Filled.Home">Local</MudChip>
+                                                    }
+                                                </MudStack>
+
+                                                <MudText Typo="Typo.body2" Color="Color.Dark">
+                                                    <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Small" Class="mr-1" />
+                                                    <strong>@pub.Revista</strong>, Vol. @pub.Volumen (@pub.Anio)
+                                                </MudText>
+
+                                                <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2" Class="mt-1">
+                                                    <MudChip T="string" Icon="@Icons.Material.Filled.Category" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">@pub.Tipo</MudChip>
+                                                    @if (pub.Archivo != null)
+                                                    {
+                                                        <MudButtonGroup Variant="Variant.Text" Color="Color.Primary" Size="Size.Small">
+                                                            <MudButton OnClick="@(() => VerArchivo(pub.Id))" 
+                                                                       StartIcon="@Icons.Material.Filled.PictureAsPdf">
+                                                                Ver PDF
+                                                            </MudButton>
+                                                            <MudButton OnClick="@(() => AbrirPdfEnNuevaPestana(pub.Id))" 
+                                                                       StartIcon="@Icons.Material.Filled.OpenInNew"
+                                                                       Title="Abrir en nueva pestaña">
+                                                            </MudButton>
+                                                        </MudButtonGroup>
+                                                    }
+                                                </MudStack>
+                                            </MudStack>
+                                        </MudItem>
+
+                                        <MudItem xs="12" md="4" Class="d-flex justify-end">
+                                            @if (pub.Externo == false)
                                             {
-                                                <MudChip Label="true" Color="Color.Warning" Variant="Variant.Filled" Size="Size.Small">Externo</MudChip>
+                                                <MudStack Direction="Row" Spacing="1">
+                                                    <MudButton Size="Size.Small" 
+                                                               Color="Color.Warning"
+                                                               Variant="Variant.Filled" 
+                                                               OnClick="@(async () => await EditarPublicacion(pub))" 
+                                                               StartIcon="@Icons.Material.Filled.Edit"
+                                                               Class="edit-btn">
+                                                        Editar
+                                                    </MudButton>
+                                                    <MudButton Size="Size.Small" 
+                                                               Color="Color.Error"
+                                                               Variant="Variant.Filled" 
+                                                               OnClick="@(async () => await EliminarPublicacion(pub.Id))" 
+                                                               StartIcon="@Icons.Material.Filled.Delete"
+                                                               Class="delete-btn">
+                                                        Eliminar
+                                                    </MudButton>
+                                                </MudStack>
                                             }
                                             else
                                             {
-                                                <MudChip Label="true" Color="Color.Info" Variant="Variant.Filled" Size="Size.Small">Local</MudChip>
+                                                <MudChip T="string" Icon="@Icons.Material.Filled.Lock" Color="Color.Default" Variant="Variant.Text" Size="Size.Small">Solo lectura</MudChip>
                                             }
-                                        </MudStack>
+                                        </MudItem>
 
-                                        <MudText Typo="Typo.body2" Color="Color.Dark">
-                                            <i>@pub.Revista, Vol. @pub.Volumen (@pub.Anio)</i>
-                                        </MudText>
-
-                                        <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="2" Class="mt-1">
-                                            <MudChip Icon="@Icons.Material.Filled.MenuBook" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">@pub.Tipo</MudChip>
-                                            @if (pub.Archivo != null)
-                                            {
-                                                <MudButton Size="Size.Small" 
-                                                           Color="Color.Primary"
-                                                           Variant="Variant.Text" 
-                                                           OnClick="@(() => VerArchivo(pub.Id))" 
-                                                           StartIcon="@Icons.Material.Filled.PictureAsPdf">Ver archivo</MudButton>
-                                            }
-                                        </MudStack>
-                                    </MudStack>
-                                </MudItem>
-
-                                <MudItem xs="1" Class="d-flex justify-end">
-                                    @if (pub.Externo == false)
-                                    {
-                                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" 
-                                                 AnchorOrigin="Origin.BottomRight" 
-                                                 TransformOrigin="Origin.TopRight">
-                                            <MudMenuItem OnClick="@(() => EditarPublicacion(pub))" Icon="@Icons.Material.Filled.Edit" IconColor="Color.Warning">Editar</MudMenuItem>
-                                            <MudMenuItem OnClick="@(() => EliminarPublicacion(pub.Id))" Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error">Eliminar</MudMenuItem>
-                                        </MudMenu>
-                                    }
-                                </MudItem>
-
-                            </MudGrid>
-                        </MudPaper>
-                    </MudListItem>
+                                    </MudGrid>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
                 }
-            }
-            else
-            {
-                <MudListItem T="object">
-                    <MudAlert Severity="Severity.Info" Class="mt-4" Dense="true">No tienes publicaciones registradas o no se encontraron resultados para los filtros aplicados.</MudAlert>
-                </MudListItem>
-            }
-        </MudList>
+                else
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Info" Class="mt-4">
+                            <MudText>
+                                <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" />
+                                No tienes publicaciones registradas o no se encontraron resultados para los filtros aplicados.
+                            </MudText>
+                        </MudAlert>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
     </MudCardContent>
 </MudCard>
 
-<MudDialog @bind-Open="showModalImportar">
+<MudDialog @bind-Open="showModalImportar" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small })">
     <DialogContent>
-        <MudText Typo="Typo.h6">Importación de Publicaciones</MudText>
-        <MudText Class="mb-4">@modalMessageImportar</MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CerrarModalImportar">Cerrar</MudButton>
+        <MudContainer Class="pa-6">
+            <MudStack Spacing="3" AlignItems="AlignItems.Center">
+                @if (modalMessageImportar.StartsWith("✅"))
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+                }
+                else if (modalMessageImportar.StartsWith("❌"))
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Large" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Info" Color="Color.Info" Size="Size.Large" />
+                }
+                
+                <MudText Typo="Typo.h6" Align="Align.Center">
+                    @if (modalMessageImportar.StartsWith("✅"))
+                    {
+                        <span>¡Operación Exitosa!</span>
+                    }
+                    else if (modalMessageImportar.StartsWith("❌"))
+                    {
+                        <span>Error en la Operación</span>
+                    }
+                    else
+                    {
+                        <span>Información</span>
+                    }
+                </MudText>
+                
+                <MudText Align="Align.Center" Class="mb-4">@modalMessageImportar</MudText>
+                
+                <MudButton Variant="Variant.Filled" 
+                           Color="@(modalMessageImportar.StartsWith("✅") ? Color.Success : modalMessageImportar.StartsWith("❌") ? Color.Error : Color.Primary)" 
+                           OnClick="CerrarModalImportar"
+                           StartIcon="@Icons.Material.Filled.Close">
+                    Cerrar
+                </MudButton>
+            </MudStack>
+        </MudContainer>
     </DialogContent>
 </MudDialog>
 
-<MudDialog @bind-Open="showPdfModal">
-    <DialogContent>
-        <MudText Typo="Typo.h6">Archivo PDF</MudText>
-        @if (pdfUrl != null)
-        {
-            <iframe src="@pdfUrl" style="width:100%; height:600px; border:none;"></iframe>
-        }
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CerrarPdfModal" Class="mt-4">Cerrar</MudButton>
-    </DialogContent>
-</MudDialog>
+@if (showPdfModal)
+{
+    <MudOverlay Visible="true" DarkBackground="true" Absolute="false">
+        <MudCard Style="max-width: 70vw; width: 70vw; height: 90vh; margin: auto; margin-top: 20px;margin-left: 100px;">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5">
+                        <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Class="mr-2" />
+                        Visualizar Archivo PDF
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Dark">
+                        Documento PDF de la publicación académica
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent Class="pa-0" Style="height: calc(90vh - 150px); overflow: hidden;">
+                @if (pdfUrl != null)
+                {
+                    <div style="position: relative; width: 100%; height: 100%;">
+                        <iframe 
+                            src="@pdfUrl" 
+                            style="width: 100%; height: 100%; border: none;"
+                            title="Documento PDF"
+                            frameborder="0"
+                            loading="lazy">
+                            <p>Tu navegador no soporta la visualización de PDFs. 
+                               <a href="@pdfUrl" target="_blank">Haz clic aquí para descargar el archivo</a>
+                            </p>
+                        </iframe>
+                    </div>
+                }
+                else
+                {
+                    <MudContainer Class="pa-4">
+                        <MudAlert Severity="Severity.Error">
+                            <MudText>No se pudo cargar el archivo PDF.</MudText>
+                        </MudAlert>
+                    </MudContainer>
+                }
+            </MudCardContent>
+            <MudCardActions Class="d-flex justify-space-between pa-4">
+                <MudButton Variant="Variant.Outlined" 
+                           Color="Color.Primary" 
+                           OnClick="@(() => AbrirPdfEnNuevaPestana(ObtenerIdDesdePdfUrl()))"
+                           StartIcon="@Icons.Material.Filled.OpenInNew"
+                           Disabled="@(pdfUrl == null)">
+                    Abrir en nueva pestaña
+                </MudButton>
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           OnClick="CerrarPdfModal" 
+                           StartIcon="@Icons.Material.Filled.Close">
+                    Cerrar
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudOverlay>
+}
 
-<MudDialog @bind-Open="showEditModal">
+@* Diálogo de edición temporal deshabilitado para debug
+<MudDialog @bind-IsOpen="showEditModal" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h5" Color="Color.Primary">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+            Editar Publicación
+        </MudText>
+    </TitleContent>
     <DialogContent>
-        <MudText Typo="Typo.h6">Editar Publicación</MudText>
-        <MudTextField T="string" Label="Título" @bind-Value="editTitulo" Class="mb-2" />
-        <MudTextField T="string" Label="Revista" @bind-Value="editRevista" Class="mb-2" />
-        <MudTextField T="string" Label="Volumen" @bind-Value="editVolumen" Class="mb-2" />
-        <MudTextField T="int" Label="Año" @bind-Value="editAnio" Class="mb-2" />
-        <MudTextField T="string" Label="Tipo" @bind-Value="editTipo" Class="mb-2" />
-        <InputFile OnChange="OnArchivoFileChanged" accept="application/pdf" />
-        @if (publicacionEditando?.Archivo != null)
-        {
-            <MudText Typo="Typo.caption" Color="Color.Success">Archivo cargado</MudText>
-        }
-        <MudStack Direction="Row" JustifyContent="End" Spacing="1" Class="mt-4">
-            <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="CancelarEdicionPublicacion">Cancelar</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GuardarEdicionPublicacion">Guardar</MudButton>
-        </MudStack>
+        <MudContainer Class="pa-4">
+            <MudGrid Spacing="3">
+                <MudItem xs="12">
+                    <MudTextField T="string" 
+                                  Label="Título *" 
+                                  @bind-Value="editTitulo" 
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="El título es obligatorio"
+                                  HelperText="Ingresa el título completo de la publicación" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" 
+                                  Label="Revista *" 
+                                  @bind-Value="editRevista" 
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="La revista es obligatoria"
+                                  HelperText="Nombre de la revista" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudTextField T="string" 
+                                  Label="Volumen *" 
+                                  @bind-Value="editVolumen" 
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="El volumen es obligatorio" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudNumericField T="int" 
+                                     Label="Año *" 
+                                     @bind-Value="editAnio" 
+                                     Variant="Variant.Outlined"
+                                     Min="1900" 
+                                     Max="@DateTime.Now.Year"
+                                     Required="true"
+                                     RequiredError="El año es obligatorio" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" 
+                               Label="Tipo de Publicación *" 
+                               @bind-Value="editTipo" 
+                               Variant="Variant.Outlined"
+                               Required="true"
+                               RequiredError="El tipo es obligatorio">
+                        <MudSelectItem T="string" Value="@("Artículo")">Artículo</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Libro")">Libro</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Capítulo")">Capítulo de Libro</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Conferencia")">Conferencia</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Ponencia")">Ponencia</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Otro")">Otro</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Archivo PDF (Opcional)</MudText>
+                    <MudFileUpload T="IBrowserFile" 
+                                   OnFilesChanged="OnArchivoFileChanged"
+                                   Accept="application/pdf"
+                                   MaximumFileCount="1"
+                                   Class="flex-1">
+                        <ActivatorContent>
+                            <MudButton Variant="Variant.Outlined" 
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.CloudUpload"
+                                       FullWidth="true">
+                                @if (editArchivoFile != null)
+                                {
+                                    <MudText>Archivo seleccionado: @editArchivoFile.Name</MudText>
+                                }
+                                else if (publicacionEditando?.Archivo != null)
+                                {
+                                    <MudText>Archivo actual cargado</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>Seleccionar nuevo archivo PDF</MudText>
+                                }
+                            </MudButton>
+                        </ActivatorContent>
+                    </MudFileUpload>
+                    @if (publicacionEditando?.Archivo != null && editArchivoFile == null)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Success" Class="mt-1">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" />
+                            Archivo PDF ya existe en el sistema
+                        </MudText>
+                    }
+                </MudItem>
+            </MudGrid>
+        </MudContainer>
     </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Outlined" 
+                   Color="Color.Default" 
+                   OnClick="CancelarEdicionPublicacion" 
+                   Disabled="@isLoading"
+                   StartIcon="@Icons.Material.Filled.Cancel">
+            Cancelar
+        </MudButton>
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Primary" 
+                   OnClick="GuardarEdicionPublicacion" 
+                   Disabled="@(isLoading || string.IsNullOrWhiteSpace(editTitulo) || string.IsNullOrWhiteSpace(editRevista) || string.IsNullOrWhiteSpace(editVolumen) || string.IsNullOrWhiteSpace(editTipo))"
+                   StartIcon="@(isLoading ? null : Icons.Material.Filled.Save)">
+            @if (isLoading)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                <MudText Class="ms-2">Guardando...</MudText>
+            }
+            else
+            {
+                <MudText>Guardar Cambios</MudText>
+            }
+        </MudButton>
+    </DialogActions>
 </MudDialog>
+*@
+
+@* Diálogo de edición - VERSIÓN COMPLETA CON ARCHIVO *@
+@if (showEditModal)
+{
+    <MudOverlay Visible="true" DarkBackground="true" Absolute="false">
+        <MudCard Style="max-width: 700px; margin: auto; margin-top: 50px; max-height: 90vh; overflow-y: auto;">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h5" Color="Color.Primary">
+                        <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+                        Editar Publicación Académica
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Dark">
+                        Modifica los datos de la publicación seleccionada
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudStack Spacing="4">
+                    <MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.Info">
+                        <strong>Publicación:</strong> @(publicacionEditando?.Titulo ?? "Ninguna seleccionada")
+                    </MudAlert>
+                    
+                    <MudGrid Spacing="3">
+                        <MudItem xs="12">
+                            <MudTextField T="string" 
+                                          Label="Título *" 
+                                          @bind-Value="editTitulo" 
+                                          Variant="Variant.Outlined"
+                                          Required="true"
+                                          Error="@(string.IsNullOrWhiteSpace(editTitulo))"
+                                          ErrorText="El título es obligatorio"
+                                          HelperText="Ingresa el título completo de la publicación" />
+                        </MudItem>
+                        
+                        <MudItem xs="12" md="6">
+                            <MudTextField T="string" 
+                                          Label="Revista *" 
+                                          @bind-Value="editRevista" 
+                                          Variant="Variant.Outlined"
+                                          Required="true"
+                                          Error="@(string.IsNullOrWhiteSpace(editRevista))"
+                                          ErrorText="La revista es obligatoria"
+                                          HelperText="Nombre de la revista o conferencia" />
+                        </MudItem>
+                        
+                        <MudItem xs="12" md="3">
+                            <MudTextField T="string" 
+                                          Label="Volumen *" 
+                                          @bind-Value="editVolumen" 
+                                          Variant="Variant.Outlined"
+                                          Required="true"
+                                          Error="@(string.IsNullOrWhiteSpace(editVolumen))"
+                                          ErrorText="El volumen es obligatorio" />
+                        </MudItem>
+                        
+                        <MudItem xs="12" md="3">
+                            <MudNumericField T="int" 
+                                             Label="Año *" 
+                                             @bind-Value="editAnio" 
+                                             Variant="Variant.Outlined"
+                                             Min="1900" 
+                                             Max="@DateTime.Now.Year"
+                                             Required="true"
+                                             Error="@(editAnio < 1900 || editAnio > DateTime.Now.Year)"
+                                             ErrorText="Año inválido" />
+                        </MudItem>
+                        
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" 
+                                       Label="Tipo de Publicación *" 
+                                       @bind-Value="editTipo" 
+                                       Variant="Variant.Outlined"
+                                       Required="true"
+                                       Error="@(string.IsNullOrWhiteSpace(editTipo))"
+                                       ErrorText="Selecciona un tipo">
+                                <MudSelectItem T="string" Value="@("Artículo")">📄 Artículo</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("Libro")">📚 Libro</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("Capítulo")">📖 Capítulo de Libro</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("Conferencia")">🎤 Conferencia</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("Ponencia")">🗣️ Ponencia</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("Otro")">📋 Otro</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.subtitle1" Class="mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Class="mr-1" />
+                                Archivo PDF
+                            </MudText>
+                            
+                            @* Estado del archivo actual *@
+                            @if (publicacionEditando?.Archivo != null && editArchivoFile == null)
+                            {
+                                <MudAlert Severity="Severity.Success" Dense="true" Class="mb-2">
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-1" />
+                                    Archivo PDF existente en el sistema
+                                    <MudButton Size="Size.Small" 
+                                               Color="Color.Primary" 
+                                               Variant="Variant.Text"
+                                               OnClick="@(() => VerArchivo(publicacionEditando.Id))"
+                                               StartIcon="@Icons.Material.Filled.Visibility"
+                                               Class="ml-2">
+                                        Ver archivo actual
+                                    </MudButton>
+                                </MudAlert>
+                            }
+                            
+                            @* Archivo nuevo seleccionado *@
+                            @if (editArchivoFile != null)
+                            {
+                                <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                                    <MudIcon Icon="@Icons.Material.Filled.FileUpload" Size="Size.Small" Class="mr-1" />
+                                    Nuevo archivo seleccionado: <strong>@editArchivoFile.Name</strong>
+                                    <MudButton Size="Size.Small" 
+                                               Color="Color.Secondary" 
+                                               Variant="Variant.Text"
+                                               OnClick="LimpiarArchivoSeleccionado"
+                                               StartIcon="@Icons.Material.Filled.Clear"
+                                               Class="ml-2">
+                                        Cancelar cambio
+                                    </MudButton>
+                                </MudAlert>
+                            }
+                            
+                            @* Selector de archivo *@
+                            <MudStack Direction="Row" Spacing="2">
+                                <MudFileUpload T="IBrowserFile" 
+                                               OnFilesChanged="OnArchivoFileChanged"
+                                               Accept="application/pdf"
+                                               MaximumFileCount="1"
+                                               MaximumFileSize="5242880">
+                                    <ActivatorContent>
+                                        <MudButton Variant="Variant.Outlined" 
+                                                   Color="@(editArchivoFile != null ? Color.Warning : Color.Primary)"
+                                                   StartIcon="@Icons.Material.Filled.CloudUpload"
+                                                   FullWidth="true">
+                                            @if (editArchivoFile != null)
+                                            {
+                                                <span>Reemplazar archivo PDF</span>
+                                            }
+                                            else if (publicacionEditando?.Archivo != null)
+                                            {
+                                                <span>Cambiar archivo PDF</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Subir archivo PDF</span>
+                                            }
+                                        </MudButton>
+                                    </ActivatorContent>
+                                </MudFileUpload>
+                                
+                                @* Botón para eliminar archivo existente *@
+                                @if (publicacionEditando?.Archivo != null && editArchivoFile == null)
+                                {
+                                    <MudButton Variant="Variant.Outlined" 
+                                               Color="Color.Error"
+                                               StartIcon="@Icons.Material.Filled.DeleteForever"
+                                               OnClick="EliminarArchivoActual">
+                                        Eliminar
+                                    </MudButton>
+                                }
+                            </MudStack>
+                            
+                            <MudText Typo="Typo.caption" Color="Color.Dark" Class="mt-1">
+                                Tamaño máximo: 5MB • Formato: PDF únicamente
+                            </MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudStack>
+            </MudCardContent>
+            <MudCardActions Class="d-flex justify-space-between pa-4">
+                <MudButton Color="Color.Default" 
+                           Variant="Variant.Outlined" 
+                           OnClick="CancelarEdicionPublicacion"
+                           StartIcon="@Icons.Material.Filled.Cancel"
+                           Disabled="@isLoading">
+                    Cancelar
+                </MudButton>
+                <MudButton Color="Color.Primary" 
+                           Variant="Variant.Filled" 
+                           OnClick="GuardarEdicionPublicacion"
+                           StartIcon="@(isLoading ? null : Icons.Material.Filled.Save)"
+                           Disabled="@(isLoading || !FormularioValido())">
+                    @if (isLoading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                        <span>Guardando cambios...</span>
+                    }
+                    else
+                    {
+                        <span>Guardar Cambios</span>
+                    }
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudOverlay>
+}
 
 @* SECCIÓN 3: BLOQUE DE CÓDIGO C# *@
 @code {
@@ -224,6 +679,13 @@
     private int editAnio;
     private string editTipo = string.Empty;
     private IBrowserFile? editArchivoFile;
+    private bool isLoading = false;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        Console.WriteLine("TeacherDashboardPapersMud initialized");
+        await base.OnInitializedAsync();
+    }
     
     // Métodos de navegación y acciones de la UI
     private void IrASubirPublicacion()
@@ -241,8 +703,10 @@
     private void CerrarModalImportar() => showModalImportar = false;
     private void CerrarPdfModal()
     {
+        Console.WriteLine("[DEBUG] Cerrando modal PDF");
         showPdfModal = false;
         pdfUrl = null;
+        StateHasChanged();
     }
 
     // Métodos de lógica de negocio (CRUD)
@@ -276,76 +740,357 @@
         showModalImportar = true;
     }
 
-    private void VerArchivo(int publicacionId)
+    private async void VerArchivo(int publicacionId)
     {
-        pdfUrl = $"http://localhost:5015/api/PublicacionAcademica/archivo/{publicacionId}";
-        showPdfModal = true;
+        try
+        {
+            Console.WriteLine($"[DEBUG] Intentando ver archivo de publicación ID: {publicacionId}");
+            
+            // Verificar que la publicación existe y tiene archivo
+            var publicacion = PublicacionesAcademicas.FirstOrDefault(p => p.Id == publicacionId);
+            if (publicacion == null)
+            {
+                Console.WriteLine($"[ERROR] No se encontró la publicación con ID: {publicacionId}");
+                modalMessageImportar = "❌ Error: No se encontró la publicación seleccionada.";
+                showModalImportar = true;
+                return;
+            }
+
+            if (publicacion.Archivo == null || publicacion.Archivo.Length == 0)
+            {
+                Console.WriteLine($"[ERROR] La publicación {publicacionId} no tiene archivo asociado");
+                modalMessageImportar = "❌ Esta publicación no tiene un archivo PDF asociado.";
+                showModalImportar = true;
+                return;
+            }
+
+            Console.WriteLine($"[DEBUG] Publicación encontrada: {publicacion.Titulo}");
+            Console.WriteLine($"[DEBUG] Archivo presente: {publicacion.Archivo.Length} bytes");
+            
+            // Construir la URL del PDF
+            pdfUrl = $"http://localhost:5015/api/PublicacionAcademica/archivo/{publicacionId}";
+            
+            Console.WriteLine($"[DEBUG] URL construida: {pdfUrl}");
+            
+            // Probar la URL antes de mostrar el modal
+            try
+            {
+                var http = new HttpClient();
+                http.Timeout = TimeSpan.FromSeconds(5);
+                var response = await http.GetAsync(pdfUrl, HttpCompletionOption.ResponseHeadersRead);
+                
+                Console.WriteLine($"[DEBUG] Response status: {response.StatusCode}");
+                Console.WriteLine($"[DEBUG] Content-Type: {response.Content.Headers.ContentType}");
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"[ERROR] El servidor devolvió error: {response.StatusCode}");
+                    modalMessageImportar = $"❌ Error del servidor: {response.StatusCode}. No se puede mostrar el archivo.";
+                    showModalImportar = true;
+                    return;
+                }
+            }
+            catch (Exception httpEx)
+            {
+                Console.WriteLine($"[ERROR] Error al verificar la URL: {httpEx.Message}");
+                modalMessageImportar = $"❌ Error de conexión: {httpEx.Message}";
+                showModalImportar = true;
+                return;
+            }
+            
+            // Mostrar el modal
+            showPdfModal = true;
+            
+            Console.WriteLine($"[DEBUG] Modal PDF abierto: {showPdfModal}");
+            
+            StateHasChanged(); // Forzar actualización de la UI
+            
+            // Pequeño delay para asegurar que el modal se renderice
+            await Task.Delay(100);
+            
+            Console.WriteLine($"[DEBUG] Estado final - showPdfModal: {showPdfModal}, pdfUrl: {pdfUrl}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Error al abrir visor de PDF: {ex.Message}");
+            Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
+            modalMessageImportar = $"❌ Error al abrir el archivo PDF: {ex.Message}";
+            showModalImportar = true;
+        }
     }
 
-    private void EditarPublicacion(PublicacionAcademicaDto pub)
+    private void AbrirPdfEnNuevaPestana(int publicacionId)
     {
-        publicacionEditando = pub;
-        editTitulo = pub.Titulo;
-        editRevista = pub.Revista;
-        editVolumen = pub.Volumen;
-        editAnio = pub.Anio;
-        editTipo = pub.Tipo;
-        editArchivoFile = null;
-        showEditModal = true;
+        try
+        {
+            var url = $"http://localhost:5015/api/PublicacionAcademica/archivo/{publicacionId}";
+            Console.WriteLine($"[DEBUG] Abriendo PDF en nueva pestaña: {url}");
+            Navigation.NavigateTo(url, true);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Error al abrir PDF en nueva pestaña: {ex.Message}");
+            modalMessageImportar = $"❌ Error al abrir el archivo: {ex.Message}";
+            showModalImportar = true;
+        }
+    }
+
+    private int ObtenerIdDesdePdfUrl()
+    {
+        if (string.IsNullOrEmpty(pdfUrl)) return 0;
+        
+        try
+        {
+            var segments = pdfUrl.Split('/');
+            var idStr = segments.LastOrDefault();
+            return int.TryParse(idStr, out var id) ? id : 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private async Task EditarPublicacion(PublicacionAcademicaDto pub)
+    {
+        try
+        {
+            Console.WriteLine($"[DEBUG] Iniciando edición de publicación: {pub.Titulo}");
+            Console.WriteLine($"[DEBUG] Estado inicial showEditModal: {showEditModal}");
+            
+            publicacionEditando = pub;
+            editTitulo = pub.Titulo ?? string.Empty;
+            editRevista = pub.Revista ?? string.Empty;
+            editVolumen = pub.Volumen ?? string.Empty;
+            editAnio = pub.Anio;
+            editTipo = pub.Tipo ?? string.Empty;
+            editArchivoFile = null;
+            
+            Console.WriteLine($"[DEBUG] Datos cargados - Título: {editTitulo}, Revista: {editRevista}");
+            
+            showEditModal = true;
+            
+            Console.WriteLine($"[DEBUG] showEditModal establecido a: {showEditModal}");
+            
+            StateHasChanged(); // Forzar actualización
+            
+            // Pequeño delay para asegurar que el estado se actualice
+            await Task.Delay(100);
+            
+            Console.WriteLine($"[DEBUG] Estado final showEditModal: {showEditModal}");
+            Console.WriteLine($"[DEBUG] publicacionEditando: {publicacionEditando?.Titulo}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Error al abrir editor: {ex.Message}");
+            modalMessageImportar = $"❌ Error al abrir el editor: {ex.Message}";
+            showModalImportar = true;
+        }
     }
     
     private void CancelarEdicionPublicacion()
     {
+        Console.WriteLine("[DEBUG] Cancelando edición de publicación");
+        
+        // Limpiar todo el estado de edición
         showEditModal = false;
         publicacionEditando = null;
+        editTitulo = string.Empty;
+        editRevista = string.Empty;
+        editVolumen = string.Empty;
+        editAnio = DateTime.Now.Year;
+        editTipo = string.Empty;
+        editArchivoFile = null;
+        
+        Console.WriteLine($"[DEBUG] Estado limpiado - showEditModal: {showEditModal}");
+        StateHasChanged();
     }
 
     private async Task OnArchivoFileChanged(InputFileChangeEventArgs e)
     {
-        editArchivoFile = e.File;
-        if (editArchivoFile != null && publicacionEditando != null)
+        var file = e.GetMultipleFiles().FirstOrDefault();
+        if (file != null)
         {
-            using var stream = editArchivoFile.OpenReadStream(5 * 1024 * 1024); // Límite de 5MB
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            publicacionEditando.Archivo = ms.ToArray();
+            try
+            {
+                // Validar tipo de archivo
+                if (!file.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase) && 
+                    !file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    modalMessageImportar = "❌ Error: Solo se permiten archivos PDF.";
+                    showModalImportar = true;
+                    return;
+                }
+
+                // Validar tamaño (5MB máximo)
+                if (file.Size > 5 * 1024 * 1024)
+                {
+                    modalMessageImportar = "❌ Error: El archivo no debe superar los 5MB.";
+                    showModalImportar = true;
+                    return;
+                }
+
+                editArchivoFile = file;
+                
+                if (publicacionEditando != null)
+                {
+                    using var stream = file.OpenReadStream(5 * 1024 * 1024);
+                    using var ms = new MemoryStream();
+                    await stream.CopyToAsync(ms);
+                    publicacionEditando.Archivo = ms.ToArray();
+                    
+                    Console.WriteLine($"[DEBUG] Archivo cargado: {file.Name}, Tamaño: {file.Size} bytes");
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Error al cargar archivo: {ex.Message}");
+                modalMessageImportar = $"❌ Error al cargar el archivo: {ex.Message}";
+                showModalImportar = true;
+                editArchivoFile = null;
+            }
         }
+    }
+
+    private void LimpiarArchivoSeleccionado()
+    {
+        editArchivoFile = null;
+        // Restaurar el archivo original si existía
+        if (publicacionEditando != null)
+        {
+            // El archivo original se mantiene en la base de datos
+            // Solo limpiamos la selección del nuevo archivo
+            Console.WriteLine("[DEBUG] Archivo nuevo cancelado, manteniendo el original");
+        }
+        StateHasChanged();
+    }
+
+    private void EliminarArchivoActual()
+    {
+        if (publicacionEditando != null)
+        {
+            publicacionEditando.Archivo = null;
+            editArchivoFile = null;
+            Console.WriteLine("[DEBUG] Archivo actual marcado para eliminación");
+            StateHasChanged();
+        }
+    }
+
+    private bool FormularioValido()
+    {
+        return !string.IsNullOrWhiteSpace(editTitulo) &&
+               !string.IsNullOrWhiteSpace(editRevista) &&
+               !string.IsNullOrWhiteSpace(editVolumen) &&
+               !string.IsNullOrWhiteSpace(editTipo) &&
+               editAnio >= 1900 && editAnio <= DateTime.Now.Year;
     }
 
     private async Task GuardarEdicionPublicacion()
     {
-        if (publicacionEditando == null) return;
+        if (publicacionEditando == null || !FormularioValido()) return;
         
-        publicacionEditando.Titulo = editTitulo;
-        publicacionEditando.Revista = editRevista;
-        publicacionEditando.Volumen = editVolumen;
-        publicacionEditando.Anio = editAnio;
-        publicacionEditando.Tipo = editTipo;
+        isLoading = true;
+        StateHasChanged();
         
-        var response = await DocenteService.EditarPublicacionAsync(publicacionEditando);
-        if (!response)
+        try
         {
-            modalMessageImportar = "No se pudo editar la publicación.";
+            // Actualizar los campos básicos
+            publicacionEditando.Titulo = editTitulo.Trim();
+            publicacionEditando.Revista = editRevista.Trim();
+            publicacionEditando.Volumen = editVolumen.Trim();
+            publicacionEditando.Anio = editAnio;
+            publicacionEditando.Tipo = editTipo.Trim();
+            
+            // Si hay un nuevo archivo seleccionado, ya se cargó en OnArchivoFileChanged
+            // Si se eliminó el archivo, ya se estableció como null en EliminarArchivoActual
+            
+            Console.WriteLine($"[DEBUG] Guardando publicación: {publicacionEditando.Titulo}");
+            Console.WriteLine($"[DEBUG] Archivo presente: {publicacionEditando.Archivo != null}");
+            Console.WriteLine($"[DEBUG] Nuevo archivo: {editArchivoFile?.Name ?? "Ninguno"}");
+            
+            var response = await DocenteService.EditarPublicacionAsync(publicacionEditando);
+            
+            if (response)
+            {
+                modalMessageImportar = "✅ Publicación editada exitosamente.";
+                showModalImportar = true;
+                showEditModal = false;
+                
+                // Limpiar el estado de edición
+                publicacionEditando = null;
+                editArchivoFile = null;
+                
+                // Notificar al componente padre para actualizar la lista
+                if (OnImportarCompletado.HasDelegate)
+                    await OnImportarCompletado.InvokeAsync();
+                    
+                Console.WriteLine("[DEBUG] Publicación guardada exitosamente");
+            }
+            else
+            {
+                modalMessageImportar = "❌ Error: No se pudo editar la publicación. Verifica los datos e intenta nuevamente.";
+                showModalImportar = true;
+                Console.WriteLine("[ERROR] Error al guardar publicación en el servidor");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Excepción al guardar: {ex.Message}");
+            modalMessageImportar = $"❌ Error inesperado: {ex.Message}";
             showModalImportar = true;
         }
-        
-        showEditModal = false;
-        if (OnImportarCompletado.HasDelegate)
-            await OnImportarCompletado.InvokeAsync();
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
     private async Task EliminarPublicacion(int publicacionId)
     {
-        var response = await DocenteService.EliminarPublicacionAsync(publicacionId);
-        if (response)
+        try
         {
-            if (OnImportarCompletado.HasDelegate)
-                await OnImportarCompletado.InvokeAsync();
+            // Mostrar diálogo de confirmación más detallado
+            var publicacion = PublicacionesAcademicas.FirstOrDefault(p => p.Id == publicacionId);
+            string titulo = publicacion?.Titulo ?? "la publicación seleccionada";
+            
+            bool? result = await DialogService.ShowMessageBox(
+                "⚠️ Confirmar eliminación",
+                $"¿Estás seguro de que deseas eliminar '{titulo}'?\n\nEsta acción es irreversible y no se puede deshacer.",
+                yesText: "Sí, eliminar", 
+                cancelText: "Cancelar",
+                options: new DialogOptions { MaxWidth = MaxWidth.Small });
+            
+            if (result == true)
+            {
+                isLoading = true;
+                StateHasChanged();
+                
+                var response = await DocenteService.EliminarPublicacionAsync(publicacionId);
+                if (response)
+                {
+                    modalMessageImportar = $"✅ '{titulo}' ha sido eliminada exitosamente.";
+                    showModalImportar = true;
+                    if (OnImportarCompletado.HasDelegate)
+                        await OnImportarCompletado.InvokeAsync();
+                }
+                else
+                {
+                    modalMessageImportar = "❌ Error: No se pudo eliminar la publicación. Verifica tu conexión e intenta nuevamente.";
+                    showModalImportar = true;
+                }
+            }
         }
-        else
+        catch (Exception ex)
         {
-            modalMessageImportar = "No se pudo eliminar la publicación.";
+            modalMessageImportar = $"❌ Error inesperado al eliminar: {ex.Message}";
             showModalImportar = true;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
         }
     }
 }
