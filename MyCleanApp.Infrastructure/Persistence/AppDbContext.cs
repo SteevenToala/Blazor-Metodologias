@@ -269,6 +269,24 @@ namespace MyCleanApp.Infrastructure.Persistence
                     .IsRequired()
                     .HasColumnType("float");
 
+                entity.Property(e => e.FechaEvaluacion)
+                    .IsRequired()
+                    .HasColumnType("date");
+
+                entity.Property(e => e.TipoEvaluacion)
+                    .IsRequired()
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.Observaciones)
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.Certificado)
+                    .HasColumnType("varbinary(max)");
+
+                entity.Property(e => e.Externo)
+                    .IsRequired()
+                    .HasDefaultValue(false);
+
                 entity.HasOne(e => e.Docente)
                     .WithMany()
                     .HasForeignKey(e => e.DocenteId)

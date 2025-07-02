@@ -63,9 +63,23 @@ CREATE TABLE EvaluacionDocente (
     id INT PRIMARY KEY IDENTITY(1,1),
     periodo VARCHAR(20),
     puntaje FLOAT,
-    docenteId INT UNIQUE,
+    docenteId INT,
+    fechaEvaluacion DATE,
+    tipoEvaluacion VARCHAR(50), -- 'ESTUDIANTES', 'PARES', 'AUTOEVALUACION', 'DIRECTIVOS'
+    observaciones VARCHAR(500),
+    certificado VARBINARY(MAX) NULL, -- Para guardar PDF del certificado
+    externo BIT DEFAULT 0,
     FOREIGN KEY (docenteId) REFERENCES Docente(id)
 );
+
+-- Eliminar la restricción UNIQUE si existe para permitir múltiples evaluaciones
+IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'UQ__Evaluaci__A2B5777C' OR object_id = OBJECT_ID('EvaluacionDocente') AND is_unique = 1)
+BEGIN
+    DECLARE @constraint_name NVARCHAR(200)
+    SELECT @constraint_name = name FROM sys.indexes WHERE object_id = OBJECT_ID('EvaluacionDocente') AND is_unique = 1
+    IF @constraint_name IS NOT NULL
+        EXEC('ALTER TABLE EvaluacionDocente DROP CONSTRAINT ' + @constraint_name)
+END;
 
 -- Tabla CursoCapacitacion
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='CursoCapacitacion' AND xtype='U')
@@ -252,8 +266,21 @@ INSERT INTO Docente (usuarioId, nivelAcademicoId, fechaInicioNivel) VALUES
 
 -- Evaluación Docente (insertar solo si no existe)
 IF NOT EXISTS (SELECT 1 FROM EvaluacionDocente WHERE docenteId = 1 AND periodo = '2024A')
-INSERT INTO EvaluacionDocente (periodo, puntaje, docenteId) VALUES
-('2024A', 87, 1);
+INSERT INTO EvaluacionDocente (periodo, puntaje, docenteId, fechaEvaluacion, tipoEvaluacion, observaciones, externo) VALUES
+('2024A', 87, 1, '2024-06-15', 'ESTUDIANTES', 'Evaluación por estudiantes - Semestre 2024A', 0);
+
+-- Agregar más evaluaciones para el docente 1 (Pedro)
+IF NOT EXISTS (SELECT 1 FROM EvaluacionDocente WHERE docenteId = 1 AND periodo = '2023B')
+INSERT INTO EvaluacionDocente (periodo, puntaje, docenteId, fechaEvaluacion, tipoEvaluacion, observaciones, externo) VALUES
+('2023B', 82, 1, '2023-12-15', 'ESTUDIANTES', 'Evaluación por estudiantes - Semestre 2023B', 0);
+
+IF NOT EXISTS (SELECT 1 FROM EvaluacionDocente WHERE docenteId = 1 AND periodo = '2024A' AND tipoEvaluacion = 'PARES')
+INSERT INTO EvaluacionDocente (periodo, puntaje, docenteId, fechaEvaluacion, tipoEvaluacion, observaciones, externo) VALUES
+('2024A', 90, 1, '2024-07-01', 'PARES', 'Evaluación por pares académicos', 0);
+
+IF NOT EXISTS (SELECT 1 FROM EvaluacionDocente WHERE docenteId = 1 AND periodo = '2024A' AND tipoEvaluacion = 'AUTOEVALUACION')
+INSERT INTO EvaluacionDocente (periodo, puntaje, docenteId, fechaEvaluacion, tipoEvaluacion, observaciones, externo) VALUES
+('2024A', 85, 1, '2024-06-30', 'AUTOEVALUACION', 'Autoevaluación docente', 0);
 
 -- Curso Capacitación (insertar solo si no existe)
 IF NOT EXISTS (SELECT 1 FROM CursoCapacitacion WHERE nombre = 'Innovación educativa' AND docenteId = 1)
@@ -576,10 +603,22 @@ INSERT INTO Docente (usuarioId, nivelAcademicoId, fechaInicioNivel) VALUES
 (8, 1, '2022-03-01'); -- Laura en DT2
 
 -- Agregar más evaluaciones docentes
-INSERT INTO EvaluacionDocente (periodo, puntaje, docenteId) VALUES
-('2024A', 92, 2), -- Ana
-('2024A', 88, 3), -- Carlos
-('2024A', 76, 4); -- Laura
+INSERT INTO EvaluacionDocente (periodo, puntaje, docenteId, fechaEvaluacion, tipoEvaluacion, observaciones, externo) VALUES
+-- Ana (docente 2) - múltiples evaluaciones
+('2024A', 92, 2, '2024-06-15', 'ESTUDIANTES', 'Evaluación excelente por estudiantes', 0),
+('2024A', 88, 2, '2024-07-01', 'PARES', 'Evaluación por pares académicos', 0),
+('2023B', 89, 2, '2023-12-15', 'ESTUDIANTES', 'Evaluación anterior por estudiantes', 0),
+('2024A', 94, 2, '2024-06-30', 'AUTOEVALUACION', 'Autoevaluación docente', 0),
+-- Carlos (docente 3) - múltiples evaluaciones
+('2024A', 88, 3, '2024-06-15', 'ESTUDIANTES', 'Evaluación satisfactoria por estudiantes', 0),
+('2024A', 85, 3, '2024-07-01', 'PARES', 'Evaluación por pares académicos', 0),
+('2023B', 90, 3, '2023-12-15', 'ESTUDIANTES', 'Evaluación anterior excelente', 0),
+('2024A', 87, 3, '2024-06-30', 'DIRECTIVOS', 'Evaluación por directivos', 0),
+-- Laura (docente 4) - múltiples evaluaciones
+('2024A', 76, 4, '2024-06-15', 'ESTUDIANTES', 'Evaluación básica por estudiantes', 0),
+('2024A', 78, 4, '2024-07-01', 'PARES', 'Evaluación por pares académicos', 0),
+('2023B', 74, 4, '2023-12-15', 'ESTUDIANTES', 'Evaluación anterior básica', 0),
+('2024A', 80, 4, '2024-06-30', 'AUTOEVALUACION', 'Autoevaluación docente', 0);
 
 -- Agregar más cursos de capacitación
 INSERT INTO CursoCapacitacion (nombre, horas, fechaInicio, fechaFin, docenteId, externo) VALUES

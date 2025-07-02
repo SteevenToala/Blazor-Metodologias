@@ -919,6 +919,123 @@ public class DocenteService
         }
     }
 
+    // Métodos específicos para el manejo de evaluaciones docentes por usuario
+    public async Task<MyCleanApp.Client.DTOs.EvaluacionDocenteDto[]?> getEvaluacionesDocentes()
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse == null || loginResponse.usuario == null)
+        {
+            return null;
+        }
+        try
+        {
+            var response = await _http.GetAsync($"http://localhost:5015/api/EvaluacionDocente/usuario/{loginResponse.usuario.Id}");
+            var data = await response.Content.ReadFromJsonAsync<MyCleanApp.Client.DTOs.EvaluacionDocenteDto[]>();
+            if (data == null)
+            {
+                Console.WriteLine("No se pudo deserializar la respuesta a EvaluacionDocenteDto[].");
+                return Array.Empty<MyCleanApp.Client.DTOs.EvaluacionDocenteDto>();
+            }
+            return data;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción en la petición: {ex.Message}");
+            return null;
+        }
+    }
+
+    public async Task<bool> SubirEvaluacionDocenteAsync(MyCleanApp.Client.DTOs.EvaluacionDocenteRequest data)
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse == null || loginResponse.usuario == null)
+        {
+            return false;
+        }
+        
+        try
+        {
+            var httpClient = new HttpClient();
+            var response = await httpClient.PostAsJsonAsync("http://localhost:5015/api/EvaluacionDocente", data);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al subir evaluación: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<bool> EditarEvaluacionAsync(MyCleanApp.Client.DTOs.EvaluacionDocenteDto evaluacion)
+    {
+        try
+        {
+            var httpClient = new HttpClient();
+            var response = await httpClient.PutAsJsonAsync($"http://localhost:5015/api/EvaluacionDocente/{evaluacion.Id}", evaluacion);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al editar evaluación: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<bool> EliminarEvaluacionDocenteAsync(int evaluacionId)
+    {
+        try
+        {
+            var httpClient = new HttpClient();
+            var response = await httpClient.DeleteAsync($"http://localhost:5015/api/EvaluacionDocente/{evaluacionId}");
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al eliminar evaluación: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<double> ObtenerPromedioEvaluacionesAsync()
+    {
+        var loginResponse = await _localStorageService.ObtenerObjetoAsync<LoginResponse>("loginResponse");
+        if (loginResponse == null || loginResponse.usuario == null)
+        {
+            return 0.0;
+        }
+        
+        try
+        {
+            var response = await _http.GetAsync($"http://localhost:5015/api/EvaluacionDocente/promedio/{loginResponse.usuario.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                var promedio = await response.Content.ReadFromJsonAsync<double>();
+                return promedio;
+            }
+            return 0.0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener promedio de evaluaciones: {ex.Message}");
+            return 0.0;
+        }
+    }
+
+    public async Task<bool> ImportarEvaluacionExternaAsync(EvaluacionDocenteDto evaluacion)
+    {
+        try
+        {
+            var httpClient = new HttpClient();
+            var response = await httpClient.PostAsJsonAsync("http://localhost:5015/api/EvaluacionDocente/importar", evaluacion);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al importar evaluación externa: {ex.Message}");
+            return false;
+        }
+    }
+
     // Métodos para gestión de docentes detallados
     public async Task<List<MyCleanApp.Client.DTOs.DocenteDetalladoDto>> ObtenerTodosLosDocentesDetalladosAsync()
     {

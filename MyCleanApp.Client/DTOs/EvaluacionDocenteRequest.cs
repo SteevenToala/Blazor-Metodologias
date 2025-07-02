@@ -1,14 +1,10 @@
-namespace MyCleanApp.API.DTOs
+namespace MyCleanApp.Client.DTOs
 {
-    public class EvaluacionDocenteDto
+    public class EvaluacionDocenteRequest
     {
-        public int Id { get; set; }
-        public int DocenteId { get; set; }
-        public string DocenteNombre { get; set; } = string.Empty;
-        public string DocenteCedula { get; set; } = string.Empty;
         public string Periodo { get; set; } = string.Empty;
         public double Puntaje { get; set; }
-        public string NivelAcademico { get; set; } = string.Empty;
+        public int DocenteId { get; set; }
         public DateTime FechaEvaluacion { get; set; }
         public string TipoEvaluacion { get; set; } = string.Empty;
         public string? Observaciones { get; set; }
