@@ -4,11 +4,9 @@ using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
 using MyCleanApp.Infrastructure.Services;
 
-namespace MyCleanApp.API.Controllers
-{
-    [ApiController]
-    [Route("api/[controller]")]
-    public class SolicitudAvanceRangoController : ControllerBase
+[ApiController]
+[Route("api/[controller]")]
+public class SolicitudAvanceRangoController : ControllerBase
 {
     private readonly AppDbContext _context;
     public SolicitudAvanceRangoController(AppDbContext context) => _context = context;
@@ -542,5 +540,4 @@ public class AprobacionRequest
 public class RechazoRequest
 {
     public string? Motivo { get; set; }
-}
 }

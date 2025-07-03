@@ -164,6 +164,9 @@ namespace MyCleanApp.Infrastructure.Persistence
                 entity.Property(e => e.Observaciones)
                     .HasMaxLength(300);
 
+                entity.Property(e => e.DocumentosVerificados)
+                    .HasDefaultValue(false);
+
                 entity.HasOne(e => e.Docente)
                     .WithMany()
                     .HasForeignKey(e => e.DocenteId)
@@ -172,6 +175,11 @@ namespace MyCleanApp.Infrastructure.Persistence
                 entity.HasOne(e => e.NuevoNivelAcademico)
                     .WithMany()
                     .HasForeignKey(e => e.NuevoNivelAcademicoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.VerificadoPorUsuario)
+                    .WithMany()
+                    .HasForeignKey(e => e.VerificadoPor)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
