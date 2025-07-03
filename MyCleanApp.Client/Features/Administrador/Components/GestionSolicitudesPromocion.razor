@@ -1,6 +1,7 @@
 @using MyCleanApp.Client.Features.Shared.Services
 @using MyCleanApp.Client.DTOs
 @using MudBlazor
+@using MyCleanApp.Client.Features.Administrador.Components
 @inject SolicitudPromocionService SolicitudService
 @inject IJSRuntime JSRuntime
 @inject ISnackbar Snackbar
@@ -28,26 +29,28 @@
         </MudItem>
     </MudGrid>
 
-    @if (isLoading)
-    {
-        <div class="d-flex justify-center pa-8">
-            <div class="d-flex flex-column align-center">
-                <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
-                <MudText Typo="Typo.body2" Class="mt-3" Color="Color.Secondary">Cargando solicitudes...</MudText>
-            </div>
-        </div>
-    }
-    else if (solicitudes == null || !solicitudes.Any())
-    {
-        <MudAlert Severity="Severity.Info" Class="my-4">
-            <div class="d-flex align-center">
-                <MudIcon Icon="Icons.Material.Filled.Info" Class="mr-2" />
-                <span>No hay solicitudes de promoción pendientes.</span>
-            </div>
-        </MudAlert>
-    }
-    else
-    {
+    <MudTabs Elevation="4" Rounded="true" ApplyEffectsToContainer="true" Color="Color.Primary">
+        <MudTabPanel Text="Lista de Solicitudes" Icon="Icons.Material.Filled.List">
+            @if (isLoading)
+            {
+                <div class="d-flex justify-center pa-8">
+                    <div class="d-flex flex-column align-center">
+                        <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                        <MudText Typo="Typo.body2" Class="mt-3" Color="Color.Secondary">Cargando solicitudes...</MudText>
+                    </div>
+                </div>
+            }
+            else if (solicitudes == null || !solicitudes.Any())
+            {
+                <MudAlert Severity="Severity.Info" Class="my-4">
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="Icons.Material.Filled.Info" Class="mr-2" />
+                        <span>No hay solicitudes de promoción pendientes.</span>
+                    </div>
+                </MudAlert>
+            }
+            else
+            {
         <MudDataGrid T="SolicitudPromocionDto" 
                      Items="@solicitudes" 
                      Filterable="true" 
@@ -132,7 +135,13 @@
                 </TemplateColumn>
             </Columns>
         </MudDataGrid>
-    }
+            }
+        </MudTabPanel>
+        
+        <MudTabPanel Text="Gestión de Workflow" Icon="Icons.Material.Filled.Workflow">
+            <WorkflowPromocionPanel />
+        </MudTabPanel>
+    </MudTabs>
 </MudPaper>
 
 <!-- Modal de Aprobación -->

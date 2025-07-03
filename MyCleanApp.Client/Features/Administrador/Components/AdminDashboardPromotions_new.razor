@@ -1,4 +1,5 @@
 @using MyCleanApp.Client.DTOs
+@using MyCleanApp.Client.Features.Administrador.Components
 @using System.Text.Json
 @inject HttpClient Http
 
@@ -12,6 +13,7 @@
             <nav class="-mb-px flex space-x-8">
                 @foreach (var tab in new[] { 
                     (Id: "solicitudes", Label: "Solicitudes"), 
+                    (Id: "workflow", Label: "🔄 Workflow Promoción"),
                     (Id: "verificacion", Label: "Verificación de Documentos"), 
                     (Id: "apelaciones", Label: "Apelaciones"), 
                     (Id: "plazos", Label: "Seguimiento de Plazos"),
@@ -78,6 +80,13 @@
                         }
                     </div>
                 </div>
+            </div>
+        }
+
+        @if (activeTab == "workflow")
+        {
+            <div class="space-y-4">
+                <WorkflowPromocionPanel />
             </div>
         }
 

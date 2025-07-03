@@ -1,0 +1,258 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@using MudBlazor
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="1" Class="pa-4">
+    <div class="d-flex align-center mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="color: #8B1538;" Class="me-2" />
+        <MudText Typo="Typo.h5" Style="color: #8B1538;">Aprobaciones del Consejo</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="CargarAprobaciones">
+            Actualizar
+        </MudButton>
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-center pa-4">
+            <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
+        </div>
+    }
+    else
+    {
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4">
+            <MudTabPanel Icon="@Icons.Material.Filled.PendingActions" Text="Pendientes de Firma">
+                @RenderAprobacionesPendientes()
+            </MudTabPanel>
+            <MudTabPanel Icon="@Icons.Material.Filled.Assignment" Text="En Proceso">
+                @RenderAprobacionesEnProceso()
+            </MudTabPanel>
+            <MudTabPanel Icon="@Icons.Material.Filled.Done" Text="Finalizadas">
+                @RenderAprobacionesFinalizadas()
+            </MudTabPanel>
+        </MudTabs>
+    }
+</MudPaper>
+
+@code {
+    private bool loading = true;
+    private List<AprobacionConsejo> aprobaciones = new List<AprobacionConsejo>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAprobaciones();
+    }
+
+    private async Task CargarAprobaciones()
+    {
+        try
+        {
+            loading = true;
+            await Task.Delay(1000);
+            
+            aprobaciones = GenerarDatosSimulados();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private List<AprobacionConsejo> GenerarDatosSimulados()
+    {
+        return new List<AprobacionConsejo>
+        {
+            new AprobacionConsejo
+            {
+                Id = 1,
+                DocenteNombre = "Dr. Juan Pérez",
+                Promocion = "Auxiliar → Agregado",
+                FechaDecision = DateTime.Now.AddDays(-1),
+                Estado = "PendienteFirma",
+                TipoDecision = "Aprobación",
+                Observaciones = "Cumple todos los requisitos establecidos"
+            },
+            new AprobacionConsejo
+            {
+                Id = 2,
+                DocenteNombre = "Dra. María González",
+                Promocion = "Agregado → Principal",
+                FechaDecision = DateTime.Now.AddDays(-3),
+                Estado = "EnTramite",
+                TipoDecision = "Aprobación",
+                Observaciones = "Aprobación condicionada a presentar documentación adicional"
+            },
+            new AprobacionConsejo
+            {
+                Id = 3,
+                DocenteNombre = "Dr. Carlos López",
+                Promocion = "Principal → Principal Investigador",
+                FechaDecision = DateTime.Now.AddDays(-7),
+                Estado = "Finalizada",
+                TipoDecision = "Aprobación",
+                Observaciones = "Promoción efectiva a partir del 1 de enero"
+            }
+        };
+    }
+
+    private RenderFragment RenderAprobacionesPendientes()
+    {
+        var pendientes = aprobaciones.Where(a => a.Estado == "PendienteFirma").ToList();
+        return RenderTablaAprobaciones(pendientes, "PendienteFirma");
+    }
+
+    private RenderFragment RenderAprobacionesEnProceso()
+    {
+        var enProceso = aprobaciones.Where(a => a.Estado == "EnTramite").ToList();
+        return RenderTablaAprobaciones(enProceso, "EnTramite");
+    }
+
+    private RenderFragment RenderAprobacionesFinalizadas()
+    {
+        var finalizadas = aprobaciones.Where(a => a.Estado == "Finalizada").ToList();
+        return RenderTablaAprobaciones(finalizadas, "Finalizada");
+    }
+
+    private RenderFragment RenderTablaAprobaciones(List<AprobacionConsejo> lista, string tipoEstado)
+    {
+        return @<div>
+            @if (!lista.Any())
+            {
+                <MudAlert Severity="Severity.Info" Class="ma-2">
+                    No hay aprobaciones en este estado.
+                </MudAlert>
+            }
+            else
+            {
+                <MudTable Items="@lista" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                    <HeaderContent>
+                        <MudTh>Docente</MudTh>
+                        <MudTh>Promoción</MudTh>
+                        <MudTh>Fecha Decisión</MudTh>
+                        <MudTh>Tipo</MudTh>
+                        <MudTh>Estado</MudTh>
+                        <MudTh>Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Docente">@context.DocenteNombre</MudTd>
+                        <MudTd DataLabel="Promoción">
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small">@context.Promocion</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Fecha">@context.FechaDecision.ToString("dd/MM/yyyy")</MudTd>
+                        <MudTd DataLabel="Tipo">
+                            <MudChip T="string" Color="@GetColorTipoDecision(context.TipoDecision)" Size="Size.Small">
+                                @context.TipoDecision
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Estado">
+                            <MudChip T="string" Color="@GetColorEstado(context.Estado)" Size="Size.Small">
+                                @GetTextoEstado(context.Estado)
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Acciones">
+                            @if (tipoEstado == "PendienteFirma")
+                            {
+                                <MudButtonGroup Size="Size.Small">
+                                    <MudButton Color="Color.Success" Variant="Variant.Filled" OnClick="() => FirmarDocumento(context)">
+                                        Firmar
+                                    </MudButton>
+                                    <MudButton Color="Color.Info" Variant="Variant.Outlined" OnClick="() => VerDetalles(context)">
+                                        Ver
+                                    </MudButton>
+                                </MudButtonGroup>
+                            }
+                            else if (tipoEstado == "EnTramite")
+                            {
+                                <MudButton Color="Color.Primary" Size="Size.Small" OnClick="() => SeguirTramite(context)">
+                                    Seguir
+                                </MudButton>
+                            }
+                            else
+                            {
+                                <MudButtonGroup Size="Size.Small">
+                                    <MudButton Color="Color.Info" Variant="Variant.Outlined" OnClick="() => VerDetalles(context)">
+                                        Ver
+                                    </MudButton>
+                                    <MudButton Color="Color.Default" Variant="Variant.Outlined" OnClick="() => DescargarDocumento(context)">
+                                        Descargar
+                                    </MudButton>
+                                </MudButtonGroup>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </div>;
+    }
+
+    private Color GetColorTipoDecision(string tipo)
+    {
+        return tipo switch
+        {
+            "Aprobación" => Color.Success,
+            "Rechazo" => Color.Error,
+            "Condicionada" => Color.Warning,
+            _ => Color.Default
+        };
+    }
+
+    private Color GetColorEstado(string estado)
+    {
+        return estado switch
+        {
+            "PendienteFirma" => Color.Warning,
+            "EnTramite" => Color.Info,
+            "Finalizada" => Color.Success,
+            _ => Color.Default
+        };
+    }
+
+    private string GetTextoEstado(string estado)
+    {
+        return estado switch
+        {
+            "PendienteFirma" => "Pendiente Firma",
+            "EnTramite" => "En Trámite",
+            "Finalizada" => "Finalizada",
+            _ => estado
+        };
+    }
+
+    private async Task FirmarDocumento(AprobacionConsejo aprobacion)
+    {
+        await JS.InvokeVoidAsync("alert", $"Firmar documento de {aprobacion.DocenteNombre} - Funcionalidad en desarrollo");
+    }
+
+    private async Task VerDetalles(AprobacionConsejo aprobacion)
+    {
+        await JS.InvokeVoidAsync("alert", $"Ver detalles de {aprobacion.DocenteNombre} - Funcionalidad en desarrollo");
+    }
+
+    private async Task SeguirTramite(AprobacionConsejo aprobacion)
+    {
+        await JS.InvokeVoidAsync("alert", $"Seguir trámite de {aprobacion.DocenteNombre} - Funcionalidad en desarrollo");
+    }
+
+    private async Task DescargarDocumento(AprobacionConsejo aprobacion)
+    {
+        await JS.InvokeVoidAsync("alert", $"Descargar documento de {aprobacion.DocenteNombre} - Funcionalidad en desarrollo");
+    }
+
+    public class AprobacionConsejo
+    {
+        public int Id { get; set; }
+        public string DocenteNombre { get; set; } = string.Empty;
+        public string Promocion { get; set; } = string.Empty;
+        public DateTime FechaDecision { get; set; }
+        public string Estado { get; set; } = string.Empty;
+        public string TipoDecision { get; set; } = string.Empty;
+        public string Observaciones { get; set; } = string.Empty;
+    }
+}

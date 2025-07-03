@@ -1,0 +1,629 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+    <div class="mb-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">🔄 Procedimiento de Promoción Académica</h3>
+        <p class="text-sm text-gray-600">Workflow completo según el Reglamento UTA - Artículos 7-10</p>
+    </div>
+
+    <!-- Pestañas del workflow -->
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-8">
+            @foreach (var tab in new[] { 
+                (Id: "talento-humano", Label: "Talento Humano", Icon: "📋"), 
+                (Id: "comision", Label: "Comisión Académica", Icon: "🏛️"),
+                (Id: "docente", Label: "Respuesta Docente", Icon: "👨‍🏫"),
+                (Id: "apelaciones", Label: "Apelaciones", Icon: "⚖️"),
+                (Id: "consejo", Label: "Consejo Universitario", Icon: "🏛️"),
+                (Id: "monitoreo", Label: "Monitoreo", Icon: "📊")
+            })
+            {
+                <button 
+                    @onclick="() => activeTab = tab.Id"
+                    class="@(activeTab == tab.Id ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300") whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                    @tab.Icon @tab.Label
+                </button>
+            }
+        </nav>
+    </div>
+
+    <!-- Contenido de las pestañas -->
+    <div class="min-h-[400px]">
+        @if (activeTab == "talento-humano")
+        {
+            <div class="space-y-6">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 class="font-medium text-blue-800 mb-2">📋 Dirección de Talento Humano - Proceso de Verificación</h4>
+                    <p class="text-sm text-blue-700 mb-4">
+                        1. Recepción y certificación de documentos<br>
+                        2. Verificación con lista de verificación (Anexo 1)<br>
+                        3. Remisión a la Comisión Académica
+                    </p>
+                </div>
+
+                @if (solicitudesPresentadas.Any())
+                {
+                    <div class="space-y-4">
+                        <h5 class="font-medium text-gray-900">Solicitudes Presentadas - Pendientes de Verificación</h5>
+                        @foreach (var solicitud in solicitudesPresentadas)
+                        {
+                            <div class="border rounded-lg p-4 @(solicitud.RequiereAtencion ? "border-orange-300 bg-orange-50" : "border-gray-200")">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <div class="font-medium">@solicitud.DocenteNombre</div>
+                                        <div class="text-sm text-gray-600">Promoción solicitada: @solicitud.NuevoNivel</div>
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            Presentada: @solicitud.FechaSolicitud.ToString("dd/MM/yyyy")
+                                            @if (solicitud.DiasPendientes > 0)
+                                            {
+                                                <span class="text-orange-600 font-medium ml-2">
+                                                    (@solicitud.DiasPendientes días pendientes)
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        @if (solicitud.Estado == "PRESENTADA")
+                                        {
+                                            <button 
+                                                @onclick="() => RecibirEnTalentoHumano(solicitud.Id)"
+                                                class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                                                ✅ Recibir
+                                            </button>
+                                        }
+                                        @if (solicitud.Estado == "RECIBIDA_TALENTO_HUMANO")
+                                        {
+                                            <button 
+                                                @onclick="() => IniciarVerificacion(solicitud.Id)"
+                                                class="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200">
+                                                🔍 Verificar
+                                            </button>
+                                        }
+                                        @if (solicitud.Estado == "EN_VERIFICACION")
+                                        {
+                                            <button 
+                                                @onclick="() => AbrirModalVerificacion(solicitud)"
+                                                class="px-3 py-1 bg-purple-100 text-purple-700 rounded text-sm hover:bg-purple-200">
+                                                📋 Completar Verificación
+                                            </button>
+                                        }
+                                        @if (solicitud.Estado == "DOCUMENTOS_VERIFICADOS")
+                                        {
+                                            <button 
+                                                @onclick="() => EnviarAComision(solicitud.Id)"
+                                                class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-sm hover:bg-indigo-200">
+                                                📤 Enviar a Comisión
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-xs text-gray-600">
+                                    Estado: <span class="font-medium">@solicitud.Estado</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center p-8 text-gray-500">
+                        No hay solicitudes pendientes en Talento Humano
+                    </div>
+                }
+            </div>
+        }
+
+        @if (activeTab == "comision")
+        {
+            <div class="space-y-6">
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h4 class="font-medium text-purple-800 mb-2">🏛️ Comisión Académica - Análisis de Solicitudes</h4>
+                    <p class="text-sm text-purple-700 mb-4">
+                        1. Análisis de cumplimiento de requisitos<br>
+                        2. Verificación de pertinencia y relevancia<br>
+                        3. Emisión de resolución (máximo 10 días hábiles)
+                    </p>
+                </div>
+
+                @if (solicitudesComision.Any())
+                {
+                    <div class="space-y-4">
+                        <h5 class="font-medium text-gray-900">Solicitudes en Comisión Académica</h5>
+                        @foreach (var solicitud in solicitudesComision)
+                        {
+                            <div class="border rounded-lg p-4 @(solicitud.EsUrgente ? "border-red-300 bg-red-50" : "border-gray-200")">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <div class="font-medium">@solicitud.DocenteNombre</div>
+                                        <div class="text-sm text-gray-600">Promoción: @solicitud.NuevoNivel</div>
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            En comisión: @solicitud.DiasPendientes días
+                                            @if (solicitud.EsUrgente)
+                                            {
+                                                <span class="text-red-600 font-bold ml-2">⚠️ URGENTE - Límite 10 días</span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        @if (solicitud.Estado == "ENVIADA_COMISION")
+                                        {
+                                            <button 
+                                                @onclick="() => IniciarAnalisisComision(solicitud.Id)"
+                                                class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                                                🔍 Iniciar Análisis
+                                            </button>
+                                        }
+                                        @if (solicitud.Estado == "EN_ANALISIS_COMISION")
+                                        {
+                                            <button 
+                                                @onclick="() => AbrirModalResultado(solicitud)"
+                                                class="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200">
+                                                ⚖️ Emitir Resolución
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center p-8 text-gray-500">
+                        No hay solicitudes pendientes en la Comisión Académica
+                    </div>
+                }
+            </div>
+        }
+
+        @if (activeTab == "docente")
+        {
+            <div class="space-y-6">
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 class="font-medium text-green-800 mb-2">👨‍🏫 Respuesta del Docente</h4>
+                    <p class="text-sm text-green-700 mb-4">
+                        1. Notificación del resultado por escrito o correo<br>
+                        2. Plazo de 3 días para aceptar o apelar<br>
+                        3. Si no responde, la solicitud queda sin efecto
+                    </p>
+                </div>
+
+                @if (solicitudesEsperandoRespuesta.Any())
+                {
+                    <div class="space-y-4">
+                        <h5 class="font-medium text-gray-900">Solicitudes Esperando Respuesta del Docente</h5>
+                        @foreach (var solicitud in solicitudesEsperandoRespuesta)
+                        {
+                            <div class="border rounded-lg p-4 @(solicitud.EstaVencida ? "border-red-300 bg-red-50" : solicitud.EsUrgente ? "border-orange-300 bg-orange-50" : "border-gray-200")">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <div class="font-medium">@solicitud.DocenteNombre</div>
+                                        <div class="text-sm text-gray-600">Promoción: @solicitud.NuevoNivel</div>
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            @if (solicitud.EstaVencida)
+                                            {
+                                                <span class="text-red-600 font-bold">❌ Plazo vencido hace @Math.Abs(solicitud.DiasPendientes) días</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="@(solicitud.EsUrgente ? "text-orange-600 font-medium" : "text-gray-500")">
+                                                    ⏰ @solicitud.DiasPendientes días restantes
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        @if (!solicitud.EstaVencida)
+                                        {
+                                            <button 
+                                                @onclick="() => AbrirModalRespuestaDocente(solicitud)"
+                                                class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                                                💬 Registrar Respuesta
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button 
+                                                @onclick="() => ProcesarSolicitudVencida(solicitud.Id)"
+                                                class="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200">
+                                                ❌ Marcar Sin Efecto
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center p-8 text-gray-500">
+                        No hay solicitudes esperando respuesta del docente
+                    </div>
+                }
+            </div>
+        }
+
+        @if (activeTab == "apelaciones")
+        {
+            <div class="space-y-6">
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 class="font-medium text-yellow-800 mb-2">⚖️ Sistema de Apelaciones</h4>
+                    <p class="text-sm text-yellow-700 mb-4">
+                        1. Presentación de apelación con fundamentos<br>
+                        2. Análisis por la Comisión (máximo 3 días)<br>
+                        3. Notificación de resolución al interesado
+                    </p>
+                </div>
+
+                @if (solicitudesApelacion.Any())
+                {
+                    <div class="space-y-4">
+                        <h5 class="font-medium text-gray-900">Apelaciones Pendientes</h5>
+                        @foreach (var solicitud in solicitudesApelacion)
+                        {
+                            <div class="border rounded-lg p-4 border-yellow-300 bg-yellow-50">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <div class="font-medium">@solicitud.DocenteNombre</div>
+                                        <div class="text-sm text-gray-600">Promoción: @solicitud.NuevoNivel</div>
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            Apelación: @solicitud.DiasPendientes días en análisis
+                                            @if (solicitud.EsUrgente)
+                                            {
+                                                <span class="text-red-600 font-bold ml-2">⚠️ Límite 3 días</span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        @if (solicitud.Estado == "APELACION_EN_ANALISIS")
+                                        {
+                                            <button 
+                                                @onclick="() => AbrirModalResolucionApelacion(solicitud)"
+                                                class="px-3 py-1 bg-purple-100 text-purple-700 rounded text-sm hover:bg-purple-200">
+                                                ⚖️ Resolver Apelación
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center p-8 text-gray-500">
+                        No hay apelaciones pendientes
+                    </div>
+                }
+            </div>
+        }
+
+        @if (activeTab == "consejo")
+        {
+            <div class="space-y-6">
+                <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                    <h4 class="font-medium text-indigo-800 mb-2">🏛️ Honorable Consejo Universitario</h4>
+                    <p class="text-sm text-indigo-700 mb-4">
+                        1. Recepción de informe final de la Comisión<br>
+                        2. Revisión y aprobación de promociones<br>
+                        3. Emisión de resolución final
+                    </p>
+                </div>
+
+                @if (solicitudesConsejo.Any())
+                {
+                    <div class="space-y-4">
+                        <h5 class="font-medium text-gray-900">Informes para el Consejo Universitario</h5>
+                        @foreach (var solicitud in solicitudesConsejo)
+                        {
+                            <div class="border rounded-lg p-4 border-indigo-200">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <div class="font-medium">@solicitud.DocenteNombre</div>
+                                        <div class="text-sm text-gray-600">Promoción: @solicitud.NuevoNivel</div>
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            Estado: @solicitud.Estado
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        @if (solicitud.Estado == "INFORME_FINAL_GENERADO")
+                                        {
+                                            <button 
+                                                @onclick="() => EnviarAConsejo(solicitud.Id)"
+                                                class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                                                📤 Enviar a Consejo
+                                            </button>
+                                        }
+                                        @if (solicitud.Estado == "ENVIADO_CONSEJO")
+                                        {
+                                            <button 
+                                                @onclick="() => AprobarEnConsejo(solicitud.Id)"
+                                                class="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200">
+                                                ✅ Aprobar
+                                            </button>
+                                        }
+                                        @if (solicitud.Estado == "APROBADO_CONSEJO")
+                                        {
+                                            <button 
+                                                @onclick="() => HacerPromocionEfectiva(solicitud.Id)"
+                                                class="px-3 py-1 bg-purple-100 text-purple-700 rounded text-sm hover:bg-purple-200">
+                                                🎯 Hacer Efectiva
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center p-8 text-gray-500">
+                        No hay informes pendientes para el Consejo Universitario
+                    </div>
+                }
+            </div>
+        }
+
+        @if (activeTab == "monitoreo")
+        {
+            <div class="space-y-6">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-800 mb-2">📊 Monitoreo y Control</h4>
+                    <p class="text-sm text-gray-700 mb-4">
+                        Panel de control para monitorear el cumplimiento de plazos y alertas
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white border rounded-lg p-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600">@solicitudesPresentadas.Count</div>
+                            <div class="text-sm text-gray-600">En Talento Humano</div>
+                        </div>
+                    </div>
+                    <div class="bg-white border rounded-lg p-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-purple-600">@solicitudesComision.Count</div>
+                            <div class="text-sm text-gray-600">En Comisión</div>
+                        </div>
+                    </div>
+                    <div class="bg-white border rounded-lg p-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600">@solicitudesConsejo.Count</div>
+                            <div class="text-sm text-gray-600">En Consejo</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h5 class="font-medium text-gray-900">Alertas de Plazos</h5>
+                    @if (solicitudesVencidas.Any())
+                    {
+                        @foreach (var solicitud in solicitudesVencidas)
+                        {
+                            <div class="border border-red-300 bg-red-50 rounded-lg p-4">
+                                <div class="flex items-center">
+                                    <span class="text-red-600 text-xl mr-3">⚠️</span>
+                                    <div class="flex-1">
+                                        <div class="font-medium text-red-800">@solicitud.DocenteNombre</div>
+                                        <div class="text-sm text-red-700">
+                                            Plazo vencido - @solicitud.Estado - @Math.Abs(solicitud.DiasPendientes) días de retraso
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center p-4 text-green-600">
+                            ✅ No hay solicitudes con plazos vencidos
+                        </div>
+                    }
+                </div>
+
+                <div class="text-center">
+                    <button 
+                        @onclick="ProcesarTodasLasVencidas"
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                        🔄 Procesar Todas las Vencidas
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modales van aquí... -->
+
+@code {
+    private string activeTab = "talento-humano";
+    private bool loading = false;
+    private string? errorMessage;
+    
+    // Listas de solicitudes por estado
+    private List<SolicitudWorkflowDto> solicitudesPresentadas = new();
+    private List<SolicitudWorkflowDto> solicitudesComision = new();
+    private List<SolicitudWorkflowDto> solicitudesEsperandoRespuesta = new();
+    private List<SolicitudWorkflowDto> solicitudesApelacion = new();
+    private List<SolicitudWorkflowDto> solicitudesConsejo = new();
+    private List<SolicitudWorkflowDto> solicitudesVencidas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        loading = true;
+        try
+        {
+            // Cargar solicitudes por diferentes estados
+            await CargarSolicitudesPorEstado();
+            await CargarSolicitudesVencidas();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al cargar datos: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CargarSolicitudesPorEstado()
+    {
+        var estadosTalentoHumano = new[] { "PRESENTADA", "RECIBIDA_TALENTO_HUMANO", "EN_VERIFICACION", "DOCUMENTOS_VERIFICADOS" };
+        var estadosComision = new[] { "ENVIADA_COMISION", "EN_ANALISIS_COMISION" };
+        var estadosRespuesta = new[] { "ESPERANDO_RESPUESTA" };
+        var estadosApelacion = new[] { "EN_APELACION", "APELACION_EN_ANALISIS" };
+        var estadosConsejo = new[] { "INFORME_FINAL_GENERADO", "ENVIADO_CONSEJO", "APROBADO_CONSEJO" };
+
+        solicitudesPresentadas.Clear();
+        solicitudesComision.Clear();
+        solicitudesEsperandoRespuesta.Clear();
+        solicitudesApelacion.Clear();
+        solicitudesConsejo.Clear();
+
+        // Simular carga de datos - reemplazar con llamadas reales a la API
+        foreach (var estado in estadosTalentoHumano)
+        {
+            var response = await Http.GetAsync($"http://localhost:5015/api/SolicitudAvanceRango/por-estado/{estado}");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var solicitudes = JsonSerializer.Deserialize<List<SolicitudWorkflowDto>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                solicitudesPresentadas.AddRange(solicitudes);
+            }
+        }
+
+        // Repetir para otros estados...
+    }
+
+    private async Task CargarSolicitudesVencidas()
+    {
+        var response = await Http.GetAsync("http://localhost:5015/api/SolicitudAvanceRango/vencidas");
+        if (response.IsSuccessStatusCode)
+        {
+            var json = await response.Content.ReadAsStringAsync();
+            solicitudesVencidas = JsonSerializer.Deserialize<List<SolicitudWorkflowDto>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+        }
+    }
+
+    // Métodos de acción del workflow
+    private async Task RecibirEnTalentoHumano(int solicitudId)
+    {
+        await EjecutarAccionWorkflow($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}/recibir-talento-humano", 
+            new { UsuarioId = 1 }); // Obtener usuario actual
+    }
+
+    private async Task IniciarVerificacion(int solicitudId)
+    {
+        await EjecutarAccionWorkflow($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}/iniciar-verificacion", 
+            new { UsuarioId = 1 });
+    }
+
+    private async Task EnviarAComision(int solicitudId)
+    {
+        await EjecutarAccionWorkflow($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}/enviar-comision", null);
+    }
+
+    private async Task IniciarAnalisisComision(int solicitudId)
+    {
+        await EjecutarAccionWorkflow($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}/iniciar-analisis-comision", null);
+    }
+
+    private async Task EnviarAConsejo(int solicitudId)
+    {
+        await EjecutarAccionWorkflow($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}/enviar-consejo", null);
+    }
+
+    private async Task AprobarEnConsejo(int solicitudId)
+    {
+        await EjecutarAccionWorkflow($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}/aprobar-consejo", null);
+    }
+
+    private async Task HacerPromocionEfectiva(int solicitudId)
+    {
+        await EjecutarAccionWorkflow($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}/hacer-efectiva", null);
+    }
+
+    private async Task ProcesarSolicitudVencida(int solicitudId)
+    {
+        // Implementar procesamiento de solicitud vencida
+        await CargarDatos();
+    }
+
+    private async Task ProcesarTodasLasVencidas()
+    {
+        var response = await Http.PostAsync("http://localhost:5015/api/SolicitudAvanceRango/procesar-vencidas", null);
+        if (response.IsSuccessStatusCode)
+        {
+            await CargarDatos();
+            await JS.InvokeVoidAsync("alert", "Todas las solicitudes vencidas han sido procesadas");
+        }
+    }
+
+    private async Task EjecutarAccionWorkflow(string url, object? data)
+    {
+        try
+        {
+            HttpResponseMessage response;
+            if (data != null)
+            {
+                var json = JsonSerializer.Serialize(data);
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                response = await Http.PostAsync(url, content);
+            }
+            else
+            {
+                response = await Http.PostAsync(url, null);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                await CargarDatos();
+                StateHasChanged();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("alert", $"Error: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+
+    // Métodos para abrir modales (implementar según necesidad)
+    private void AbrirModalVerificacion(SolicitudWorkflowDto solicitud) { }
+    private void AbrirModalResultado(SolicitudWorkflowDto solicitud) { }
+    private void AbrirModalRespuestaDocente(SolicitudWorkflowDto solicitud) { }
+    private void AbrirModalResolucionApelacion(SolicitudWorkflowDto solicitud) { }
+
+    // DTO temporal (mover a archivos separados)
+    public class SolicitudWorkflowDto
+    {
+        public int Id { get; set; }
+        public int DocenteId { get; set; }
+        public string DocenteNombre { get; set; } = "";
+        public string Estado { get; set; } = "";
+        public DateTime FechaSolicitud { get; set; }
+        public DateTime? FechaLimiteRespuesta { get; set; }
+        public bool RequiereAtencion { get; set; }
+        public string NuevoNivel { get; set; } = "";
+        public int DiasPendientes { get; set; }
+        public bool EsUrgente => DiasPendientes <= 1;
+        public bool EstaVencida => DiasPendientes < 0;
+    }
+}

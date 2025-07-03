@@ -1,0 +1,555 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@using MudBlazor
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="1" Class="pa-4">
+    <div class="d-flex align-center mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Description" Style="color: #8B1538;" Class="me-2" />
+        <MudText Typo="Typo.h5" Style="color: #8B1538;">Informes para Aprobación</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="CargarInformes">
+            Actualizar
+        </MudButton>
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-center pa-4">
+            <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+            @errorMessage
+        </MudAlert>
+    }
+    else
+    {
+        <!-- Filtros y Estadísticas -->
+        <MudGrid Class="mb-4">
+            <MudItem xs="12" md="8">
+                <MudCard Elevation="2">
+                    <MudCardContent>
+                        <MudGrid>
+                            <MudItem xs="3">
+                                <div class="text-center">
+                                    <MudText Typo="Typo.h4" Color="Color.Warning">@informesPendientes</MudText>
+                                    <MudText Typo="Typo.caption">Pendientes</MudText>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="3">
+                                <div class="text-center">
+                                    <MudText Typo="Typo.h4" Color="Color.Info">@informesEnRevision</MudText>
+                                    <MudText Typo="Typo.caption">En Revisión</MudText>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="3">
+                                <div class="text-center">
+                                    <MudText Typo="Typo.h4" Color="Color.Success">@informesAprobados</MudText>
+                                    <MudText Typo="Typo.caption">Aprobados</MudText>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="3">
+                                <div class="text-center">
+                                    <MudText Typo="Typo.h4" Color="Color.Error">@informesRechazados</MudText>
+                                    <MudText Typo="Typo.caption">Rechazados</MudText>
+                                </div>
+                            </MudItem>
+                        </MudGrid>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudCard Elevation="2">
+                    <MudCardContent>
+                        <MudSelect @bind-Value="filtroEstado" Label="Filtrar por Estado" Variant="Variant.Outlined" Dense="true">
+                            <MudSelectItem Value="string.Empty">Todos</MudSelectItem>
+                            <MudSelectItem Value="@("PendienteConsejo")">Pendientes</MudSelectItem>
+                            <MudSelectItem Value="@("EnRevisionConsejo")">En Revisión</MudSelectItem>
+                            <MudSelectItem Value="@("AprobadoConsejo")">Aprobados</MudSelectItem>
+                            <MudSelectItem Value="@("RechazadoConsejo")">Rechazados</MudSelectItem>
+                        </MudSelect>
+                        <MudButton OnClick="AplicarFiltros" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-2">
+                            Aplicar Filtro
+                        </MudButton>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Lista de Informes -->
+        <MudCard Elevation="2">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Informes Finales de Promoción</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudTable Items="@informesFiltrados" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<InformePromocion, object>(x => x.DocenteNombre)">Docente</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<InformePromocion, object>(x => x.NivelSolicitado)">Promoción</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<InformePromocion, object>(x => x.FechaInforme)">Fecha Informe</MudTableSortLabel></MudTh>
+                        <MudTh>Resultado Comisión</MudTh>
+                        <MudTh>Estado</MudTh>
+                        <MudTh>Prioridad</MudTh>
+                        <MudTh>Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Docente">
+                            <div class="d-flex align-center">
+                                <MudAvatar Color="Color.Primary" Size="Size.Small" Class="me-2">
+                                    @context.DocenteNombre.Substring(0, 1).ToUpper()
+                                </MudAvatar>
+                                <div>
+                                    <MudText Typo="Typo.body2"><strong>@context.DocenteNombre</strong></MudText>
+                                    <MudText Typo="Typo.caption">@context.Facultad</MudText>
+                                </div>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Promoción">
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small">
+                                @context.NivelActual → @context.NivelSolicitado
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Fecha">@context.FechaInforme.ToString("dd/MM/yyyy")</MudTd>
+                        <MudTd DataLabel="Resultado">
+                            <MudChip T="string" Color="@GetColorResultado(context.ResultadoComision)" Size="Size.Small">
+                                @context.ResultadoComision
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Estado">
+                            <MudChip T="string" Color="@GetColorEstado(context.Estado)" Size="Size.Small">
+                                @GetTextoEstado(context.Estado)
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Prioridad">
+                            <MudChip T="string" Color="@GetColorPrioridad(context.Prioridad)" Size="Size.Small">
+                                @context.Prioridad
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Acciones">
+                            <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined">
+                                <MudButton Color="Color.Primary" OnClick="() => RevisarInforme(context)">
+                                    @GetTextoAccion(context.Estado)
+                                </MudButton>
+                                <MudMenu Icon="@Icons.Material.Filled.MoreVert">
+                                    <MudMenuItem OnClick="() => DescargarInforme(context)">Descargar PDF</MudMenuItem>
+                                    <MudMenuItem OnClick="() => VerHistorial(context)">Ver Historial</MudMenuItem>
+                                    <MudMenuItem OnClick="() => ConvocarSesion(context)">Convocar Sesión</MudMenuItem>
+                                </MudMenu>
+                            </MudButtonGroup>
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    }
+</MudPaper>
+
+<!-- Modal de Revisión de Informe -->
+@if (mostrarModalRevision && informeEnRevision != null)
+{
+    <MudDialog @bind-IsVisible="mostrarModalRevision" Options="dialogOptionsLarge">
+        <TitleContent>
+            <MudText Typo="Typo.h6">
+                <MudIcon Icon="@Icons.Material.Filled.Description" Class="me-2" />
+                Revisión de Informe - @informeEnRevision.DocenteNombre
+            </MudText>
+        </TitleContent>
+        <DialogContent>
+            <div class="pa-4">
+                <!-- Información del Informe -->
+                <MudCard Class="mb-4">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Información del Informe</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudGrid>
+                            <MudItem xs="6">
+                                <MudText><strong>Docente:</strong> @informeEnRevision.DocenteNombre</MudText>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudText><strong>Facultad:</strong> @informeEnRevision.Facultad</MudText>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudText><strong>Promoción:</strong> @informeEnRevision.NivelActual → @informeEnRevision.NivelSolicitado</MudText>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudText><strong>Fecha Informe:</strong> @informeEnRevision.FechaInforme.ToString("dd/MM/yyyy")</MudText>
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudText><strong>Resultado Comisión:</strong></MudText>
+                                <MudChip T="string" Color="@GetColorResultado(informeEnRevision.ResultadoComision)" Class="mt-1">
+                                    @informeEnRevision.ResultadoComision
+                                </MudChip>
+                            </MudItem>
+                        </MudGrid>
+                    </MudCardContent>
+                </MudCard>
+
+                <!-- Resumen Ejecutivo -->
+                <MudCard Class="mb-4">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Resumen Ejecutivo</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudText Typo="Typo.body2">@informeEnRevision.ResumenEjecutivo</MudText>
+                    </MudCardContent>
+                </MudCard>
+
+                <!-- Recomendación de la Comisión -->
+                <MudCard Class="mb-4">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Recomendación de la Comisión Académica</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudText Typo="Typo.body2">@informeEnRevision.RecomendacionComision</MudText>
+                        <div class="mt-3">
+                            <MudChip T="string" Color="@GetColorResultado(informeEnRevision.ResultadoComision)" Size="Size.Small">
+                                <strong>@informeEnRevision.ResultadoComision</strong>
+                            </MudChip>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+
+                <!-- Decisión del Consejo -->
+                <MudCard>
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Decisión del Consejo Universitario</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudRadioGroup T="string" @bind-SelectedOption="decisionConsejo">
+                            <div class="d-flex flex-column gap-2">
+                                <MudRadio T="string" Option="@("APROBADA")" Color="Color.Success">
+                                    <div class="d-flex align-center">
+                                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Class="me-2" />
+                                        <div>
+                                            <MudText Typo="Typo.body1"><strong>Aprobar Promoción</strong></MudText>
+                                            <MudText Typo="Typo.caption">La promoción se efectuará según lo recomendado</MudText>
+                                        </div>
+                                    </div>
+                                </MudRadio>
+                                <MudRadio T="string" Option="@("RECHAZADA")" Color="Color.Error">
+                                    <div class="d-flex align-center">
+                                        <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Class="me-2" />
+                                        <div>
+                                            <MudText Typo="Typo.body1"><strong>Rechazar Promoción</strong></MudText>
+                                            <MudText Typo="Typo.caption">La solicitud no procede</MudText>
+                                        </div>
+                                    </div>
+                                </MudRadio>
+                                <MudRadio T="string" Option="@("DEVOLVER")" Color="Color.Warning">
+                                    <div class="d-flex align-center">
+                                        <MudIcon Icon="@Icons.Material.Filled.AssignmentReturn" Color="Color.Warning" Class="me-2" />
+                                        <div>
+                                            <MudText Typo="Typo.body1"><strong>Devolver para Revisión</strong></MudText>
+                                            <MudText Typo="Typo.caption">Requiere información adicional o aclaración</MudText>
+                                        </div>
+                                    </div>
+                                </MudRadio>
+                            </div>
+                        </MudRadioGroup>
+                        
+                        <MudTextField @bind-Value="observacionesConsejo" 
+                                    Label="Observaciones del Consejo" 
+                                    Variant="Variant.Outlined" 
+                                    Lines="3" 
+                                    FullWidth="true"
+                                    Class="mt-4"
+                                    Placeholder="Fundamente la decisión del Consejo Universitario..." />
+                    </MudCardContent>
+                </MudCard>
+            </div>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="CerrarModalRevision" Color="Color.Default">Cancelar</MudButton>
+            <MudButton OnClick="GuardarDecision" Color="Color.Primary" Variant="Variant.Filled" 
+                     Disabled="procesando || string.IsNullOrEmpty(decisionConsejo)">
+                @if (procesando)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                    <MudText Class="ms-2">Procesando...</MudText>
+                }
+                else
+                {
+                    <MudText>Guardar Decisión</MudText>
+                }
+            </MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+
+@code {
+    private bool loading = true;
+    private string errorMessage = string.Empty;
+    private List<InformePromocion> informes = new List<InformePromocion>();
+    private List<InformePromocion> informesFiltrados = new List<InformePromocion>();
+    
+    private bool mostrarModalRevision = false;
+    private InformePromocion? informeEnRevision = null;
+    private string decisionConsejo = string.Empty;
+    private string observacionesConsejo = string.Empty;
+    private bool procesando = false;
+
+    // Filtros
+    private string filtroEstado = string.Empty;
+
+    // Estadísticas
+    private int informesPendientes = 0;
+    private int informesEnRevision = 0;
+    private int informesAprobados = 0;
+    private int informesRechazados = 0;
+
+    private DialogOptions dialogOptionsLarge = new DialogOptions() { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarInformes();
+    }
+
+    private async Task CargarInformes()
+    {
+        try
+        {
+            loading = true;
+            errorMessage = string.Empty;
+
+            // Simular carga de datos
+            await Task.Delay(1000);
+            
+            informes = GenerarDatosSimulados();
+            AplicarFiltros();
+            CalcularEstadisticas();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private List<InformePromocion> GenerarDatosSimulados()
+    {
+        return new List<InformePromocion>
+        {
+            new InformePromocion
+            {
+                Id = 1,
+                DocenteNombre = "Dr. Juan Pérez",
+                Facultad = "Ingeniería",
+                NivelActual = "Auxiliar",
+                NivelSolicitado = "Agregado",
+                FechaInforme = DateTime.Now.AddDays(-2),
+                ResultadoComision = "Favorable",
+                Estado = "PendienteConsejo",
+                Prioridad = "Alta",
+                ResumenEjecutivo = "El docente cumple con todos los requisitos establecidos para la promoción...",
+                RecomendacionComision = "La Comisión Académica recomienda aprobar la promoción basándose en..."
+            },
+            new InformePromocion
+            {
+                Id = 2,
+                DocenteNombre = "Dra. María González",
+                Facultad = "Medicina",
+                NivelActual = "Agregado",
+                NivelSolicitado = "Principal",
+                FechaInforme = DateTime.Now.AddDays(-5),
+                ResultadoComision = "Favorable con observaciones",
+                Estado = "EnRevisionConsejo",
+                Prioridad = "Media",
+                ResumenEjecutivo = "La docente presenta un excelente perfil académico, sin embargo...",
+                RecomendacionComision = "Se recomienda la promoción condicionada al cumplimiento de..."
+            },
+            new InformePromocion
+            {
+                Id = 3,
+                DocenteNombre = "Dr. Carlos López",
+                Facultad = "Ciencias",
+                NivelActual = "Principal",
+                NivelSolicitado = "Principal Investigador",
+                FechaInforme = DateTime.Now.AddDays(-10),
+                ResultadoComision = "Favorable",
+                Estado = "AprobadoConsejo",
+                Prioridad = "Baja",
+                ResumenEjecutivo = "Excelente trayectoria en investigación y docencia...",
+                RecomendacionComision = "Promoción altamente recomendada por méritos excepcionales..."
+            }
+        };
+    }
+
+    private void AplicarFiltros()
+    {
+        informesFiltrados = informes.AsQueryable().ToList();
+
+        if (!string.IsNullOrEmpty(filtroEstado))
+        {
+            informesFiltrados = informesFiltrados.Where(i => i.Estado == filtroEstado).ToList();
+        }
+    }
+
+    private void CalcularEstadisticas()
+    {
+        informesPendientes = informes.Count(i => i.Estado == "PendienteConsejo");
+        informesEnRevision = informes.Count(i => i.Estado == "EnRevisionConsejo");
+        informesAprobados = informes.Count(i => i.Estado == "AprobadoConsejo");
+        informesRechazados = informes.Count(i => i.Estado == "RechazadoConsejo");
+    }
+
+    private Color GetColorResultado(string resultado)
+    {
+        return resultado switch
+        {
+            "Favorable" => Color.Success,
+            "Favorable con observaciones" => Color.Warning,
+            "Desfavorable" => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private Color GetColorEstado(string estado)
+    {
+        return estado switch
+        {
+            "PendienteConsejo" => Color.Warning,
+            "EnRevisionConsejo" => Color.Info,
+            "AprobadoConsejo" => Color.Success,
+            "RechazadoConsejo" => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private string GetTextoEstado(string estado)
+    {
+        return estado switch
+        {
+            "PendienteConsejo" => "Pendiente",
+            "EnRevisionConsejo" => "En Revisión",
+            "AprobadoConsejo" => "Aprobado",
+            "RechazadoConsejo" => "Rechazado",
+            _ => estado
+        };
+    }
+
+    private Color GetColorPrioridad(string prioridad)
+    {
+        return prioridad switch
+        {
+            "Alta" => Color.Error,
+            "Media" => Color.Warning,
+            "Baja" => Color.Info,
+            _ => Color.Default
+        };
+    }
+
+    private string GetTextoAccion(string estado)
+    {
+        return estado switch
+        {
+            "PendienteConsejo" => "Revisar",
+            "EnRevisionConsejo" => "Continuar",
+            _ => "Ver"
+        };
+    }
+
+    private void RevisarInforme(InformePromocion informe)
+    {
+        informeEnRevision = informe;
+        decisionConsejo = string.Empty;
+        observacionesConsejo = string.Empty;
+        mostrarModalRevision = true;
+    }
+
+    private async Task GuardarDecision()
+    {
+        if (informeEnRevision == null || string.IsNullOrEmpty(decisionConsejo)) return;
+
+        try
+        {
+            procesando = true;
+            await Task.Delay(1000); // Simular llamada API
+
+            // Actualizar el estado del informe
+            informeEnRevision.Estado = decisionConsejo switch
+            {
+                "APROBADA" => "AprobadoConsejo",
+                "RECHAZADA" => "RechazadoConsejo",
+                "DEVOLVER" => "DevueltoParaRevision",
+                _ => informeEnRevision.Estado
+            };
+
+            Snackbar.Add($"Decisión guardada: {decisionConsejo}", 
+                        decisionConsejo == "APROBADA" ? Severity.Success : 
+                        decisionConsejo == "RECHAZADA" ? Severity.Warning : Severity.Info);
+
+            await CargarInformes();
+            CerrarModalRevision();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private void CerrarModalRevision()
+    {
+        mostrarModalRevision = false;
+        informeEnRevision = null;
+        decisionConsejo = string.Empty;
+        observacionesConsejo = string.Empty;
+    }
+
+    // Métodos placeholder
+    private async Task DescargarInforme(InformePromocion informe)
+    {
+        await JS.InvokeVoidAsync("alert", $"Descargar informe de {informe.DocenteNombre} - Funcionalidad en desarrollo");
+    }
+
+    private async Task VerHistorial(InformePromocion informe)
+    {
+        await JS.InvokeVoidAsync("alert", $"Ver historial de {informe.DocenteNombre} - Funcionalidad en desarrollo");
+    }
+
+    private async Task ConvocarSesion(InformePromocion informe)
+    {
+        await JS.InvokeVoidAsync("alert", $"Convocar sesión para {informe.DocenteNombre} - Funcionalidad en desarrollo");
+    }
+
+    // Clase de modelo
+    public class InformePromocion
+    {
+        public int Id { get; set; }
+        public string DocenteNombre { get; set; } = string.Empty;
+        public string Facultad { get; set; } = string.Empty;
+        public string NivelActual { get; set; } = string.Empty;
+        public string NivelSolicitado { get; set; } = string.Empty;
+        public DateTime FechaInforme { get; set; }
+        public string ResultadoComision { get; set; } = string.Empty;
+        public string Estado { get; set; } = string.Empty;
+        public string Prioridad { get; set; } = string.Empty;
+        public string ResumenEjecutivo { get; set; } = string.Empty;
+        public string RecomendacionComision { get; set; } = string.Empty;
+    }
+}

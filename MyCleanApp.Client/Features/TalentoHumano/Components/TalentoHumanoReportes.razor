@@ -1,0 +1,500 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@using MudBlazor
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="1" Class="pa-4">
+    <div class="d-flex align-center mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Analytics" Style="color: #8B1538;" Class="me-2" />
+        <MudText Typo="Typo.h5" Style="color: #8B1538;">Reportes de Talento Humano</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="ExportarReportes">
+            Exportar
+        </MudButton>
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-center pa-4">
+            <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
+        </div>
+    }
+    else
+    {
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4">
+            <MudTabPanel Icon="@Icons.Material.Filled.Dashboard" Text="Resumen Ejecutivo">
+                @RenderResumenEjecutivo()
+            </MudTabPanel>
+            <MudTabPanel Icon="@Icons.Material.Filled.TrendingUp" Text="Análisis de Promociones">
+                @RenderAnalisisPromociones()
+            </MudTabPanel>
+            <MudTabPanel Icon="@Icons.Material.Filled.Schedule" Text="Tiempos de Proceso">
+                @RenderTiemposProceso()
+            </MudTabPanel>
+            <MudTabPanel Icon="@Icons.Material.Filled.Assessment" Text="Métricas de Calidad">
+                @RenderMetricasCalidad()
+            </MudTabPanel>
+        </MudTabs>
+    }
+</MudPaper>
+
+@code {
+    private bool loading = true;
+    private string errorMessage = string.Empty;
+
+    // Datos de reportes
+    private ReporteResumen datosResumen = new ReporteResumen();
+    private List<PromocionPorPeriodo> promocionesPorPeriodo = new List<PromocionPorPeriodo>();
+    private List<TiempoProceso> tiemposProceso = new List<TiempoProceso>();
+    private MetricasCalidad metricasCalidad = new MetricasCalidad();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatosReportes();
+    }
+
+    private async Task CargarDatosReportes()
+    {
+        try
+        {
+            loading = true;
+            await Task.Delay(1000); // Simular carga de datos
+
+            // Simular datos de reporte
+            datosResumen = new ReporteResumen
+            {
+                TotalSolicitudes = 45,
+                SolicitudesPendientes = 8,
+                SolicitudesAprobadas = 32,
+                SolicitudesRechazadas = 5,
+                TiempoPromedioRevision = 5.2,
+                PorcentajeAprobacion = 86.5
+            };
+
+            promocionesPorPeriodo = new List<PromocionPorPeriodo>
+            {
+                new PromocionPorPeriodo { Periodo = "2024-01", AuxiliarAAgregado = 12, AgregadoAPrincipal = 8, PrincipalAInvestigador = 3 },
+                new PromocionPorPeriodo { Periodo = "2024-02", AuxiliarAAgregado = 15, AgregadoAPrincipal = 6, PrincipalAInvestigador = 2 },
+                new PromocionPorPeriodo { Periodo = "2024-03", AuxiliarAAgregado = 10, AgregadoAPrincipal = 9, PrincipalAInvestigador = 4 }
+            };
+
+            tiemposProceso = new List<TiempoProceso>
+            {
+                new TiempoProceso { Etapa = "Verificación Documental", TiempoPromedio = 3.2, TiempoMinimo = 1, TiempoMaximo = 7 },
+                new TiempoProceso { Etapa = "Revisión Talento Humano", TiempoPromedio = 5.1, TiempoMinimo = 2, TiempoMaximo = 12 },
+                new TiempoProceso { Etapa = "Evaluación Comisión", TiempoPromedio = 8.5, TiempoMinimo = 5, TiempoMaximo = 15 },
+                new TiempoProceso { Etapa = "Aprobación Consejo", TiempoPromedio = 12.3, TiempoMinimo = 8, TiempoMaximo = 20 }
+            };
+
+            metricasCalidad = new MetricasCalidad
+            {
+                DocumentosConErrores = 12,
+                DocumentosCorrectos = 158,
+                PorcentajeCalidad = 92.9,
+                RevisionesRepetidas = 8,
+                SolicitudesDevueltas = 3
+            };
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private RenderFragment RenderResumenEjecutivo()
+    {
+        return @<div>
+            <!-- Métricas Principales -->
+            <MudGrid Class="mb-4">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard Elevation="2" Class="pa-4">
+                        <div class="text-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Assignment" Color="Color.Primary" Size="Size.Large" />
+                            <MudText Typo="Typo.h3" Color="Color.Primary">@datosResumen.TotalSolicitudes</MudText>
+                            <MudText Typo="Typo.body2">Total Solicitudes</MudText>
+                        </div>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard Elevation="2" Class="pa-4">
+                        <div class="text-center">
+                            <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty" Color="Color.Warning" Size="Size.Large" />
+                            <MudText Typo="Typo.h3" Color="Color.Warning">@datosResumen.SolicitudesPendientes</MudText>
+                            <MudText Typo="Typo.body2">Pendientes</MudText>
+                        </div>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard Elevation="2" Class="pa-4">
+                        <div class="text-center">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+                            <MudText Typo="Typo.h3" Color="Color.Success">@datosResumen.SolicitudesAprobadas</MudText>
+                            <MudText Typo="Typo.body2">Aprobadas</MudText>
+                        </div>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard Elevation="2" Class="pa-4">
+                        <div class="text-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Large" />
+                            <MudText Typo="Typo.h3" Color="Color.Error">@datosResumen.SolicitudesRechazadas</MudText>
+                            <MudText Typo="Typo.body2">Rechazadas</MudText>
+                        </div>
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+
+            <!-- Indicadores de Rendimiento -->
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudCard Elevation="2">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.h6">Tiempo Promedio de Revisión</MudText>
+                            </CardHeaderContent>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <div class="text-center pa-4">
+                                <MudText Typo="Typo.h2" Color="Color.Info">@datosResumen.TiempoPromedioRevision</MudText>
+                                <MudText Typo="Typo.body1">días hábiles</MudText>
+                                <MudProgressLinear Value="@((datosResumen.TiempoPromedioRevision / 10) * 100)" 
+                                                 Color="@(datosResumen.TiempoPromedioRevision <= 5 ? Color.Success : Color.Warning)" 
+                                                 Class="mt-3" />
+                                <MudText Typo="Typo.caption" Class="mt-2">Meta: ≤ 5 días</MudText>
+                            </div>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudCard Elevation="2">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.h6">Porcentaje de Aprobación</MudText>
+                            </CardHeaderContent>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <div class="text-center pa-4">
+                                <MudText Typo="Typo.h2" Color="Color.Success">@datosResumen.PorcentajeAprobacion%</MudText>
+                                <MudText Typo="Typo.body1">de solicitudes</MudText>
+                                <MudProgressCircular Value="@datosResumen.PorcentajeAprobacion" Color="Color.Success" Size="Size.Large" Class="mt-3" />
+                                <MudText Typo="Typo.caption" Class="mt-2">Meta: ≥ 80%</MudText>
+                            </div>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+        </div>;
+    }
+
+    private RenderFragment RenderAnalisisPromociones()
+    {
+        return @<div>
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Promociones por Período y Nivel</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTable Items="@promocionesPorPeriodo" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Período</MudTh>
+                            <MudTh>Auxiliar → Agregado</MudTh>
+                            <MudTh>Agregado → Principal</MudTh>
+                            <MudTh>Principal → Investigador</MudTh>
+                            <MudTh>Total</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Periodo</MudTd>
+                            <MudTd>
+                                <MudChip T="string" Color="Color.Info" Size="Size.Small">@context.AuxiliarAAgregado</MudChip>
+                            </MudTd>
+                            <MudTd>
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small">@context.AgregadoAPrincipal</MudChip>
+                            </MudTd>
+                            <MudTd>
+                                <MudChip T="string" Color="Color.Secondary" Size="Size.Small">@context.PrincipalAInvestigador</MudChip>
+                            </MudTd>
+                            <MudTd>
+                                <MudText Typo="Typo.body1"><strong>@(context.AuxiliarAAgregado + context.AgregadoAPrincipal + context.PrincipalAInvestigador)</strong></MudText>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
+
+            <!-- Gráfico de Tendencias (Placeholder) -->
+            <MudCard Elevation="2" Class="mt-4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Tendencia de Promociones</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <div class="pa-8 text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Large" Color="Color.Info" />
+                        <MudText Typo="Typo.h6" Class="mt-2">Gráfico de Tendencias</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Tertiary">
+                            Aquí se mostraría un gráfico interactivo de las tendencias de promoción por período
+                        </MudText>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </div>;
+    }
+
+    private RenderFragment RenderTiemposProceso()
+    {
+        return @<div>
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Análisis de Tiempos por Etapa</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTable Items="@tiemposProceso" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Etapa del Proceso</MudTh>
+                            <MudTh>Tiempo Promedio</MudTh>
+                            <MudTh>Tiempo Mínimo</MudTh>
+                            <MudTh>Tiempo Máximo</MudTh>
+                            <MudTh>Estado</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>
+                                <div class="d-flex align-center">
+                                    <MudIcon Icon="@GetIconoEtapa(context.Etapa)" Class="me-2" />
+                                    @context.Etapa
+                                </div>
+                            </MudTd>
+                            <MudTd>
+                                <MudChip T="string" Color="Color.Info" Size="Size.Small">@context.TiempoPromedio días</MudChip>
+                            </MudTd>
+                            <MudTd>@context.TiempoMinimo días</MudTd>
+                            <MudTd>@context.TiempoMaximo días</MudTd>
+                            <MudTd>
+                                <MudChip T="string" Color="@GetColorRendimiento(context.TiempoPromedio)" Size="Size.Small">
+                                    @GetTextoRendimiento(context.TiempoPromedio)
+                                </MudChip>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
+
+            <!-- Distribución de Tiempos -->
+            <MudCard Elevation="2" Class="mt-4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Distribución de Tiempos</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    @foreach (var tiempo in tiemposProceso)
+                    {
+                        <div class="mb-3">
+                            <div class="d-flex justify-space-between align-center mb-1">
+                                <MudText Typo="Typo.body2">@tiempo.Etapa</MudText>
+                                <MudText Typo="Typo.caption">@tiempo.TiempoPromedio días</MudText>
+                            </div>
+                            <MudProgressLinear Value="@((tiempo.TiempoPromedio / 20) * 100)" 
+                                             Color="@GetColorRendimiento(tiempo.TiempoPromedio)" />
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </div>;
+    }
+
+    private RenderFragment RenderMetricasCalidad()
+    {
+        return @<div>
+            <!-- Indicadores de Calidad -->
+            <MudGrid Class="mb-4">
+                <MudItem xs="12" md="6">
+                    <MudCard Elevation="2">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.h6">Calidad Documental</MudText>
+                            </CardHeaderContent>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <div class="text-center pa-4">
+                                <MudText Typo="Typo.h3" Color="Color.Success">@metricasCalidad.PorcentajeCalidad%</MudText>
+                                <MudText Typo="Typo.body1">de documentos correctos</MudText>
+                                <MudProgressCircular Value="@metricasCalidad.PorcentajeCalidad" Color="Color.Success" Size="Size.Large" Class="mt-3" />
+                            </div>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudCard Elevation="2">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.h6">Eficiencia del Proceso</MudText>
+                            </CardHeaderContent>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <MudGrid>
+                                <MudItem xs="6">
+                                    <div class="text-center">
+                                        <MudText Typo="Typo.h4" Color="Color.Warning">@metricasCalidad.RevisionesRepetidas</MudText>
+                                        <MudText Typo="Typo.caption">Revisiones Repetidas</MudText>
+                                    </div>
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <div class="text-center">
+                                        <MudText Typo="Typo.h4" Color="Color.Error">@metricasCalidad.SolicitudesDevueltas</MudText>
+                                        <MudText Typo="Typo.caption">Solicitudes Devueltas</MudText>
+                                    </div>
+                                </MudItem>
+                            </MudGrid>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+
+            <!-- Detalles de Errores Comunes -->
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Análisis de Errores Documentales</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTable Items="@GetErroresComunes()" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Tipo de Error</MudTh>
+                            <MudTh>Frecuencia</MudTh>
+                            <MudTh>Porcentaje</MudTh>
+                            <MudTh>Impacto</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.TipoError</MudTd>
+                            <MudTd>@context.Frecuencia</MudTd>
+                            <MudTd>
+                                <MudProgressLinear Value="@context.Porcentaje" Color="Color.Info" />
+                                <MudText Typo="Typo.caption">@context.Porcentaje%</MudText>
+                            </MudTd>
+                            <MudTd>
+                                <MudChip T="string" Color="@GetColorImpacto(context.Impacto)" Size="Size.Small">
+                                    @context.Impacto
+                                </MudChip>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
+        </div>;
+    }
+
+    private string GetIconoEtapa(string etapa)
+    {
+        return etapa switch
+        {
+            "Verificación Documental" => Icons.Material.Filled.FactCheck,
+            "Revisión Talento Humano" => Icons.Material.Filled.PersonSearch,
+            "Evaluación Comisión" => Icons.Material.Filled.Groups,
+            "Aprobación Consejo" => Icons.Material.Filled.AccountBalance,
+            _ => Icons.Material.Filled.Schedule
+        };
+    }
+
+    private Color GetColorRendimiento(double tiempoPromedio)
+    {
+        return tiempoPromedio switch
+        {
+            <= 5 => Color.Success,
+            <= 8 => Color.Warning,
+            _ => Color.Error
+        };
+    }
+
+    private string GetTextoRendimiento(double tiempoPromedio)
+    {
+        return tiempoPromedio switch
+        {
+            <= 5 => "Excelente",
+            <= 8 => "Bueno",
+            _ => "Necesita Mejora"
+        };
+    }
+
+    private Color GetColorImpacto(string impacto)
+    {
+        return impacto switch
+        {
+            "Bajo" => Color.Success,
+            "Medio" => Color.Warning,
+            "Alto" => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private List<ErrorDocumental> GetErroresComunes()
+    {
+        return new List<ErrorDocumental>
+        {
+            new ErrorDocumental { TipoError = "Documentos incompletos", Frecuencia = 8, Porcentaje = 35, Impacto = "Alto" },
+            new ErrorDocumental { TipoError = "Certificados vencidos", Frecuencia = 5, Porcentaje = 22, Impacto = "Medio" },
+            new ErrorDocumental { TipoError = "Formatos incorrectos", Frecuencia = 6, Porcentaje = 26, Impacto = "Bajo" },
+            new ErrorDocumental { TipoError = "Información inconsistente", Frecuencia = 4, Porcentaje = 17, Impacto = "Medio" }
+        };
+    }
+
+    private async Task ExportarReportes()
+    {
+        await JS.InvokeVoidAsync("alert", "Exportar reportes - Funcionalidad en desarrollo");
+    }
+
+    // Clases de modelo
+    public class ReporteResumen
+    {
+        public int TotalSolicitudes { get; set; }
+        public int SolicitudesPendientes { get; set; }
+        public int SolicitudesAprobadas { get; set; }
+        public int SolicitudesRechazadas { get; set; }
+        public double TiempoPromedioRevision { get; set; }
+        public double PorcentajeAprobacion { get; set; }
+    }
+
+    public class PromocionPorPeriodo
+    {
+        public string Periodo { get; set; } = string.Empty;
+        public int AuxiliarAAgregado { get; set; }
+        public int AgregadoAPrincipal { get; set; }
+        public int PrincipalAInvestigador { get; set; }
+    }
+
+    public class TiempoProceso
+    {
+        public string Etapa { get; set; } = string.Empty;
+        public double TiempoPromedio { get; set; }
+        public int TiempoMinimo { get; set; }
+        public int TiempoMaximo { get; set; }
+    }
+
+    public class MetricasCalidad
+    {
+        public int DocumentosConErrores { get; set; }
+        public int DocumentosCorrectos { get; set; }
+        public double PorcentajeCalidad { get; set; }
+        public int RevisionesRepetidas { get; set; }
+        public int SolicitudesDevueltas { get; set; }
+    }
+
+    public class ErrorDocumental
+    {
+        public string TipoError { get; set; } = string.Empty;
+        public int Frecuencia { get; set; }
+        public double Porcentaje { get; set; }
+        public string Impacto { get; set; } = string.Empty;
+    }
+}

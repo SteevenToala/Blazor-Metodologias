@@ -126,6 +126,11 @@ else
                             <RequisitoPromocionMud />
                         </MudPaper>
                         break;
+                    case "seguimiento":
+                        <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            <SeguimientoPromocion />
+                        </MudPaper>
+                        break;
                     case "evaluations":
                         <MudPaper Elevation="1" Class="pa-4 mb-4">
                             <TeacherDashboardEvaluacionesMud OnImportarCompletado="RecargarEvaluacionesDocentes" />
@@ -183,6 +188,7 @@ else
     {
         ("overview", "Resumen", Icons.Material.Filled.Dashboard),
         ("requirements", "Requisitos de Promoción", Icons.Material.Filled.AssignmentTurnedIn),
+        ("seguimiento", "Seguimiento Promoción", Icons.Material.Filled.TrackChanges),
         ("evaluations", "Evaluaciones", Icons.Material.Filled.Assessment),
         ("papers", "Publicaciones", Icons.Material.Filled.Description),
         ("training", "Capacitaciones", Icons.Material.Filled.School),

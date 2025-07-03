@@ -1,0 +1,147 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+    <div class="flex items-center justify-between mb-4">
+        <h4 class="text-md font-medium text-gray-900">🔔 Notificaciones</h4>
+        <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+            @notificacionesPendientes.Count
+        </span>
+    </div>
+
+    @if (loading)
+    {
+        <div class="animate-pulse space-y-2">
+            <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+        </div>
+    }
+    else if (notificacionesPendientes.Any())
+    {
+        <div class="space-y-3 max-h-80 overflow-y-auto">
+            @foreach (var notificacion in notificacionesPendientes.Take(5))
+            {
+                <div class="border-l-4 @(notificacion.Urgente ? "border-red-400 bg-red-50" : "border-blue-400 bg-blue-50") p-3 rounded-r">
+                    <div class="flex items-start">
+                        <div class="flex-1">
+                            <h5 class="text-sm font-medium @(notificacion.Urgente ? "text-red-800" : "text-blue-800")">
+                                @notificacion.Titulo
+                            </h5>
+                            <p class="text-xs @(notificacion.Urgente ? "text-red-700" : "text-blue-700") mt-1">
+                                @notificacion.Mensaje
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                @notificacion.TiempoTranscurrido
+                                @if (notificacion.FechaLimite.HasValue)
+                                {
+                                    <span class="ml-2">⏰ Límite: @notificacion.FechaLimite.Value.ToString("dd/MM/yyyy")</span>
+                                }
+                            </p>
+                        </div>
+                        @if (notificacion.Urgente)
+                        {
+                            <span class="text-red-500">⚠️</span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+        
+        @if (notificacionesPendientes.Count > 5)
+        {
+            <div class="text-center mt-3">
+                <button class="text-sm text-blue-600 hover:text-blue-800">
+                    Ver todas las notificaciones (+@(notificacionesPendientes.Count - 5))
+                </button>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="text-center text-gray-500 py-4">
+            <span class="text-2xl">📭</span>
+            <p class="text-sm mt-2">No hay notificaciones pendientes</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int? UsuarioId { get; set; }
+    [Parameter] public string? Rol { get; set; }
+    
+    private List<NotificacionDto> notificacionesPendientes = new();
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarNotificaciones();
+        
+        // Configurar actualización automática cada 30 segundos
+        var timer = new Timer(async _ => await InvokeAsync(CargarNotificaciones), null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+    }
+
+    private async Task CargarNotificaciones()
+    {
+        loading = true;
+        try
+        {
+            HttpResponseMessage response;
+            
+            if (UsuarioId.HasValue)
+            {
+                response = await Http.GetAsync($"http://localhost:5015/api/Notificacion/usuario/{UsuarioId.Value}");
+            }
+            else
+            {
+                response = await Http.GetAsync("http://localhost:5015/api/Notificacion/pendientes");
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var todasLasNotificaciones = JsonSerializer.Deserialize<List<NotificacionDto>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                
+                // Filtrar solo las no leídas
+                notificacionesPendientes = todasLasNotificaciones.Where(n => !n.Leida).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar notificaciones: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    public class NotificacionDto
+    {
+        public int Id { get; set; }
+        public string Tipo { get; set; } = "";
+        public string Titulo { get; set; } = "";
+        public string Mensaje { get; set; } = "";
+        public DateTime FechaCreacion { get; set; }
+        public DateTime? FechaLimite { get; set; }
+        public bool Leida { get; set; }
+        public bool Urgente { get; set; }
+        public int? SolicitudId { get; set; }
+        public string? DestinatarioRol { get; set; }
+        
+        public string TiempoTranscurrido
+        {
+            get
+            {
+                var tiempo = DateTime.Now - FechaCreacion;
+                if (tiempo.TotalMinutes < 60)
+                    return $"hace {(int)tiempo.TotalMinutes} minutos";
+                if (tiempo.TotalHours < 24)
+                    return $"hace {(int)tiempo.TotalHours} horas";
+                return $"hace {(int)tiempo.TotalDays} días";
+            }
+        }
+    }
+}

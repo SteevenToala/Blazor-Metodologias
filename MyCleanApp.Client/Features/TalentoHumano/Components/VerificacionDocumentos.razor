@@ -1,0 +1,664 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@using MudBlazor
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="1" Class="pa-4">
+    <div class="d-flex align-center mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.Assignment" Style="color: #8B1538;" Class="me-2" />
+        <MudText Typo="Typo.h5" Style="color: #8B1538;">Verificación de Documentos</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="CargarSolicitudes">
+            Actualizar
+        </MudButton>
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-center pa-4">
+            <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+            @errorMessage
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <!-- Panel de Solicitudes Pendientes -->
+                <MudCard Elevation="2" Class="mb-4">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.PendingActions" Color="Color.Warning" Class="me-2" />
+                                <MudText Typo="Typo.h6">Solicitudes Pendientes de Verificación</MudText>
+                            </div>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        @if (!solicitudesPendientes.Any())
+                        {
+                            <MudAlert Severity="Severity.Info">
+                                No hay solicitudes pendientes de verificación.
+                            </MudAlert>
+                        }
+                        else
+                        {
+                            @foreach (var solicitud in solicitudesPendientes)
+                            {
+                                <MudCard Outlined="true" Class="mb-3">
+                                    <MudCardContent>
+                                        <div class="d-flex justify-space-between align-center">
+                                            <div>
+                                                <MudText Typo="Typo.subtitle1"><strong>@solicitud.DocenteNombre</strong></MudText>
+                                                <MudText Typo="Typo.body2">@solicitud.NivelActual → @solicitud.NuevoNivel</MudText>
+                                                <MudText Typo="Typo.caption">Fecha: @solicitud.FechaSolicitud.ToString("dd/MM/yyyy")</MudText>
+                                            </div>
+                                            <div>
+                                                <MudButton Size="Size.Small" 
+                                                         Variant="Variant.Filled" 
+                                                         Color="Color.Primary"
+                                                         OnClick="() => IniciarVerificacion(solicitud)">
+                                                    Verificar
+                                                </MudButton>
+                                            </div>
+                                        </div>
+                                    </MudCardContent>
+                                </MudCard>
+                            }
+                        }
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <!-- Panel de Solicitudes en Proceso -->
+                <MudCard Elevation="2" Class="mb-4">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Assignment" Color="Color.Info" Class="me-2" />
+                                <MudText Typo="Typo.h6">Solicitudes en Verificación</MudText>
+                            </div>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        @if (!solicitudesEnProceso.Any())
+                        {
+                            <MudAlert Severity="Severity.Info">
+                                No hay solicitudes en proceso de verificación.
+                            </MudAlert>
+                        }
+                        else
+                        {
+                            @foreach (var solicitud in solicitudesEnProceso)
+                            {
+                                <MudCard Outlined="true" Class="mb-3">
+                                    <MudCardContent>
+                                        <div class="d-flex justify-space-between align-center">
+                                            <div>
+                                                <MudText Typo="Typo.subtitle1"><strong>@solicitud.DocenteNombre</strong></MudText>
+                                                <MudText Typo="Typo.body2">@solicitud.NivelActual → @solicitud.NuevoNivel</MudText>
+                                                <MudText Typo="Typo.caption">En verificación</MudText>
+                                            </div>
+                                            <div>
+                                                <MudButton Size="Size.Small" 
+                                                         Variant="Variant.Outlined" 
+                                                         Color="Color.Info"
+                                                         OnClick="() => ContinuarVerificacion(solicitud)">
+                                                    Continuar
+                                                </MudButton>
+                                            </div>
+                                        </div>
+                                    </MudCardContent>
+                                </MudCard>
+                            }
+                        }
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Resumen de Estados -->
+        <MudCard Elevation="1" Class="mt-4">
+            <MudCardContent>
+                <MudGrid>
+                    <MudItem xs="3">
+                        <MudPaper Class="pa-4 text-center" Style="background-color: #fff3cd;">
+                            <MudText Typo="Typo.h4" Color="Color.Warning">@solicitudesPendientes.Count</MudText>
+                            <MudText Typo="Typo.body2">Pendientes</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="3">
+                        <MudPaper Class="pa-4 text-center" Style="background-color: #d1ecf1;">
+                            <MudText Typo="Typo.h4" Color="Color.Info">@solicitudesEnProceso.Count</MudText>
+                            <MudText Typo="Typo.body2">En Proceso</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="3">
+                        <MudPaper Class="pa-4 text-center" Style="background-color: #d4edda;">
+                            <MudText Typo="Typo.h4" Color="Color.Success">@solicitudesVerificadas.Count</MudText>
+                            <MudText Typo="Typo.body2">Verificadas</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="3">
+                        <MudPaper Class="pa-4 text-center" Style="background-color: #f8d7da;">
+                            <MudText Typo="Typo.h4" Color="Color.Error">@solicitudesRechazadas.Count</MudText>
+                            <MudText Typo="Typo.body2">Rechazadas</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudCardContent>
+        </MudCard>
+    }
+</MudPaper>
+
+<!-- Modal de Verificación Detallada -->
+@if (mostrarModalVerificacion && solicitudEnVerificacion != null)
+{
+    <MudDialog @bind-IsVisible="mostrarModalVerificacion" Options="dialogOptions">
+        <TitleContent>
+            <MudText Typo="Typo.h6">
+                <MudIcon Icon="@Icons.Material.Filled.Assignment" Class="me-2" />
+                Verificación de Documentos - @solicitudEnVerificacion.DocenteNombre
+            </MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
+                <!-- Información de la Solicitud -->
+                <MudCard Class="mb-4">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Información de la Solicitud</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudGrid>
+                            <MudItem xs="6">
+                                <MudText><strong>Docente:</strong> @solicitudEnVerificacion.DocenteNombre</MudText>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudText><strong>Fecha Solicitud:</strong> @solicitudEnVerificacion.FechaSolicitud.ToString("dd/MM/yyyy")</MudText>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudText><strong>Nivel Actual:</strong> @solicitudEnVerificacion.NivelActual</MudText>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudText><strong>Nivel Solicitado:</strong> @solicitudEnVerificacion.NuevoNivel</MudText>
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudText><strong>Estado:</strong> @solicitudEnVerificacion.Estado</MudText>
+                            </MudItem>
+                        </MudGrid>
+                    </MudCardContent>
+                </MudCard>
+
+                <!-- Lista de Verificación Documental -->
+                <MudCard Class="mb-4">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <div class="d-flex align-center justify-space-between">
+                                <MudText Typo="Typo.h6">Lista de Verificación Documental</MudText>
+                                <MudChip T="string" Color="@GetColorProgreso()" Size="Size.Small">
+                                    @documentosVerificados/@documentosRequeridos.Count verificados
+                                </MudChip>
+                            </div>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudList T="DocumentoVerificacion" Clickable="false">
+    @foreach (var documento in documentosRequeridos)
+    {
+        <MudListItem T="DocumentoVerificacion">
+            <div class="d-flex align-center full-width">
+                <MudCheckBox T="bool" 
+                             @bind-Checked="documento.Verificado" 
+                             Color="Color.Success" 
+                             Label=""
+                             ValueChanged="@((bool value) => ActualizarContador())" />
+                <div class="flex-grow-1 mx-3">
+                    <MudText Typo="Typo.body1">@documento.Nombre</MudText>
+                    @if (!string.IsNullOrEmpty(documento.Descripcion))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@documento.Descripcion</MudText>
+                    }
+                    @if (!string.IsNullOrEmpty(documento.Observaciones))
+                    {
+                        <MudTextField @bind-Value="documento.Observaciones" 
+                                      Label="Observaciones" 
+                                      Variant="Variant.Outlined" 
+                                      Dense="true"
+                                      Class="mt-2" />
+                    }
+                </div>
+                <div>
+                    @if (!documento.Verificado)
+                    {
+                        <MudChip T="string" Color="Color.Warning" Size="Size.Small">Pendiente</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small">Verificado</MudChip>
+                    }
+                </div>
+            </div>
+        </MudListItem>
+        <MudDivider />
+    }
+</MudList>
+
+
+                        <!-- Progreso de verificación -->
+                        <div class="mt-4">
+                            <MudText Typo="Typo.subtitle2" Class="mb-2">Progreso de Verificación</MudText>
+                            <MudProgressLinear Value="@porcentajeVerificacion" Color="@GetColorProgreso()" Class="mb-2" />
+                            <MudText Typo="Typo.caption">@porcentajeVerificacion.ToString("F0")% completado</MudText>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+
+                <!-- Observaciones Generales -->
+                <MudCard>
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Observaciones de Talento Humano</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudTextField @bind-Value="observacionesGenerales" 
+                                    Label="Observaciones Generales" 
+                                    Variant="Variant.Outlined" 
+                                    Lines="4" 
+                                    FullWidth="true"
+                                    Placeholder="Escriba sus observaciones sobre la verificación documental..." />
+                    </MudCardContent>
+                </MudCard>
+            </MudContainer>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="CerrarModalVerificacion" Color="Color.Default">Cancelar</MudButton>
+            <MudButton OnClick="GuardarProgreso" Color="Color.Info" Variant="Variant.Outlined" 
+                     Disabled="procesando">
+                Guardar Progreso
+            </MudButton>
+            <MudButton OnClick="RechazarSolicitud" Color="Color.Error" Variant="Variant.Filled" 
+                     Disabled="procesando">
+                @if (procesando)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                    <MudText Class="ms-2">Procesando...</MudText>
+                }
+                else
+                {
+                    <MudText>Rechazar</MudText>
+                }
+            </MudButton>
+            <MudButton OnClick="CompletarVerificacion" Color="Color.Success" Variant="Variant.Filled" 
+                     Disabled="procesando || !TodosDocumentosVerificados()">
+                @if (procesando)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                    <MudText Class="ms-2">Procesando...</MudText>
+                }
+                else
+                {
+                    <MudText>Completar Verificación</MudText>
+                }
+            </MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+
+@code {
+    private bool loading = true;
+    private string errorMessage = string.Empty;
+    private List<SolicitudWorkflowDto> todasLasSolicitudes = new List<SolicitudWorkflowDto>();
+    private bool mostrarModalVerificacion = false;
+    private SolicitudWorkflowDto? solicitudEnVerificacion = null;
+    private string observacionesGenerales = string.Empty;
+    private bool procesando = false;
+    private int documentosVerificados = 0;
+    private double porcentajeVerificacion = 0;
+
+    private List<DocumentoVerificacion> documentosRequeridos = new List<DocumentoVerificacion>();
+
+    private DialogOptions dialogOptions = new DialogOptions() 
+    { 
+        MaxWidth = MaxWidth.ExtraLarge, 
+        FullWidth = true,
+        CloseOnEscapeKey = true
+    };
+
+    // Listas filtradas
+    private List<SolicitudWorkflowDto> solicitudesPendientes => 
+        todasLasSolicitudes.Where(s => s.Estado == "PENDIENTE").ToList();
+
+    private List<SolicitudWorkflowDto> solicitudesEnProceso => 
+        todasLasSolicitudes.Where(s => s.Estado == "EN_VERIFICACION").ToList();
+
+    private List<SolicitudWorkflowDto> solicitudesVerificadas => 
+        todasLasSolicitudes.Where(s => s.Estado == "VERIFICADA").ToList();
+
+    private List<SolicitudWorkflowDto> solicitudesRechazadas => 
+        todasLasSolicitudes.Where(s => s.Estado == "RECHAZADA").ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarSolicitudes();
+    }
+
+    private async Task CargarSolicitudes()
+    {
+        try
+        {
+            loading = true;
+            errorMessage = string.Empty;
+
+            var response = await Http.GetAsync("http://localhost:5015/api/SolicitudAvanceRango");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                todasLasSolicitudes = JsonSerializer.Deserialize<List<SolicitudWorkflowDto>>(json, options) ?? new List<SolicitudWorkflowDto>();
+            }
+            else
+            {
+                errorMessage = "Error al cargar las solicitudes";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private Task IniciarVerificacion(SolicitudWorkflowDto solicitud)
+    {
+        solicitudEnVerificacion = solicitud;
+        observacionesGenerales = string.Empty;
+        
+        // Cargar documentos requeridos según el nivel solicitado
+        CargarDocumentosRequeridos(solicitud.NuevoNivel);
+        
+        ActualizarContador();
+        mostrarModalVerificacion = true;
+        
+        return Task.CompletedTask;
+    }
+
+    private Task ContinuarVerificacion(SolicitudWorkflowDto solicitud)
+    {
+        // Para solicitudes en proceso, cargar el progreso existente
+        return IniciarVerificacion(solicitud);
+    }
+
+    private void CargarDocumentosRequeridos(string nivelSolicitado)
+    {
+        // Lista base de documentos requeridos
+        documentosRequeridos = new List<DocumentoVerificacion>
+        {
+            new DocumentoVerificacion 
+            { 
+                Nombre = "Solicitud formal de promoción", 
+                Descripcion = "Solicitud debidamente firmada por el docente",
+                Verificado = false, 
+                Obligatorio = true 
+            },
+            new DocumentoVerificacion 
+            { 
+                Nombre = "Hoja de vida actualizada", 
+                Descripcion = "CV actualizado con toda la información académica y profesional",
+                Verificado = false, 
+                Obligatorio = true 
+            },
+            new DocumentoVerificacion 
+            { 
+                Nombre = "Cédula de identidad", 
+                Descripcion = "Copia certificada de la cédula de identidad vigente",
+                Verificado = false, 
+                Obligatorio = true 
+            },
+            new DocumentoVerificacion 
+            { 
+                Nombre = "Título de tercer nivel", 
+                Descripcion = "Copia certificada del título de grado registrado en SENESCYT",
+                Verificado = false, 
+                Obligatorio = true 
+            },
+            new DocumentoVerificacion 
+            { 
+                Nombre = "Certificado de tiempo de servicio", 
+                Descripcion = "Certificado que acredite el tiempo mínimo requerido en el nivel actual",
+                Verificado = false, 
+                Obligatorio = true 
+            },
+            new DocumentoVerificacion 
+            { 
+                Nombre = "Evaluaciones docentes", 
+                Descripcion = "Certificados de evaluación docente con puntaje ≥75%",
+                Verificado = false, 
+                Obligatorio = true 
+            },
+            new DocumentoVerificacion 
+            { 
+                Nombre = "Certificados de capacitación", 
+                Descripcion = "Certificados de cursos de capacitación que cumplan las horas requeridas",
+                Verificado = false, 
+                Obligatorio = true 
+            },
+            new DocumentoVerificacion 
+            { 
+                Nombre = "Publicaciones académicas", 
+                Descripcion = "Certificados de publicaciones académicas según requisitos del nivel",
+                Verificado = false, 
+                Obligatorio = true 
+            }
+        };
+
+        // Agregar documentos específicos según el nivel
+        switch (nivelSolicitado)
+        {
+            case "DT3":
+            case "DT4":
+            case "DT5":
+                documentosRequeridos.Add(new DocumentoVerificacion 
+                { 
+                    Nombre = "Proyectos de investigación", 
+                    Descripcion = "Certificados de participación en proyectos de investigación",
+                    Verificado = false, 
+                    Obligatorio = true 
+                });
+                break;
+        }
+
+        if (nivelSolicitado == "DT4" || nivelSolicitado == "DT5")
+        {
+            documentosRequeridos.Add(new DocumentoVerificacion 
+            { 
+                Nombre = "Título de cuarto nivel", 
+                Descripcion = "Copia certificada de título de posgrado (si aplica)",
+                Verificado = false, 
+                Obligatorio = false 
+            });
+        }
+    }
+
+    private void ActualizarContador()
+    {
+        documentosVerificados = documentosRequeridos.Count(d => d.Verificado);
+        porcentajeVerificacion = documentosRequeridos.Any() ? 
+            (double)documentosVerificados / documentosRequeridos.Count * 100 : 0;
+        StateHasChanged();
+    }
+
+    private Color GetColorProgreso()
+    {
+        return porcentajeVerificacion switch
+        {
+            >= 100 => Color.Success,
+            >= 75 => Color.Info,
+            >= 50 => Color.Warning,
+            _ => Color.Error
+        };
+    }
+
+    private async Task GuardarProgreso()
+    {
+        if (solicitudEnVerificacion == null) return;
+
+        try
+        {
+            procesando = true;
+
+            var request = new
+            {
+                SolicitudId = solicitudEnVerificacion.Id,
+                DocumentosVerificados = documentosRequeridos.Select(d => new 
+                { 
+                    d.Nombre, 
+                    d.Verificado, 
+                    d.Observaciones 
+                }).ToList(),
+                ObservacionesGenerales = observacionesGenerales,
+                VerificacionCompleta = false
+            };
+
+            var json = JsonSerializer.Serialize(request);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            
+            var response = await Http.PostAsync($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudEnVerificacion.Id}/guardar-progreso-verificacion", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Progreso guardado exitosamente", Severity.Success);
+                await CargarSolicitudes();
+            }
+            else
+            {
+                Snackbar.Add("Error al guardar el progreso", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private async Task CompletarVerificacion()
+    {
+        if (solicitudEnVerificacion == null) return;
+
+        try
+        {
+            procesando = true;
+
+            var request = new
+            {
+                DocumentosValidos = TodosDocumentosVerificados(),
+                Observaciones = observacionesGenerales
+            };
+
+            var json = JsonSerializer.Serialize(request);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            
+            var response = await Http.PostAsync($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudEnVerificacion.Id}/completar-verificacion", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Verificación completada exitosamente", Severity.Success);
+                await CargarSolicitudes();
+                CerrarModalVerificacion();
+            }
+            else
+            {
+                Snackbar.Add("Error al completar la verificación", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private async Task RechazarSolicitud()
+    {
+        if (solicitudEnVerificacion == null) return;
+
+        try
+        {
+            procesando = true;
+
+            var request = new
+            {
+                DocumentosValidos = false,
+                Observaciones = observacionesGenerales
+            };
+
+            var json = JsonSerializer.Serialize(request);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            
+            var response = await Http.PostAsync($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudEnVerificacion.Id}/completar-verificacion", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Solicitud rechazada", Severity.Warning);
+                await CargarSolicitudes();
+                CerrarModalVerificacion();
+            }
+            else
+            {
+                Snackbar.Add("Error al rechazar la solicitud", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private void CerrarModalVerificacion()
+    {
+        mostrarModalVerificacion = false;
+        solicitudEnVerificacion = null;
+        observacionesGenerales = string.Empty;
+        documentosRequeridos.Clear();
+        documentosVerificados = 0;
+        porcentajeVerificacion = 0;
+    }
+
+    private bool TodosDocumentosVerificados()
+    {
+        return documentosRequeridos.Where(d => d.Obligatorio).All(d => d.Verificado);
+    }
+
+    public class DocumentoVerificacion
+    {
+        public string Nombre { get; set; } = string.Empty;
+        public string Descripcion { get; set; } = string.Empty;
+        public bool Verificado { get; set; }
+        public bool Obligatorio { get; set; } = true;
+        public string Observaciones { get; set; } = string.Empty;
+    }
+}

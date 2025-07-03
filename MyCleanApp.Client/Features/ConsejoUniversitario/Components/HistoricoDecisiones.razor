@@ -1,0 +1,359 @@
+@using MyCleanApp.Client.DTOs
+@using System.Text.Json
+@using MudBlazor
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="1" Class="pa-4">
+    <div class="d-flex align-center mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.History" Style="color: #8B1538;" Class="me-2" />
+        <MudText Typo="Typo.h5" Style="color: #8B1538;">Histórico de Decisiones</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="ExportarHistorico">
+            Exportar
+        </MudButton>
+    </div>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-center pa-4">
+            <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
+        </div>
+    }
+    else
+    {
+        <!-- Filtros -->
+        <MudCard Elevation="1" Class="mb-4">
+            <MudCardContent>
+                <MudGrid>
+                    <MudItem xs="12" md="3">
+                        <MudDatePicker @bind-Date="filtroFechaDesde" Label="Desde" Variant="Variant.Outlined" Dense="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudDatePicker @bind-Date="filtroFechaHasta" Label="Hasta" Variant="Variant.Outlined" Dense="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudSelect @bind-Value="filtroTipoDecision" Label="Tipo Decisión" Variant="Variant.Outlined" Dense="true">
+                            <MudSelectItem Value="string.Empty">Todas</MudSelectItem>
+                            <MudSelectItem Value="@("Aprobacion")">Aprobaciones</MudSelectItem>
+                            <MudSelectItem Value="@("Rechazo")">Rechazos</MudSelectItem>
+                            <MudSelectItem Value="@("Condicionada")">Condicionadas</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="3" Class="d-flex align-end">
+                        <MudButton OnClick="AplicarFiltros" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true">
+                            Aplicar Filtros
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudCardContent>
+        </MudCard>
+
+        <!-- Estadísticas Resumidas -->
+        <MudGrid Class="mb-4">
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="2">
+                    <MudCardContent Class="pa-4 text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+                        <MudText Typo="Typo.h4" Color="Color.Success">@totalAprobaciones</MudText>
+                        <MudText Typo="Typo.body2">Aprobaciones</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="2">
+                    <MudCardContent Class="pa-4 text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Large" />
+                        <MudText Typo="Typo.h4" Color="Color.Error">@totalRechazos</MudText>
+                        <MudText Typo="Typo.body2">Rechazos</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="2">
+                    <MudCardContent Class="pa-4 text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Large" />
+                        <MudText Typo="Typo.h4" Color="Color.Warning">@totalCondicionadas</MudText>
+                        <MudText Typo="Typo.body2">Condicionadas</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="2">
+                    <MudCardContent Class="pa-4 text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Schedule" Color="Color.Info" Size="Size.Large" />
+                        <MudText Typo="Typo.h4" Color="Color.Info">@tiempoPromedioDecision</MudText>
+                        <MudText Typo="Typo.body2">Días promedio</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Tabla de Histórico -->
+        <MudCard Elevation="2">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Decisiones del Consejo Universitario</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudTable Items="@decisionesFiltradas" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                    <HeaderContent>
+                        <MudTh><MudTableSortLabel SortBy="new Func<DecisionHistorica, object>(x => x.FechaDecision)">Fecha</MudTableSortLabel></MudTh>
+                        <MudTh><MudTableSortLabel SortBy="new Func<DecisionHistorica, object>(x => x.DocenteNombre)">Docente</MudTableSortLabel></MudTh>
+                        <MudTh>Promoción</MudTh>
+                        <MudTh>Decisión</MudTh>
+                        <MudTh>Consejeros</MudTh>
+                        <MudTh>Duración</MudTh>
+                        <MudTh>Acciones</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Fecha">
+                            <div>
+                                <MudText Typo="Typo.body2">@context.FechaDecision.ToString("dd/MM/yyyy")</MudText>
+                                <MudText Typo="Typo.caption">@context.FechaDecision.ToString("HH:mm")</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Docente">
+                            <div class="d-flex align-center">
+                                <MudAvatar Color="Color.Primary" Size="Size.Small" Class="me-2">
+                                    @context.DocenteNombre.Substring(0, 1).ToUpper()
+                                </MudAvatar>
+                                <div>
+                                    <MudText Typo="Typo.body2"><strong>@context.DocenteNombre</strong></MudText>
+                                    <MudText Typo="Typo.caption">@context.Facultad</MudText>
+                                </div>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Promoción">
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small">
+                                @context.PromocionSolicitada
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Decisión">
+                            <div class="d-flex flex-column">
+                                <MudChip T="string" Color="@GetColorDecision(context.TipoDecision)" Size="Size.Small" Class="mb-1">
+                                    @context.TipoDecision
+                                </MudChip>
+                                @if (!string.IsNullOrEmpty(context.VotacionDetalle))
+                                {
+                                    <MudText Typo="Typo.caption">@context.VotacionDetalle</MudText>
+                                }
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Consejeros">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Class="me-1" />
+                                <MudText Typo="Typo.caption">@context.ConsejerosPresentes/@context.ConsejerosTotal</MudText>
+                            </div>
+                        </MudTd>
+                        <MudTd DataLabel="Duración">
+                            <MudText Typo="Typo.caption">@context.DuracionProceso días</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Acciones">
+                            <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined">
+                                <MudButton Color="Color.Info" OnClick="() => VerActa(context)">
+                                    Ver Acta
+                                </MudButton>
+                                <MudMenu Icon="@Icons.Material.Filled.MoreVert">
+                                    <MudMenuItem OnClick="() => VerExpediente(context)">Ver Expediente</MudMenuItem>
+                                    <MudMenuItem OnClick="() => DescargarDocumentos(context)">Descargar Docs</MudMenuItem>
+                                    <MudMenuItem OnClick="() => VerSeguimiento(context)">Ver Seguimiento</MudMenuItem>
+                                </MudMenu>
+                            </MudButtonGroup>
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+
+        <!-- Gráfico de Tendencias (Placeholder) -->
+        <MudCard Elevation="2" Class="mt-4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Tendencias de Decisiones</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <div class="pa-8 text-center">
+                    <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Large" Color="Color.Info" />
+                    <MudText Typo="Typo.h6" Class="mt-2">Análisis de Tendencias</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Tertiary">
+                        Aquí se mostraría un gráfico con las tendencias de decisiones del Consejo por período
+                    </MudText>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    }
+</MudPaper>
+
+@code {
+    private bool loading = true;
+    private List<DecisionHistorica> decisiones = new List<DecisionHistorica>();
+    private List<DecisionHistorica> decisionesFiltradas = new List<DecisionHistorica>();
+
+    // Filtros
+    private DateTime? filtroFechaDesde = null;
+    private DateTime? filtroFechaHasta = null;
+    private string filtroTipoDecision = string.Empty;
+
+    // Estadísticas
+    private int totalAprobaciones = 0;
+    private int totalRechazos = 0;
+    private int totalCondicionadas = 0;
+    private int tiempoPromedioDecision = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarHistorico();
+    }
+
+    private async Task CargarHistorico()
+    {
+        try
+        {
+            loading = true;
+            await Task.Delay(1000);
+            
+            decisiones = GenerarDatosSimulados();
+            AplicarFiltros();
+            CalcularEstadisticas();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private List<DecisionHistorica> GenerarDatosSimulados()
+    {
+        var random = new Random();
+        var decisiones = new List<DecisionHistorica>();
+        var docentes = new[] { "Dr. Juan Pérez", "Dra. María González", "Dr. Carlos López", "Dra. Ana Rodríguez", "Dr. Luis García" };
+        var facultades = new[] { "Ingeniería", "Medicina", "Ciencias", "Humanidades", "Administración" };
+        var promociones = new[] { "Auxiliar → Agregado", "Agregado → Principal", "Principal → Investigador" };
+        var tiposDecision = new[] { "Aprobación", "Rechazo", "Condicionada" };
+
+        for (int i = 1; i <= 15; i++)
+        {
+            var fecha = DateTime.Now.AddDays(-random.Next(1, 365));
+            var tipoDecision = tiposDecision[random.Next(tiposDecision.Length)];
+            
+            decisiones.Add(new DecisionHistorica
+            {
+                Id = i,
+                FechaDecision = fecha,
+                DocenteNombre = docentes[random.Next(docentes.Length)],
+                Facultad = facultades[random.Next(facultades.Length)],
+                PromocionSolicitada = promociones[random.Next(promociones.Length)],
+                TipoDecision = tipoDecision,
+                VotacionDetalle = GenerarVotacionDetalle(tipoDecision, random),
+                ConsejerosPresentes = random.Next(8, 12),
+                ConsejerosTotal = 12,
+                DuracionProceso = random.Next(15, 60),
+                Observaciones = "Decisión tomada en sesión ordinaria del Consejo Universitario"
+            });
+        }
+
+        return decisiones.OrderByDescending(d => d.FechaDecision).ToList();
+    }
+
+    private string GenerarVotacionDetalle(string tipoDecision, Random random)
+    {
+        return tipoDecision switch
+        {
+            "Aprobación" => $"A favor: {random.Next(7, 10)}, En contra: {random.Next(0, 2)}, Abstenciones: {random.Next(0, 2)}",
+            "Rechazo" => $"A favor: {random.Next(0, 3)}, En contra: {random.Next(6, 9)}, Abstenciones: {random.Next(0, 3)}",
+            "Condicionada" => $"A favor: {random.Next(5, 7)}, En contra: {random.Next(2, 4)}, Abstenciones: {random.Next(1, 3)}",
+            _ => string.Empty
+        };
+    }
+
+    private void AplicarFiltros()
+    {
+        decisionesFiltradas = decisiones.AsQueryable().ToList();
+
+        if (filtroFechaDesde.HasValue)
+        {
+            decisionesFiltradas = decisionesFiltradas.Where(d => d.FechaDecision.Date >= filtroFechaDesde.Value.Date).ToList();
+        }
+
+        if (filtroFechaHasta.HasValue)
+        {
+            decisionesFiltradas = decisionesFiltradas.Where(d => d.FechaDecision.Date <= filtroFechaHasta.Value.Date).ToList();
+        }
+
+        if (!string.IsNullOrEmpty(filtroTipoDecision))
+        {
+            decisionesFiltradas = decisionesFiltradas.Where(d => d.TipoDecision == filtroTipoDecision).ToList();
+        }
+    }
+
+    private void CalcularEstadisticas()
+    {
+        totalAprobaciones = decisiones.Count(d => d.TipoDecision == "Aprobación");
+        totalRechazos = decisiones.Count(d => d.TipoDecision == "Rechazo");
+        totalCondicionadas = decisiones.Count(d => d.TipoDecision == "Condicionada");
+        tiempoPromedioDecision = decisiones.Any() ? (int)decisiones.Average(d => d.DuracionProceso) : 0;
+    }
+
+    private Color GetColorDecision(string decision)
+    {
+        return decision switch
+        {
+            "Aprobación" => Color.Success,
+            "Rechazo" => Color.Error,
+            "Condicionada" => Color.Warning,
+            _ => Color.Default
+        };
+    }
+
+    private async Task VerActa(DecisionHistorica decision)
+    {
+        await JS.InvokeVoidAsync("alert", $"Ver acta de {decision.DocenteNombre} - Funcionalidad en desarrollo");
+    }
+
+    private async Task VerExpediente(DecisionHistorica decision)
+    {
+        await JS.InvokeVoidAsync("alert", $"Ver expediente de {decision.DocenteNombre} - Funcionalidad en desarrollo");
+    }
+
+    private async Task DescargarDocumentos(DecisionHistorica decision)
+    {
+        await JS.InvokeVoidAsync("alert", $"Descargar documentos de {decision.DocenteNombre} - Funcionalidad en desarrollo");
+    }
+
+    private async Task VerSeguimiento(DecisionHistorica decision)
+    {
+        await JS.InvokeVoidAsync("alert", $"Ver seguimiento de {decision.DocenteNombre} - Funcionalidad en desarrollo");
+    }
+
+    private async Task ExportarHistorico()
+    {
+        await JS.InvokeVoidAsync("alert", "Exportar histórico - Funcionalidad en desarrollo");
+    }
+
+    public class DecisionHistorica
+    {
+        public int Id { get; set; }
+        public DateTime FechaDecision { get; set; }
+        public string DocenteNombre { get; set; } = string.Empty;
+        public string Facultad { get; set; } = string.Empty;
+        public string PromocionSolicitada { get; set; } = string.Empty;
+        public string TipoDecision { get; set; } = string.Empty;
+        public string VotacionDetalle { get; set; } = string.Empty;
+        public int ConsejerosPresentes { get; set; }
+        public int ConsejerosTotal { get; set; }
+        public int DuracionProceso { get; set; }
+        public string Observaciones { get; set; } = string.Empty;
+    }
+}
