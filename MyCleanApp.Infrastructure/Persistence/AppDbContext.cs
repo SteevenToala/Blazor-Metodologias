@@ -24,6 +24,8 @@ namespace MyCleanApp.Infrastructure.Persistence
         
         // Nuevas entidades para cumplimiento del reglamento
         public DbSet<ListaVerificacion> ListaVerificacion { get; set; }
+        public DbSet<Notificacion> Notificacion { get; set; }
+        public DbSet<InformeFinalPromocion> InformeFinalPromocion { get; set; }
         
         // Entidades del esquema de la base de datos (corregidas)
         public DbSet<ComisionAcademica> ComisionAcademica { get; set; }

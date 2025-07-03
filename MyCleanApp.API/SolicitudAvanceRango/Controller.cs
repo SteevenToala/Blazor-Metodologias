@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
+using MyCleanApp.Infrastructure.Services;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -167,9 +168,9 @@ public class SolicitudAvanceRangoController : ControllerBase
 
             // Actualizar el nivel del docente
             var docente = solicitud.Docente;
-            if (docente != null)
+            if (docente != null && solicitud.NuevoNivelAcademicoId.HasValue)
             {
-                docente.NivelAcademicoId = solicitud.NuevoNivelAcademicoId;
+                docente.NivelAcademicoId = solicitud.NuevoNivelAcademicoId.Value;
                 docente.FechaInicioNivel = DateTime.Now;
                 _context.Entry(docente).State = EntityState.Modified;
 
@@ -232,6 +233,235 @@ public class SolicitudAvanceRangoController : ControllerBase
         {
             return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
         }
+    }
+
+    // Nuevos endpoints para el workflow de promoción
+
+    [HttpPost("{id}/presentar")]
+    public async Task<IActionResult> PresentarSolicitud(int id)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.PresentarSolicitudAsync(id);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/recibir-talento-humano")]
+    public async Task<IActionResult> RecibirEnTalentoHumano(int id, [FromBody] UsuarioRequest request)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.RecibirEnTalentoHumanoAsync(id, request.UsuarioId);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/iniciar-verificacion")]
+    public async Task<IActionResult> IniciarVerificacion(int id, [FromBody] UsuarioRequest request)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.IniciarVerificacionAsync(id, request.UsuarioId);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/completar-verificacion")]
+    public async Task<IActionResult> CompletarVerificacion(int id, [FromBody] VerificacionRequest request)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.CompletarVerificacionAsync(id, request.DocumentosValidos, request.Observaciones);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/enviar-comision")]
+    public async Task<IActionResult> EnviarAComision(int id)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.EnviarAComisionAsync(id);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/iniciar-analisis-comision")]
+    public async Task<IActionResult> IniciarAnalisisComision(int id)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.IniciarAnalisisComisionAsync(id);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/notificar-resultado")]
+    public async Task<IActionResult> NotificarResultado(int id, [FromBody] ResultadoComisionRequest request)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.NotificarResultadoAsync(id, request.Aprobada, request.Observaciones);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/respuesta-docente")]
+    public async Task<IActionResult> RegistrarRespuestaDocente(int id, [FromBody] RespuestaDocenteRequest request)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.RegistrarRespuestaDocenteAsync(id, request.Acepta);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/presentar-apelacion")]
+    public async Task<IActionResult> PresentarApelacion(int id, [FromBody] ApelacionRequest request)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.PresentarApelacionAsync(id, request.Motivo, request.Fundamentos);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/resolver-apelacion")]
+    public async Task<IActionResult> ResolverApelacion(int id, [FromBody] ResolucionApelacionRequest request)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.ResolverApelacionAsync(id, request.Aceptada, request.Resolucion);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/generar-informe-final")]
+    public async Task<IActionResult> GenerarInformeFinal(int id)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.GenerarInformeFinalAsync(id);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/enviar-consejo")]
+    public async Task<IActionResult> EnviarAConsejo(int id)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.EnviarAConsejoAsync(id);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/aprobar-consejo")]
+    public async Task<IActionResult> AprobarEnConsejo(int id)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.AprobarEnConsejoAsync(id);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpPost("{id}/hacer-efectiva")]
+    public async Task<IActionResult> HacerPromocionEfectiva(int id)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var resultado = await workflowService.HacerPromocionEfectivaAsync(id);
+        
+        if (resultado.Success)
+            return Ok(resultado);
+        else
+            return BadRequest(resultado);
+    }
+
+    [HttpGet("por-estado/{estado}")]
+    public async Task<IActionResult> GetSolicitudesPorEstado(string estado)
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var solicitudes = await workflowService.GetSolicitudesPorEstadoAsync(estado);
+        return Ok(solicitudes);
+    }
+
+    [HttpGet("vencidas")]
+    public async Task<IActionResult> GetSolicitudesVencidas()
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        var solicitudes = await workflowService.GetSolicitudesVencidasAsync();
+        return Ok(solicitudes);
+    }
+
+    [HttpPost("procesar-vencidas")]
+    public async Task<IActionResult> ProcesarSolicitudesVencidas()
+    {
+        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+        await workflowService.ProcesarSolicitudesVencidasAsync();
+        return Ok(new { message = "Solicitudes vencidas procesadas" });
+    }
+
+    // Clases de request adicionales
+    public class UsuarioRequest
+    {
+        public int UsuarioId { get; set; }
+    }
+
+    public class VerificacionRequest
+    {
+        public bool DocumentosValidos { get; set; }
+        public string Observaciones { get; set; } = "";
+    }
+
+    public class ResultadoComisionRequest
+    {
+        public bool Aprobada { get; set; }
+        public string Observaciones { get; set; } = "";
+    }
+
+    public class RespuestaDocenteRequest
+    {
+        public bool Acepta { get; set; }
+    }
+
+    public class ApelacionRequest
+    {
+        public string Motivo { get; set; } = "";
+        public string Fundamentos { get; set; } = "";
+    }
+
+    public class ResolucionApelacionRequest
+    {
+        public bool Aceptada { get; set; }
+        public string Resolucion { get; set; } = "";
     }
 }
 

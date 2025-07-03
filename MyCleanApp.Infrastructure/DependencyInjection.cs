@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MyCleanApp.Infrastructure.Persistence;
+using MyCleanApp.Infrastructure.Services;
 
 namespace MyCleanApp.Infrastructure
 {
@@ -12,7 +13,9 @@ namespace MyCleanApp.Infrastructure
             services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
-            // Aquí puedes registrar más servicios de infraestructura si los tienes
+            // Registrar servicios del workflow de promoción
+            services.AddScoped<IPromocionWorkflowService, PromocionWorkflowService>();
+            services.AddScoped<INotificacionService, NotificacionService>();
 
             return services;
         }

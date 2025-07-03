@@ -693,9 +693,9 @@ INSERT INTO CumplimientoRequisito (docenteId, requisitoId, cumplido, fechaCumpli
 
 -- Agregar más solicitudes de avance
 INSERT INTO SolicitudAvanceRango (docenteId, fechaSolicitud, estado, fechaRespuesta, observaciones, nuevoNivelAcademicoId, fechaPresentacion, fechaRecepcionTalentoHumano, fechaEnvioComision, documentosVerificados, planificacionId) VALUES
-(2, '2024-07-20', 'APROBADA', '2024-08-15', 'Cumple con todos los requisitos', 3, '2024-07-20', '2024-07-20', '2024-07-21', 1, 1),
-(3, '2024-07-25', 'PENDIENTE', NULL, NULL, 4, '2024-07-25', '2024-07-25', '2024-07-26', 1, 1),
-(4, '2024-08-01', 'RECHAZADA', '2024-08-20', 'No cumple con el tiempo mínimo en el nivel', 2, '2024-08-01', '2024-08-01', '2024-08-02', 1, 1);
+(2, '2024-07-20', 'VERIFICADA', NULL, 'Documentos verificados por Talento Humano, enviado a Comisión', 3, '2024-07-20', '2024-07-20', '2024-07-21', 1, 1),
+(3, '2024-07-25', 'PENDIENTE', NULL, NULL, 4, '2024-07-25', '2024-07-25', NULL, 0, 1),
+(4, '2024-08-01', 'RECHAZADA', '2024-08-20', 'No cumple con el tiempo mínimo en el nivel', 2, '2024-08-01', '2024-08-01', NULL, 0, 1);
 
 -- Agregar más miembros a la comisión
 INSERT INTO ComisionAcademica (nombre, cargo, usuarioId, activo, fechaDesignacion, fechaFinPeriodo) VALUES
