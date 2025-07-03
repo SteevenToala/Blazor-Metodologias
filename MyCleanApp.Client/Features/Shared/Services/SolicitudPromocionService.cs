@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 
-namespace MyCleanApp.Client.Services
+namespace MyCleanApp.Client.Features.Shared.Services
 {
     public class SolicitudPromocionService
     {

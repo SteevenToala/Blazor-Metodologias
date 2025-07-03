@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MyCleanApp.Client;
-using MyCleanApp.Client.Services;
+using MyCleanApp.Client.Features.Authentication.Services;
+using MyCleanApp.Client.Features.Shared.Services;
+using MyCleanApp.Client.Features.Docente.Services;
+using MyCleanApp.Client.Features.TalentoHumano.Services;
 using MudBlazor.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);

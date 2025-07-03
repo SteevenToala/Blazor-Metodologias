@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text;
 using MyCleanApp.Client.DTOs;
 
-namespace MyCleanApp.Client.Services
+namespace MyCleanApp.Client.Features.TalentoHumano.Services
 {
     public class VerificacionService
     {

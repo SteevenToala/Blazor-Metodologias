@@ -2,6 +2,8 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 
+namespace MyCleanApp.Client.Features.Authentication.Services;
+
 public class LoginRequest
 {
     public string correo { get; set; } = string.Empty;

@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.JSInterop;
 using System.Threading.Tasks;
 
+namespace MyCleanApp.Client.Features.Shared.Services;
+
 public class LocalStorageService
 {
     private readonly IJSRuntime _js;

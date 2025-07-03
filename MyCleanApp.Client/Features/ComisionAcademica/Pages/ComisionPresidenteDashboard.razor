@@ -1,6 +1,10 @@
-@page "/talento-humano-dashboard"
+@page "/comision-presidente-dashboard"
 
-@using MyCleanApp.Client.Components
+@using MyCleanApp.Client.Features.ComisionAcademica.Components
+@using MyCleanApp.Client.DTOs
+@using Microsoft.JSInterop
+@using MudBlazor
+@using MudBlazor.Services
 
 @inject HttpClient Http
 @inject IJSRuntime JS
@@ -14,7 +18,7 @@
         <div class="d-flex justify-center">
             <MudProgressCircular style="color: #8B1538;" Size="Size.Large" Indeterminate="true" />
         </div>
-        <MudText Align="Align.Center" Class="mt-4" Color="Color.Secondary">Cargando panel de Talento Humano...</MudText>
+        <MudText Align="Align.Center" Class="mt-4" Color="Color.Secondary">Cargando panel de la Presidencia...</MudText>
     </MudContainer>
 }
 else
@@ -22,9 +26,9 @@ else
     <MudLayout>
         <MudAppBar Elevation="1" Style="background-color: #8B1538;">
             <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-            <MudText Typo="Typo.h6">Panel de Talento Humano</MudText>
+            <MudText Typo="Typo.h6">Presidencia - Comisión Académica</MudText>
             <MudSpacer />
-            <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" OnClick="HandleNotificaciones" />
+            <MudIconButton Icon="@Icons.Material.Filled.Gavel" Color="Color.Inherit" OnClick="HandleDecisiones" />
             <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" OnClick="@LogoutHandler" />
         </MudAppBar>
 
@@ -51,29 +55,34 @@ else
                             <div class="d-flex flex-column flex-md-row align-start justify-space-between gap-4">
                                 <div>
                                     <MudText Typo="Typo.h3" Class="mb-2 font-weight-bold">
-                                        Dirección de Talento Humano
+                                        Comisión Académica de Promoción
                                     </MudText>
                                     <MudText Typo="Typo.body1">
-                                        Revisión inicial y validación de documentos para promoción docente
+                                        Presidencia - Análisis y decisión de promociones docentes
                                     </MudText>
                                 </div>
                             </div>
                         </MudPaper>
-                        <TalentoHumanoStats />
+                        <ComisionPresidenteStats />
                         break;
-                    case "solicitudes":
+                    case "expedientes":
                         <MudPaper Elevation="1" Class="pa-4 mb-4">
-                            <TalentoHumanoSolicitudes />
+                            <ExpedientesParaAnalisis />
                         </MudPaper>
                         break;
-                    case "verificacion":
+                    case "decisiones":
                         <MudPaper Elevation="1" Class="pa-4 mb-4">
-                            <VerificacionDocumentos />
+                            <DecisionesComision />
                         </MudPaper>
                         break;
-                    case "reportes":
+                    case "apelaciones":
                         <MudPaper Elevation="1" Class="pa-4 mb-4">
-                            <TalentoHumanoReportes />
+                            <GestionApelaciones />
+                        </MudPaper>
+                        break;
+                    case "informes":
+                        <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            <InformesFinales />
                         </MudPaper>
                         break;
                 }
@@ -90,9 +99,10 @@ else
     private List<MenuItem> SideMenu = new List<MenuItem>
     {
         new MenuItem { id = "overview", label = "Resumen", icon = Icons.Material.Filled.Dashboard },
-        new MenuItem { id = "solicitudes", label = "Solicitudes Recibidas", icon = Icons.Material.Filled.Inbox },
-        new MenuItem { id = "verificacion", label = "Verificar Documentos", icon = Icons.Material.Filled.FactCheck },
-        new MenuItem { id = "reportes", label = "Reportes", icon = Icons.Material.Filled.Analytics }
+        new MenuItem { id = "expedientes", label = "Expedientes", icon = Icons.Material.Filled.FolderOpen },
+        new MenuItem { id = "decisiones", label = "Decisiones", icon = Icons.Material.Filled.Gavel },
+        new MenuItem { id = "apelaciones", label = "Apelaciones", icon = Icons.Material.Filled.Balance },
+        new MenuItem { id = "informes", label = "Informes Finales", icon = Icons.Material.Filled.Article }
     };
 
     public class MenuItem
@@ -133,8 +143,8 @@ else
         Navigation.NavigateTo("/", true);
     }
 
-    private async Task HandleNotificaciones()
+    private async Task HandleDecisiones()
     {
-        await JS.InvokeVoidAsync("alert", "Notificaciones - Funcionalidad en desarrollo");
+        await JS.InvokeVoidAsync("alert", "Gestión de Decisiones - Funcionalidad en desarrollo");
     }
 }

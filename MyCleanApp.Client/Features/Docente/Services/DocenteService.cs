@@ -2,6 +2,10 @@ using System.Net.Http.Json;
 using MyCleanApp.Client.DTOs;
 using System.Text;
 using System.Text.Json;
+using MyCleanApp.Client.Features.Shared.Services;
+using MyCleanApp.Client.Features.Authentication.Services;
+
+namespace MyCleanApp.Client.Features.Docente.Services;
 
 public class DocenteService
 {
@@ -1171,43 +1175,4 @@ public class ResumenCumplimiento
     public int RequisitosCumplidos { get; set; }
     public int TotalRequisitos { get; set; }
     public float PorcentajeGeneral { get; set; }
-}
-
-public class EvaluacionDocenteDto
-{
-    public int Id { get; set; }
-    public int DocenteId { get; set; }
-    public string Periodo { get; set; } = string.Empty;
-    public float Puntaje { get; set; }
-    public string Observaciones { get; set; } = string.Empty;
-    public DateTime FechaCreacion { get; set; }
-    public DateTime FechaModificacion { get; set; }
-}
-
-public class EvaluacionDocenteUpdateDto
-{
-    public int Id { get; set; }
-    public float Puntaje { get; set; }
-    public string Observaciones { get; set; } = string.Empty;
-}
-
-public class DocenteDetalladoDto
-{
-    public int Id { get; set; }
-    public string Cedula { get; set; } = string.Empty;
-    public string Nombres { get; set; } = string.Empty;
-    public string Apellidos { get; set; } = string.Empty;
-    public string Correo { get; set; } = string.Empty;
-    public string Telefono { get; set; } = string.Empty;
-    public string Direccion { get; set; } = string.Empty;
-    public string Departamento { get; set; } = string.Empty;
-    public string Cargo { get; set; } = string.Empty;
-    public DateTime FechaContratacion { get; set; }
-    public string TipoContrato { get; set; } = string.Empty;
-    public decimal Salario { get; set; }
-    public string Estado { get; set; } = string.Empty;
-    public string UsuarioId { get; set; } = string.Empty;
-    public List<CursoCapacitacionDto> Capacitaciones { get; set; } = new();
-    public List<PublicacionAcademicaDto> Publicaciones { get; set; } = new();
-    public List<ProyectoInvestigacionDto> Proyectos { get; set; } = new();
 }

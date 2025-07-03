@@ -1,9 +1,7 @@
-@page "/comision-presidente-dashboard"
+@page "/consejo-universitario-dashboard"
 
-@using MyCleanApp.Client.Components
-@using Microsoft.JSInterop
-@using MudBlazor
-@using MudBlazor.Services
+@using MyCleanApp.Client.Features.ConsejoUniversitario.Components
+@using MyCleanApp.Client.DTOs
 
 @inject HttpClient Http
 @inject IJSRuntime JS
@@ -17,7 +15,7 @@
         <div class="d-flex justify-center">
             <MudProgressCircular style="color: #8B1538;" Size="Size.Large" Indeterminate="true" />
         </div>
-        <MudText Align="Align.Center" Class="mt-4" Color="Color.Secondary">Cargando panel de la Presidencia...</MudText>
+        <MudText Align="Align.Center" Class="mt-4" Color="Color.Secondary">Cargando panel del Consejo...</MudText>
     </MudContainer>
 }
 else
@@ -25,9 +23,9 @@ else
     <MudLayout>
         <MudAppBar Elevation="1" Style="background-color: #8B1538;">
             <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-            <MudText Typo="Typo.h6">Presidencia - Comisión Académica</MudText>
+            <MudText Typo="Typo.h6">Consejo Universitario</MudText>
             <MudSpacer />
-            <MudIconButton Icon="@Icons.Material.Filled.Gavel" Color="Color.Inherit" OnClick="HandleDecisiones" />
+            <MudIconButton Icon="@Icons.Material.Filled.AccountBalance" Color="Color.Inherit" OnClick="HandleAprobaciones" />
             <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" OnClick="@LogoutHandler" />
         </MudAppBar>
 
@@ -54,34 +52,29 @@ else
                             <div class="d-flex flex-column flex-md-row align-start justify-space-between gap-4">
                                 <div>
                                     <MudText Typo="Typo.h3" Class="mb-2 font-weight-bold">
-                                        Comisión Académica de Promoción
+                                        Consejo Universitario
                                     </MudText>
                                     <MudText Typo="Typo.body1">
-                                        Presidencia - Análisis y decisión de promociones docentes
+                                        Aprobación final de promociones docentes
                                     </MudText>
                                 </div>
                             </div>
                         </MudPaper>
-                        <ComisionPresidenteStats />
-                        break;
-                    case "expedientes":
-                        <MudPaper Elevation="1" Class="pa-4 mb-4">
-                            <ExpedientesParaAnalisis />
-                        </MudPaper>
-                        break;
-                    case "decisiones":
-                        <MudPaper Elevation="1" Class="pa-4 mb-4">
-                            <DecisionesComision />
-                        </MudPaper>
-                        break;
-                    case "apelaciones":
-                        <MudPaper Elevation="1" Class="pa-4 mb-4">
-                            <GestionApelaciones />
-                        </MudPaper>
+                        <ConsejoStats />
                         break;
                     case "informes":
                         <MudPaper Elevation="1" Class="pa-4 mb-4">
-                            <InformesFinales />
+                            <InformesParaAprobacion />
+                        </MudPaper>
+                        break;
+                    case "aprobaciones":
+                        <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            <AprobacionesConsejo />
+                        </MudPaper>
+                        break;
+                    case "historico":
+                        <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            <HistoricoDecisiones />
                         </MudPaper>
                         break;
                 }
@@ -98,10 +91,9 @@ else
     private List<MenuItem> SideMenu = new List<MenuItem>
     {
         new MenuItem { id = "overview", label = "Resumen", icon = Icons.Material.Filled.Dashboard },
-        new MenuItem { id = "expedientes", label = "Expedientes", icon = Icons.Material.Filled.FolderOpen },
-        new MenuItem { id = "decisiones", label = "Decisiones", icon = Icons.Material.Filled.Gavel },
-        new MenuItem { id = "apelaciones", label = "Apelaciones", icon = Icons.Material.Filled.Balance },
-        new MenuItem { id = "informes", label = "Informes Finales", icon = Icons.Material.Filled.Article }
+        new MenuItem { id = "informes", label = "Informes Recibidos", icon = Icons.Material.Filled.Description },
+        new MenuItem { id = "aprobaciones", label = "Aprobaciones", icon = Icons.Material.Filled.CheckCircle },
+        new MenuItem { id = "historico", label = "Histórico", icon = Icons.Material.Filled.History }
     };
 
     public class MenuItem
@@ -142,8 +134,8 @@ else
         Navigation.NavigateTo("/", true);
     }
 
-    private async Task HandleDecisiones()
+    private async Task HandleAprobaciones()
     {
-        await JS.InvokeVoidAsync("alert", "Gestión de Decisiones - Funcionalidad en desarrollo");
+        await JS.InvokeVoidAsync("alert", "Gestión de Aprobaciones - Funcionalidad en desarrollo");
     }
 }

@@ -1,0 +1,81 @@
+<MudCard>
+    <MudCardContent>
+        <div class="d-flex justify-space-between align-center mb-4">
+            <MudText Typo="Typo.h6">Estadísticas del Consejo Universitario</MudText>
+        </div>
+
+        <MudGrid>
+            <MudItem xs="12" md="3">
+                <MudCard Class="mud-theme-primary">
+                    <MudCardContent>
+                        <div class="d-flex justify-space-between align-center">
+                            <div>
+                                <MudText Typo="Typo.h4" Color="Color.Primary">@TotalSolicitudes</MudText>
+                                <MudText Typo="Typo.body2">Total Solicitudes</MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.Assignment" Size="Size.Large" Color="Color.Primary" />
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudCard Class="mud-theme-warning">
+                    <MudCardContent>
+                        <div class="d-flex justify-space-between align-center">
+                            <div>
+                                <MudText Typo="Typo.h4" Color="Color.Warning">@PendientesAprobacion</MudText>
+                                <MudText Typo="Typo.body2">Pendientes Aprobación</MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty" Size="Size.Large" Color="Color.Warning" />
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudCard Class="mud-theme-success">
+                    <MudCardContent>
+                        <div class="d-flex justify-space-between align-center">
+                            <div>
+                                <MudText Typo="Typo.h4" Color="Color.Success">@Aprobadas</MudText>
+                                <MudText Typo="Typo.body2">Aprobadas</MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudCard Class="mud-theme-error">
+                    <MudCardContent>
+                        <div class="d-flex justify-space-between align-center">
+                            <div>
+                                <MudText Typo="Typo.h4" Color="Color.Error">@Rechazadas</MudText>
+                                <MudText Typo="Typo.body2">Rechazadas</MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.Cancel" Size="Size.Large" Color="Color.Error" />
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public int TotalSolicitudes { get; set; }
+    [Parameter] public int PendientesAprobacion { get; set; }
+    [Parameter] public int Aprobadas { get; set; }
+    [Parameter] public int Rechazadas { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // Valores por defecto para demo
+        if (TotalSolicitudes == 0) TotalSolicitudes = 45;
+        if (PendientesAprobacion == 0) PendientesAprobacion = 12;
+        if (Aprobadas == 0) Aprobadas = 28;
+        if (Rechazadas == 0) Rechazadas = 5;
+    }
+}

@@ -1,0 +1,81 @@
+<MudCard>
+    <MudCardContent>
+        <div class="d-flex justify-space-between align-center mb-4">
+            <MudText Typo="Typo.h6">Estadísticas de Talento Humano</MudText>
+        </div>
+
+        <MudGrid>
+            <MudItem xs="12" md="3">
+                <MudCard Class="mud-theme-primary">
+                    <MudCardContent>
+                        <div class="d-flex justify-space-between align-center">
+                            <div>
+                                <MudText Typo="Typo.h4" Color="Color.Primary">@TotalDocentes</MudText>
+                                <MudText Typo="Typo.body2">Total Docentes</MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Large" Color="Color.Primary" />
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudCard Class="mud-theme-secondary">
+                    <MudCardContent>
+                        <div class="d-flex justify-space-between align-center">
+                            <div>
+                                <MudText Typo="Typo.h4" Color="Color.Secondary">@PromocionesActivas</MudText>
+                                <MudText Typo="Typo.body2">Promociones Activas</MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Large" Color="Color.Secondary" />
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudCard Class="mud-theme-info">
+                    <MudCardContent>
+                        <div class="d-flex justify-space-between align-center">
+                            <div>
+                                <MudText Typo="Typo.h4" Color="Color.Info">@VerificacionesPendientes</MudText>
+                                <MudText Typo="Typo.body2">Verificaciones Pendientes</MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.Pending" Size="Size.Large" Color="Color.Info" />
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudCard Class="mud-theme-success">
+                    <MudCardContent>
+                        <div class="d-flex justify-space-between align-center">
+                            <div>
+                                <MudText Typo="Typo.h4" Color="Color.Success">@RequisitosCumplidos</MudText>
+                                <MudText Typo="Typo.body2">Requisitos Cumplidos</MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public int TotalDocentes { get; set; }
+    [Parameter] public int PromocionesActivas { get; set; }
+    [Parameter] public int VerificacionesPendientes { get; set; }
+    [Parameter] public int RequisitosCumplidos { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // Valores por defecto para demo
+        if (TotalDocentes == 0) TotalDocentes = 145;
+        if (PromocionesActivas == 0) PromocionesActivas = 23;
+        if (VerificacionesPendientes == 0) VerificacionesPendientes = 12;
+        if (RequisitosCumplidos == 0) RequisitosCumplidos = 89;
+    }
+}

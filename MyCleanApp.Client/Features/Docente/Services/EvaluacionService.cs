@@ -1,4 +1,8 @@
 using System.Net.Http.Json;
+using MyCleanApp.Client.Features.Shared.Services;
+using MyCleanApp.Client.Features.Authentication.Services;
+
+namespace MyCleanApp.Client.Features.Docente.Services;
 
 public class EvaluacionService
 {

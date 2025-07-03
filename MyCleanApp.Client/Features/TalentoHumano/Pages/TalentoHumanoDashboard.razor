@@ -1,6 +1,7 @@
-@page "/consejo-universitario-dashboard"
+@page "/talento-humano-dashboard"
 
-@using MyCleanApp.Client.Components
+@using MyCleanApp.Client.Features.TalentoHumano.Components
+@using MyCleanApp.Client.DTOs
 
 @inject HttpClient Http
 @inject IJSRuntime JS
@@ -14,7 +15,7 @@
         <div class="d-flex justify-center">
             <MudProgressCircular style="color: #8B1538;" Size="Size.Large" Indeterminate="true" />
         </div>
-        <MudText Align="Align.Center" Class="mt-4" Color="Color.Secondary">Cargando panel del Consejo...</MudText>
+        <MudText Align="Align.Center" Class="mt-4" Color="Color.Secondary">Cargando panel de Talento Humano...</MudText>
     </MudContainer>
 }
 else
@@ -22,9 +23,9 @@ else
     <MudLayout>
         <MudAppBar Elevation="1" Style="background-color: #8B1538;">
             <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-            <MudText Typo="Typo.h6">Consejo Universitario</MudText>
+            <MudText Typo="Typo.h6">Panel de Talento Humano</MudText>
             <MudSpacer />
-            <MudIconButton Icon="@Icons.Material.Filled.AccountBalance" Color="Color.Inherit" OnClick="HandleAprobaciones" />
+            <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" OnClick="HandleNotificaciones" />
             <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" OnClick="@LogoutHandler" />
         </MudAppBar>
 
@@ -51,29 +52,29 @@ else
                             <div class="d-flex flex-column flex-md-row align-start justify-space-between gap-4">
                                 <div>
                                     <MudText Typo="Typo.h3" Class="mb-2 font-weight-bold">
-                                        Consejo Universitario
+                                        Dirección de Talento Humano
                                     </MudText>
                                     <MudText Typo="Typo.body1">
-                                        Aprobación final de promociones docentes
+                                        Revisión inicial y validación de documentos para promoción docente
                                     </MudText>
                                 </div>
                             </div>
                         </MudPaper>
-                        <ConsejoUniversitarioStats />
+                        <TalentoHumanoStats />
                         break;
-                    case "informes":
+                    case "solicitudes":
                         <MudPaper Elevation="1" Class="pa-4 mb-4">
-                            <InformesParaAprobacion />
+                            <TalentoHumanoSolicitudes />
                         </MudPaper>
                         break;
-                    case "aprobaciones":
+                    case "verificacion":
                         <MudPaper Elevation="1" Class="pa-4 mb-4">
-                            <AprobacionesConsejo />
+                            <VerificacionDocumentos />
                         </MudPaper>
                         break;
-                    case "historico":
+                    case "reportes":
                         <MudPaper Elevation="1" Class="pa-4 mb-4">
-                            <HistoricoDecisiones />
+                            <TalentoHumanoReportes />
                         </MudPaper>
                         break;
                 }
@@ -90,9 +91,9 @@ else
     private List<MenuItem> SideMenu = new List<MenuItem>
     {
         new MenuItem { id = "overview", label = "Resumen", icon = Icons.Material.Filled.Dashboard },
-        new MenuItem { id = "informes", label = "Informes Recibidos", icon = Icons.Material.Filled.Description },
-        new MenuItem { id = "aprobaciones", label = "Aprobaciones", icon = Icons.Material.Filled.CheckCircle },
-        new MenuItem { id = "historico", label = "Histórico", icon = Icons.Material.Filled.History }
+        new MenuItem { id = "solicitudes", label = "Solicitudes Recibidas", icon = Icons.Material.Filled.Inbox },
+        new MenuItem { id = "verificacion", label = "Verificar Documentos", icon = Icons.Material.Filled.FactCheck },
+        new MenuItem { id = "reportes", label = "Reportes", icon = Icons.Material.Filled.Analytics }
     };
 
     public class MenuItem
@@ -133,8 +134,8 @@ else
         Navigation.NavigateTo("/", true);
     }
 
-    private async Task HandleAprobaciones()
+    private async Task HandleNotificaciones()
     {
-        await JS.InvokeVoidAsync("alert", "Gestión de Aprobaciones - Funcionalidad en desarrollo");
+        await JS.InvokeVoidAsync("alert", "Notificaciones - Funcionalidad en desarrollo");
     }
 }
