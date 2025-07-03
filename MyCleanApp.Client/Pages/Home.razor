@@ -78,6 +78,50 @@
                                 Ir al Dashboard Docente
                             </MudButton>
                         }
+                        else if (loginResponse?.usuario?.Rol == "TALENTO_HUMANO")
+                        {
+                            <MudButton Href="/talento-humano-dashboard" 
+                                      Variant="Variant.Filled" 
+                                      Style="background-color: #8B1538; color: white;"
+                                      StartIcon="@Icons.Material.Filled.Dashboard"
+                                      Size="Size.Large"
+                                      Class="ma-2">
+                                Ir al Panel de Talento Humano
+                            </MudButton>
+                        }
+                        else if (loginResponse?.usuario?.Rol == "COMISION_PRESIDENTE")
+                        {
+                            <MudButton Href="/comision-presidente-dashboard" 
+                                      Variant="Variant.Filled" 
+                                      Style="background-color: #8B1538; color: white;"
+                                      StartIcon="@Icons.Material.Filled.Dashboard"
+                                      Size="Size.Large"
+                                      Class="ma-2">
+                                Ir al Panel de Presidencia
+                            </MudButton>
+                        }
+                        else if (loginResponse?.usuario?.Rol == "COMISION_MIEMBRO")
+                        {
+                            <MudButton Href="/comision-miembro-dashboard" 
+                                      Variant="Variant.Filled" 
+                                      Style="background-color: #8B1538; color: white;"
+                                      StartIcon="@Icons.Material.Filled.Dashboard"
+                                      Size="Size.Large"
+                                      Class="ma-2">
+                                Ir al Panel de Comisión
+                            </MudButton>
+                        }
+                        else if (loginResponse?.usuario?.Rol == "CONSEJO_UNIVERSITARIO")
+                        {
+                            <MudButton Href="/consejo-universitario-dashboard" 
+                                      Variant="Variant.Filled" 
+                                      Style="background-color: #8B1538; color: white;"
+                                      StartIcon="@Icons.Material.Filled.Dashboard"
+                                      Size="Size.Large"
+                                      Class="ma-2">
+                                Ir al Panel del Consejo
+                            </MudButton>
+                        }
                     </div>
                 </MudPaper>
             </MudItem>

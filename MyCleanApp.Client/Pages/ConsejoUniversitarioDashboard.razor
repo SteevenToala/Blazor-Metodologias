@@ -1,0 +1,140 @@
+@page "/consejo-universitario-dashboard"
+
+@using MyCleanApp.Client.Components
+
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject LocalStorageService LocalStorage
+@inject NavigationManager Navigation
+
+@if (isLoading)
+{
+    <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-16">
+        <div class="d-flex justify-center">
+            <MudProgressCircular style="color: #8B1538;" Size="Size.Large" Indeterminate="true" />
+        </div>
+        <MudText Align="Align.Center" Class="mt-4" Color="Color.Secondary">Cargando panel del Consejo...</MudText>
+    </MudContainer>
+}
+else
+{
+    <MudLayout>
+        <MudAppBar Elevation="1" Style="background-color: #8B1538;">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+            <MudText Typo="Typo.h6">Consejo Universitario</MudText>
+            <MudSpacer />
+            <MudIconButton Icon="@Icons.Material.Filled.AccountBalance" Color="Color.Inherit" OnClick="HandleAprobaciones" />
+            <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" OnClick="@LogoutHandler" />
+        </MudAppBar>
+
+        <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+            <MudNavMenu Class="pt-4">
+                 @foreach (var item in SideMenu)
+                 {
+                     <MudNavLink OnClick="@(() => CambiarSeccion(item.id))"
+                                 Icon="@item.icon"
+                                 Style="@GetNavLinkStyle(item.id)"
+                                 IconColor="@(selectedSection == item.id ? Color.Primary : Color.Inherit)">
+                         @item.label
+                     </MudNavLink>
+                 }
+            </MudNavMenu>
+        </MudDrawer>
+
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.False" Class="pa-4 pt-6">
+                @switch (selectedSection)
+                {
+                    case "overview":
+                        <MudPaper Elevation="2" Class="pa-6 mb-6" Style="background: linear-gradient(135deg, #8B1538 0%, #A61E4D 100%); color: white;">
+                            <div class="d-flex flex-column flex-md-row align-start justify-space-between gap-4">
+                                <div>
+                                    <MudText Typo="Typo.h3" Class="mb-2 font-weight-bold">
+                                        Consejo Universitario
+                                    </MudText>
+                                    <MudText Typo="Typo.body1">
+                                        Aprobación final de promociones docentes
+                                    </MudText>
+                                </div>
+                            </div>
+                        </MudPaper>
+                        <ConsejoUniversitarioStats />
+                        break;
+                    case "informes":
+                        <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            <InformesParaAprobacion />
+                        </MudPaper>
+                        break;
+                    case "aprobaciones":
+                        <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            <AprobacionesConsejo />
+                        </MudPaper>
+                        break;
+                    case "historico":
+                        <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            <HistoricoDecisiones />
+                        </MudPaper>
+                        break;
+                }
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+}
+
+@code {
+    private bool _drawerOpen = true;
+    private bool isLoading = true;
+    private string selectedSection = "overview";
+
+    private List<MenuItem> SideMenu = new List<MenuItem>
+    {
+        new MenuItem { id = "overview", label = "Resumen", icon = Icons.Material.Filled.Dashboard },
+        new MenuItem { id = "informes", label = "Informes Recibidos", icon = Icons.Material.Filled.Description },
+        new MenuItem { id = "aprobaciones", label = "Aprobaciones", icon = Icons.Material.Filled.CheckCircle },
+        new MenuItem { id = "historico", label = "Histórico", icon = Icons.Material.Filled.History }
+    };
+
+    public class MenuItem
+    {
+        public string id { get; set; } = string.Empty;
+        public string label { get; set; } = string.Empty;
+        public string icon { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(1000); // Simular carga
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private void CambiarSeccion(string seccion)
+    {
+        selectedSection = seccion;
+        StateHasChanged();
+    }
+
+    private string GetNavLinkStyle(string itemId)
+    {
+        return selectedSection == itemId 
+            ? "background-color: rgba(139, 21, 56, 0.1); color: #8B1538; font-weight: bold;" 
+            : "";
+    }
+
+    private async Task LogoutHandler()
+    {
+        await LocalStorage.EliminarAsync("loginResponse");
+        Navigation.NavigateTo("/", true);
+    }
+
+    private async Task HandleAprobaciones()
+    {
+        await JS.InvokeVoidAsync("alert", "Gestión de Aprobaciones - Funcionalidad en desarrollo");
+    }
+}

@@ -547,6 +547,15 @@ WHERE id = 1;
 -- Agregar algunas verificaciones de documentos de ejemplo
 -- (Estas se insertarían cuando una solicitud se presenta)
 
+-- Agregar más usuarios para los diferentes roles del procedimiento (solo si no existen)
+IF NOT EXISTS (SELECT 1 FROM Usuario WHERE correo = 'talento.humano@uta.edu.ec')
+INSERT INTO Usuario (correo, passwordHash, rol, personaId, activo) VALUES
+('talento.humano@uta.edu.ec', '$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS', 'TALENTO_HUMANO', 1, 1);
+
+IF NOT EXISTS (SELECT 1 FROM Usuario WHERE correo = 'comision.miembro2@uta.edu.ec')
+INSERT INTO Usuario (correo, passwordHash, rol, personaId, activo) VALUES
+('comision.miembro2@uta.edu.ec', '$2a$11$uwsP6IVBrxm2Ju2wUcSSJ.ufVr5.3TMaOhegAOTxg62PU3meNY/cS', 'COMISION_MIEMBRO', 2, 1);
+
 -- Actualizar para agregar más roles (solo si no existen)
 IF NOT EXISTS (SELECT 1 FROM Usuario WHERE correo = 'comision.miembro1@uta.edu.ec')
 INSERT INTO Usuario (correo, passwordHash, rol, personaId, activo) VALUES

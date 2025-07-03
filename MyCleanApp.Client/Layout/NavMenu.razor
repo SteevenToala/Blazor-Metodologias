@@ -93,6 +93,38 @@
                     </NavLink>
                 </div>
             }
+            else if (loginResponse.usuario?.Rol == "TALENTO_HUMANO")
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="talento-humano-dashboard">
+                        <span class="bi bi-building-fill-nav-menu" aria-hidden="true"></span> Talento Humano
+                    </NavLink>
+                </div>
+            }
+            else if (loginResponse.usuario?.Rol == "COMISION_PRESIDENTE")
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="comision-presidente-dashboard">
+                        <span class="bi bi-award-fill-nav-menu" aria-hidden="true"></span> Presidencia Comisión
+                    </NavLink>
+                </div>
+            }
+            else if (loginResponse.usuario?.Rol == "COMISION_MIEMBRO")
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="comision-miembro-dashboard">
+                        <span class="bi bi-person-badge-fill-nav-menu" aria-hidden="true"></span> Miembro Comisión
+                    </NavLink>
+                </div>
+            }
+            else if (loginResponse.usuario?.Rol == "CONSEJO_UNIVERSITARIO")
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="consejo-universitario-dashboard">
+                        <span class="bi bi-bank-fill-nav-menu" aria-hidden="true"></span> Consejo Universitario
+                    </NavLink>
+                </div>
+            }
             @if (loginResponse != null)
             {
                 <div class="nav-item px-3">

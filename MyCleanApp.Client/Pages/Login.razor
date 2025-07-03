@@ -16,13 +16,26 @@ protected override async Task OnInitializedAsync()
     if (loginResponse != null && loginResponse.usuario != null)
     {
         Console.WriteLine("Usuario logueado: " + loginResponse.usuario.Rol);
-        if (loginResponse.usuario.Rol == "ADMINISTRADOR")
+        switch (loginResponse.usuario.Rol)
         {
-            Navigation.NavigateTo("/admin-dashboard", true);
-        }
-        else if (loginResponse.usuario.Rol == "DOCENTE")
-        {
-            Navigation.NavigateTo("/teacher-dashboard", true);
+            case "ADMINISTRADOR":
+                Navigation.NavigateTo("/admin-dashboard", true);
+                break;
+            case "DOCENTE":
+                Navigation.NavigateTo("/teacher-dashboard", true);
+                break;
+            case "TALENTO_HUMANO":
+                Navigation.NavigateTo("/talento-humano-dashboard", true);
+                break;
+            case "COMISION_PRESIDENTE":
+                Navigation.NavigateTo("/comision-presidente-dashboard", true);
+                break;
+            case "COMISION_MIEMBRO":
+                Navigation.NavigateTo("/comision-miembro-dashboard", true);
+                break;
+            case "CONSEJO_UNIVERSITARIO":
+                Navigation.NavigateTo("/consejo-universitario-dashboard", true);
+                break;
         }
     }
 }
@@ -56,23 +69,42 @@ protected override async Task OnInitializedAsync()
                 return;
             }
             
-            // Permitir acceso tanto a docentes como administradores
-            if (result.usuario.Rol != "DOCENTE" && result.usuario.Rol != "ADMINISTRADOR")
+            // Permitir acceso a todos los roles del sistema
+            var rolesPermitidos = new[] { "DOCENTE", "ADMINISTRADOR", "TALENTO_HUMANO", 
+                                        "COMISION_PRESIDENTE", "COMISION_MIEMBRO", "CONSEJO_UNIVERSITARIO" };
+            
+            if (!rolesPermitidos.Contains(result.usuario.Rol))
             {
-                ErrorMsg = "Solo los usuarios docentes y administradores pueden ingresar al sistema.";
+                ErrorMsg = "No tienes permisos para acceder al sistema.";
                 return;
             }
             
             await LocalStorageService.GuardarObjetoAsync("loginResponse", result);
             
             // Redirigir según el rol
-            if (result.usuario.Rol == "ADMINISTRADOR")
+            switch (result.usuario.Rol)
             {
-                Navigation.NavigateTo("/admin-dashboard", true);
-            }
-            else if (result.usuario.Rol == "DOCENTE")
-            {
-                Navigation.NavigateTo("/teacher-dashboard", true);
+                case "ADMINISTRADOR":
+                    Navigation.NavigateTo("/admin-dashboard", true);
+                    break;
+                case "DOCENTE":
+                    Navigation.NavigateTo("/teacher-dashboard", true);
+                    break;
+                case "TALENTO_HUMANO":
+                    Navigation.NavigateTo("/talento-humano-dashboard", true);
+                    break;
+                case "COMISION_PRESIDENTE":
+                    Navigation.NavigateTo("/comision-presidente-dashboard", true);
+                    break;
+                case "COMISION_MIEMBRO":
+                    Navigation.NavigateTo("/comision-miembro-dashboard", true);
+                    break;
+                case "CONSEJO_UNIVERSITARIO":
+                    Navigation.NavigateTo("/consejo-universitario-dashboard", true);
+                    break;
+                default:
+                    Navigation.NavigateTo("/", true);
+                    break;
             }
         }
         else
