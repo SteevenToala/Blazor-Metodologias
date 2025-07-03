@@ -1,9 +1,12 @@
 @using MyCleanApp.Client.DTOs
 @using System.Text.Json
 @using MudBlazor
+@using Microsoft.JSInterop
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
+@inject DocenteService DocenteService
+@inject IDialogService DialogService
 
 <MudPaper Elevation="1" Class="pa-4">
     <div class="d-flex align-center mb-4">
@@ -64,7 +67,7 @@
                                                 <MudButton Size="Size.Small" 
                                                          Variant="Variant.Filled" 
                                                          Color="Color.Primary"
-                                                         OnClick="() => IniciarVerificacion(solicitud)">
+                                                         OnClick="@(() => IniciarVerificacion(solicitud))">
                                                     Verificar
                                                 </MudButton>
                                             </div>
@@ -162,157 +165,162 @@
 <!-- Modal de Verificación Detallada -->
 @if (mostrarModalVerificacion && solicitudEnVerificacion != null)
 {
-    <MudDialog @bind-IsVisible="mostrarModalVerificacion" Options="dialogOptions">
-        <TitleContent>
-            <MudText Typo="Typo.h6">
-                <MudIcon Icon="@Icons.Material.Filled.Assignment" Class="me-2" />
-                Verificación de Documentos - @solicitudEnVerificacion.DocenteNombre
-            </MudText>
-        </TitleContent>
-        <DialogContent>
-            <MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
-                <!-- Información de la Solicitud -->
-                <MudCard Class="mb-4">
-                    <MudCardHeader>
-                        <CardHeaderContent>
-                            <MudText Typo="Typo.h6">Información de la Solicitud</MudText>
-                        </CardHeaderContent>
-                    </MudCardHeader>
-                    <MudCardContent>
-                        <MudGrid>
-                            <MudItem xs="6">
-                                <MudText><strong>Docente:</strong> @solicitudEnVerificacion.DocenteNombre</MudText>
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudText><strong>Fecha Solicitud:</strong> @solicitudEnVerificacion.FechaSolicitud.ToString("dd/MM/yyyy")</MudText>
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudText><strong>Nivel Actual:</strong> @solicitudEnVerificacion.NivelActual</MudText>
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudText><strong>Nivel Solicitado:</strong> @solicitudEnVerificacion.NuevoNivel</MudText>
-                            </MudItem>
-                            <MudItem xs="12">
-                                <MudText><strong>Estado:</strong> @solicitudEnVerificacion.Estado</MudText>
-                            </MudItem>
-                        </MudGrid>
-                    </MudCardContent>
-                </MudCard>
-
-                <!-- Lista de Verificación Documental -->
-                <MudCard Class="mb-4">
-                    <MudCardHeader>
-                        <CardHeaderContent>
-                            <div class="d-flex align-center justify-space-between">
-                                <MudText Typo="Typo.h6">Lista de Verificación Documental</MudText>
-                                <MudChip T="string" Color="@GetColorProgreso()" Size="Size.Small">
-                                    @documentosVerificados/@documentosRequeridos.Count verificados
-                                </MudChip>
-                            </div>
-                        </CardHeaderContent>
-                    </MudCardHeader>
-                    <MudCardContent>
-                        <MudList T="DocumentoVerificacion" Clickable="false">
-    @foreach (var documento in documentosRequeridos)
-    {
-        <MudListItem T="DocumentoVerificacion">
-            <div class="d-flex align-center full-width">
-                <MudCheckBox T="bool" 
-                             @bind-Checked="documento.Verificado" 
-                             Color="Color.Success" 
-                             Label=""
-                             ValueChanged="@((bool value) => ActualizarContador())" />
-                <div class="flex-grow-1 mx-3">
-                    <MudText Typo="Typo.body1">@documento.Nombre</MudText>
-                    @if (!string.IsNullOrEmpty(documento.Descripcion))
-                    {
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">@documento.Descripcion</MudText>
-                    }
-                    @if (!string.IsNullOrEmpty(documento.Observaciones))
-                    {
-                        <MudTextField @bind-Value="documento.Observaciones" 
-                                      Label="Observaciones" 
-                                      Variant="Variant.Outlined" 
-                                      Dense="true"
-                                      Class="mt-2" />
-                    }
+    <div class="modal" style="display: block; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+        <div class="modal-content" style="background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 15px;">
+                <h3 style="margin: 0; color: #8B1538;">
+                    📋 Verificación de Documentos - @solicitudEnVerificacion.DocenteNombre
+                </h3>
+                <button @onclick="CerrarModalVerificacion" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">×</button>
+            </div>
+            
+            <!-- Información de la Solicitud -->
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+                <h4 style="margin-top: 0; color: #495057;">Información de la Solicitud</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div><strong>Docente:</strong> @solicitudEnVerificacion.DocenteNombre</div>
+                    <div><strong>Fecha Solicitud:</strong> @solicitudEnVerificacion.FechaSolicitud.ToString("dd/MM/yyyy")</div>
+                    <div><strong>Nivel Actual:</strong> @solicitudEnVerificacion.NivelActual</div>
+                    <div><strong>Nivel Solicitado:</strong> @solicitudEnVerificacion.NuevoNivel</div>
+                    <div style="grid-column: span 2;"><strong>Estado:</strong> @solicitudEnVerificacion.Estado</div>
                 </div>
-                <div>
-                    @if (!documento.Verificado)
-                    {
-                        <MudChip T="string" Color="Color.Warning" Size="Size.Small">Pendiente</MudChip>
-                    }
-                    else
-                    {
-                        <MudChip T="string" Color="Color.Success" Size="Size.Small">Verificado</MudChip>
-                    }
+                
+                <!-- Resumen de documentos disponibles -->
+                <hr style="margin: 20px 0;">
+                <h5 style="margin-bottom: 15px;">Resumen de Documentos en el Sistema</h5>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
+                    <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #1976d2;">@evaluacionesDocente.Count</div>
+                        <div style="font-size: 12px; color: #666;">Evaluaciones</div>
+                    </div>
+                    <div style="background-color: #f3e5f5; padding: 15px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #7b1fa2;">@capacitacionesDocente.Count</div>
+                        <div style="font-size: 12px; color: #666;">Capacitaciones</div>
+                    </div>
+                    <div style="background-color: #e8f5e8; padding: 15px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #388e3c;">@publicacionesDocente.Count</div>
+                        <div style="font-size: 12px; color: #666;">Publicaciones</div>
+                    </div>
+                    <div style="background-color: #fff3e0; padding: 15px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #f57c00;">@proyectosDocente.Count</div>
+                        <div style="font-size: 12px; color: #666;">Proyectos</div>
+                    </div>
+                </div>
+                
+                @if (capacitacionesDocente.Any())
+                {
+                    <div style="margin-top: 15px;">
+                        <strong>Total horas de capacitación:</strong> @capacitacionesDocente.Sum(c => c.Horas) horas
+                    </div>
+                }
+                
+                @if (evaluacionesDocente.Any())
+                {
+                    var promedioEvaluacion = evaluacionesDocente.Average(e => e.Puntaje);
+                    <div style="margin-top: 10px;">
+                        <strong>Promedio evaluaciones:</strong> 
+                        <span style="background-color: @(promedioEvaluacion >= 75 ? "#4caf50" : "#ff9800"); color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
+                            @promedioEvaluacion.ToString("F1") pts
+                        </span>
+                    </div>
+                }
+            </div>
+
+            <!-- Lista de Verificación Documental -->
+            <div style="background-color: white; border: 1px solid #ddd; border-radius: 6px; padding: 20px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h4 style="margin: 0;">Lista de Verificación Documental</h4>
+                    <span style="background-color: @(GetColorProgresoHex()); color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
+                        @documentosVerificados/@documentosRequeridos.Count verificados
+                    </span>
+                </div>
+                
+                @foreach (var documento in documentosRequeridos)
+                {
+                    <div style="border-bottom: 1px solid #eee; padding: 15px 0;">
+                        <div style="display: flex; align-items: flex-start; gap: 15px;">
+                            <input type="checkbox" @bind="documento.Verificado" @bind:after="ActualizarContador" 
+                                   style="margin-top: 4px; transform: scale(1.2);" />
+                            <div style="flex-grow: 1;">
+                                <div style="font-weight: bold; margin-bottom: 5px;">@documento.Nombre</div>
+                                @if (!string.IsNullOrEmpty(documento.Descripcion))
+                                {
+                                    <div style="font-size: 14px; color: #666; margin-bottom: 10px;">@documento.Descripcion</div>
+                                }
+                                
+                                <!-- Mostrar datos reales del docente para este documento -->
+                                @if (documentosDatosReales.ContainsKey(documento.Nombre))
+                                {
+                                    <details style="margin-top: 10px;">
+                                        <summary style="cursor: pointer; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
+                                            👁️ Ver documentos del docente (@documentosDatosReales[documento.Nombre].Count elemento(s))
+                                        </summary>
+                                        <div style="margin-top: 10px; padding: 15px; background-color: #f8f9fa; border-radius: 4px;">
+                                            @RenderDocumentosRealesSimple(documento.Nombre)
+                                        </div>
+                                    </details>
+                                }
+                            </div>
+                            <div>
+                                @if (!documento.Verificado)
+                                {
+                                    <span style="background-color: #ff9800; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">Pendiente</span>
+                                }
+                                else
+                                {
+                                    <span style="background-color: #4caf50; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px;">Verificado</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Progreso de verificación -->
+                <div style="margin-top: 20px;">
+                    <div style="margin-bottom: 10px;"><strong>Progreso de Verificación</strong></div>
+                    <div style="background-color: #e0e0e0; border-radius: 10px; height: 20px; position: relative;">
+                        <div style="background-color: @(GetColorProgresoHex()); height: 100%; border-radius: 10px; width: @(porcentajeVerificacion)%; transition: width 0.3s ease;"></div>
+                    </div>
+                    <div style="font-size: 12px; color: #666; margin-top: 5px;">@porcentajeVerificacion.ToString("F0")% completado</div>
+                </div>
+                
+                <!-- Instrucciones para verificación -->
+                <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; margin-top: 20px;">
+                    <strong>Instrucciones:</strong> Para cada documento requerido, expanda la sección "Ver documentos del docente" 
+                    para revisar la información registrada en el sistema. Marque como verificado solo si cumple con los requisitos.
+                    Los documentos mostrados son los que el docente ha registrado en su perfil del sistema.
                 </div>
             </div>
-        </MudListItem>
-        <MudDivider />
-    }
-</MudList>
 
-
-                        <!-- Progreso de verificación -->
-                        <div class="mt-4">
-                            <MudText Typo="Typo.subtitle2" Class="mb-2">Progreso de Verificación</MudText>
-                            <MudProgressLinear Value="@porcentajeVerificacion" Color="@GetColorProgreso()" Class="mb-2" />
-                            <MudText Typo="Typo.caption">@porcentajeVerificacion.ToString("F0")% completado</MudText>
-                        </div>
-                    </MudCardContent>
-                </MudCard>
-
-                <!-- Observaciones Generales -->
-                <MudCard>
-                    <MudCardHeader>
-                        <CardHeaderContent>
-                            <MudText Typo="Typo.h6">Observaciones de Talento Humano</MudText>
-                        </CardHeaderContent>
-                    </MudCardHeader>
-                    <MudCardContent>
-                        <MudTextField @bind-Value="observacionesGenerales" 
-                                    Label="Observaciones Generales" 
-                                    Variant="Variant.Outlined" 
-                                    Lines="4" 
-                                    FullWidth="true"
-                                    Placeholder="Escriba sus observaciones sobre la verificación documental..." />
-                    </MudCardContent>
-                </MudCard>
-            </MudContainer>
-        </DialogContent>
-        <DialogActions>
-            <MudButton OnClick="CerrarModalVerificacion" Color="Color.Default">Cancelar</MudButton>
-            <MudButton OnClick="GuardarProgreso" Color="Color.Info" Variant="Variant.Outlined" 
-                     Disabled="procesando">
-                Guardar Progreso
-            </MudButton>
-            <MudButton OnClick="RechazarSolicitud" Color="Color.Error" Variant="Variant.Filled" 
-                     Disabled="procesando">
-                @if (procesando)
-                {
-                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
-                    <MudText Class="ms-2">Procesando...</MudText>
-                }
-                else
-                {
-                    <MudText>Rechazar</MudText>
-                }
-            </MudButton>
-            <MudButton OnClick="CompletarVerificacion" Color="Color.Success" Variant="Variant.Filled" 
-                     Disabled="procesando || !TodosDocumentosVerificados()">
-                @if (procesando)
-                {
-                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
-                    <MudText Class="ms-2">Procesando...</MudText>
-                }
-                else
-                {
-                    <MudText>Completar Verificación</MudText>
-                }
-            </MudButton>
-        </DialogActions>
-    </MudDialog>
+            <!-- Observaciones Generales -->
+            <div style="background-color: white; border: 1px solid #ddd; border-radius: 6px; padding: 20px; margin-bottom: 20px;">
+                <h4 style="margin-top: 0;">Observaciones de Talento Humano</h4>
+                <textarea @bind="observacionesGenerales" 
+                         placeholder="Escriba sus observaciones sobre la verificación documental..."
+                         style="width: 100%; height: 100px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+            </div>
+            
+            <!-- Botones de acción -->
+            <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid #ddd;">
+                <button @onclick="CerrarModalVerificacion" 
+                        style="padding: 10px 20px; border: 1px solid #ddd; background-color: white; border-radius: 4px; cursor: pointer;">
+                    Cancelar
+                </button>
+                <button @onclick="GuardarProgreso" disabled="@procesando"
+                        style="padding: 10px 20px; border: 1px solid #2196f3; background-color: #2196f3; color: white; border-radius: 4px; cursor: pointer;">
+                    @if (procesando) { <span>Procesando...</span> } else { <span>Guardar Progreso</span> }
+                </button>
+                <button @onclick="RechazarSolicitud" disabled="@procesando"
+                        style="padding: 10px 20px; border: 1px solid #f44336; background-color: #f44336; color: white; border-radius: 4px; cursor: pointer;">
+                    @if (procesando) { <span>Procesando...</span> } else { <span>Rechazar</span> }
+                </button>
+                <button @onclick="CompletarVerificacion" disabled="@(procesando || !TodosDocumentosVerificados())"
+                        style="padding: 10px 20px; border: 1px solid #4caf50; background-color: #4caf50; color: white; border-radius: 4px; cursor: pointer;">
+                    @if (procesando) { <span>Procesando...</span> } else { <span>Completar Verificación</span> }
+                </button>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
@@ -327,6 +335,13 @@
     private double porcentajeVerificacion = 0;
 
     private List<DocumentoVerificacion> documentosRequeridos = new List<DocumentoVerificacion>();
+    
+    // Datos reales del docente para verificación
+    private Dictionary<string, List<object>> documentosDatosReales = new Dictionary<string, List<object>>();
+    private List<EvaluacionDocenteDto> evaluacionesDocente = new List<EvaluacionDocenteDto>();
+    private List<CursoCapacitacionDto> capacitacionesDocente = new List<CursoCapacitacionDto>();
+    private List<PublicacionAcademicaDto> publicacionesDocente = new List<PublicacionAcademicaDto>();
+    private List<ProyectoInvestigacionDto> proyectosDocente = new List<ProyectoInvestigacionDto>();
 
     private DialogOptions dialogOptions = new DialogOptions() 
     { 
@@ -382,24 +397,224 @@
         }
     }
 
-    private Task IniciarVerificacion(SolicitudWorkflowDto solicitud)
+    private async Task IniciarVerificacion(SolicitudWorkflowDto solicitud)
     {
-        solicitudEnVerificacion = solicitud;
-        observacionesGenerales = string.Empty;
-        
-        // Cargar documentos requeridos según el nivel solicitado
-        CargarDocumentosRequeridos(solicitud.NuevoNivel);
-        
-        ActualizarContador();
-        mostrarModalVerificacion = true;
-        
-        return Task.CompletedTask;
+        try
+        {
+            Snackbar.Add($"Iniciando verificación para {solicitud.DocenteNombre}", Severity.Info);
+            
+            solicitudEnVerificacion = solicitud;
+            observacionesGenerales = string.Empty;
+            
+            // Cargar documentos requeridos según el nivel solicitado
+            CargarDocumentosRequeridos(solicitud.NuevoNivel);
+            
+            // Cargar datos reales del docente
+            await CargarDatosRealesDocente(solicitud.DocenteId);
+            
+            ActualizarContador();
+            mostrarModalVerificacion = true;
+            
+            StateHasChanged(); // Forzar actualización de la UI
+            
+            Snackbar.Add("Modal de verificación abierto", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al iniciar verificación: {ex.Message}", Severity.Error);
+        }
     }
 
-    private Task ContinuarVerificacion(SolicitudWorkflowDto solicitud)
+    private async Task CargarDatosRealesDocente(int docenteId)
     {
-        // Para solicitudes en proceso, cargar el progreso existente
-        return IniciarVerificacion(solicitud);
+        try
+        {
+            // Limpiar datos anteriores
+            documentosDatosReales.Clear();
+            
+            // Cargar evaluaciones del docente
+            evaluacionesDocente = await DocenteService.ObtenerEvaluacionesPorDocenteAsync(docenteId);
+            if (evaluacionesDocente.Any())
+            {
+                documentosDatosReales["Evaluaciones docentes"] = evaluacionesDocente.Cast<object>().ToList();
+            }
+            
+            // Cargar capacitaciones
+            capacitacionesDocente = await DocenteService.ObtenerCapacitacionesPorDocenteAsync(docenteId);
+            if (capacitacionesDocente.Any())
+            {
+                documentosDatosReales["Certificados de capacitación"] = capacitacionesDocente.Cast<object>().ToList();
+            }
+            
+            // Cargar publicaciones
+            publicacionesDocente = await DocenteService.ObtenerPublicacionesPorDocenteAsync(docenteId);
+            if (publicacionesDocente.Any())
+            {
+                documentosDatosReales["Publicaciones académicas"] = publicacionesDocente.Cast<object>().ToList();
+            }
+            
+            // Cargar proyectos de investigación
+            proyectosDocente = await DocenteService.ObtenerProyectosPorDocenteAsync(docenteId);
+            if (proyectosDocente.Any())
+            {
+                documentosDatosReales["Proyectos de investigación"] = proyectosDocente.Cast<object>().ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar datos del docente: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private RenderFragment RenderDocumentosReales(string tipoDocumento)
+    {
+        return @<div>
+            @if (documentosDatosReales.ContainsKey(tipoDocumento))
+            {
+                var documentos = documentosDatosReales[tipoDocumento];
+                
+                @switch (tipoDocumento)
+                {
+                    case "Evaluaciones docentes":
+                        <MudTable Items="@evaluacionesDocente" Dense="true" Hover="true" Class="mt-2">
+                            <HeaderContent>
+                                <MudTh>Período</MudTh>
+                                <MudTh>Puntaje</MudTh>
+                                <MudTh>Tipo</MudTh>
+                                <MudTh>Fecha</MudTh>
+                                <MudTh>Estado</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.Periodo</MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Color="@(context.Puntaje >= 75 ? Color.Success : Color.Warning)" Size="Size.Small">
+                                        @context.Puntaje pts
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd>@context.TipoEvaluacion</MudTd>
+                                <MudTd>@context.FechaEvaluacion.ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Color="@(context.Puntaje >= 75 ? Color.Success : Color.Error)" Size="Size.Small">
+                                        @(context.Puntaje >= 75 ? "Cumple" : "No Cumple")
+                                    </MudChip>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                        break;
+                        
+                    case "Certificados de capacitación":
+                        <MudTable Items="@capacitacionesDocente" Dense="true" Hover="true" Class="mt-2">
+                            <HeaderContent>
+                                <MudTh>Curso</MudTh>
+                                <MudTh>Horas</MudTh>
+                                <MudTh>Fecha Inicio</MudTh>
+                                <MudTh>Fecha Fin</MudTh>
+                                <MudTh>Externo</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.Nombre</MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Color="Color.Info" Size="Size.Small">
+                                        @context.Horas h
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd>@context.FechaInicio.ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd>@context.FechaFin.ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Color="@(context.Externo ? Color.Warning : Color.Info)" Size="Size.Small">
+                                        @(context.Externo ? "Externo" : "Interno")
+                                    </MudChip>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                        <MudText Typo="Typo.caption" Class="mt-2">
+                            <strong>Total horas:</strong> @capacitacionesDocente.Sum(c => c.Horas) horas
+                        </MudText>
+                        break;
+                        
+                    case "Publicaciones académicas":
+                        <MudTable Items="@publicacionesDocente" Dense="true" Hover="true" Class="mt-2">
+                            <HeaderContent>
+                                <MudTh>Título</MudTh>
+                                <MudTh>Revista/Editorial</MudTh>
+                                <MudTh>Año</MudTh>
+                                <MudTh>Tipo</MudTh>
+                                <MudTh>Estado</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>
+                                    <MudText Typo="Typo.body2" Style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
+                                        @context.Titulo
+                                    </MudText>
+                                </MudTd>
+                                <MudTd>@context.Revista</MudTd>
+                                <MudTd>@context.Anio</MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Color="Color.Secondary" Size="Size.Small">
+                                        @context.Tipo
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Color="Color.Success" Size="Size.Small">
+                                        Publicado
+                                    </MudChip>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                        break;
+                        
+                    case "Proyectos de investigación":
+                        <MudTable Items="@proyectosDocente" Dense="true" Hover="true" Class="mt-2">
+                            <HeaderContent>
+                                <MudTh>Título</MudTh>
+                                <MudTh>Período</MudTh>
+                                <MudTh>Duración</MudTh>
+                                <MudTh>Estado</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>
+                                    <MudText Typo="Typo.body2" Style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
+                                        @context.Titulo
+                                    </MudText>
+                                </MudTd>
+                                <MudTd>@context.FechaInicio.ToString("MM/yyyy") - @context.FechaFin.ToString("MM/yyyy")</MudTd>
+                                <MudTd>
+                                    @{
+                                        var meses = (context.FechaFin.Year - context.FechaInicio.Year) * 12 + (context.FechaFin.Month - context.FechaInicio.Month);
+                                    }
+                                    <MudChip T="string" Color="Color.Info" Size="Size.Small">
+                                        @meses meses
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Color="@(context.FechaFin > DateTime.Now ? Color.Warning : Color.Success)" Size="Size.Small">
+                                        @(context.FechaFin > DateTime.Now ? "En curso" : "Completado")
+                                    </MudChip>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                        break;
+                        
+                    default:
+                        <MudAlert Severity="Severity.Info" Class="mt-2">
+                            No hay documentos específicos disponibles para mostrar.
+                        </MudAlert>
+                        break;
+                }
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Warning" Class="mt-2">
+                    El docente no ha registrado documentos de este tipo en el sistema.
+                </MudAlert>
+            }
+        </div>;
+    }
+
+    private async Task ContinuarVerificacion(SolicitudWorkflowDto solicitud)
+    {
+        // Para solicitudes en proceso, cargar el progreso existente y datos del docente
+        await IniciarVerificacion(solicitud);
     }
 
     private void CargarDocumentosRequeridos(string nivelSolicitado)
@@ -510,6 +725,180 @@
             >= 50 => Color.Warning,
             _ => Color.Error
         };
+    }
+
+    private string GetColorProgresoHex()
+    {
+        return porcentajeVerificacion switch
+        {
+            >= 100 => "#4caf50",
+            >= 75 => "#2196f3",
+            >= 50 => "#ff9800",
+            _ => "#f44336"
+        };
+    }
+
+    private RenderFragment RenderDocumentosRealesSimple(string tipoDocumento)
+    {
+        return @<div>
+            @if (documentosDatosReales.ContainsKey(tipoDocumento))
+            {
+                @switch (tipoDocumento)
+                {
+                    case "Evaluaciones docentes":
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background-color: #f0f0f0;">
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Período</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Puntaje</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Tipo</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Fecha</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var eval in evaluacionesDocente)
+                                {
+                                    <tr>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">@eval.Periodo</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            <span style="background-color: @(eval.Puntaje >= 75 ? "#4caf50" : "#ff9800"); color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px;">
+                                                @eval.Puntaje pts
+                                            </span>
+                                        </td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">@eval.TipoEvaluacion</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">@eval.FechaEvaluacion.ToString("dd/MM/yyyy")</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            <span style="background-color: @(eval.Puntaje >= 75 ? "#4caf50" : "#f44336"); color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px;">
+                                                @(eval.Puntaje >= 75 ? "Cumple" : "No Cumple")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        break;
+                        
+                    case "Certificados de capacitación":
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background-color: #f0f0f0;">
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Curso</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Horas</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Fecha Inicio</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Fecha Fin</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Externo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var cap in capacitacionesDocente)
+                                {
+                                    <tr>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">@cap.Nombre</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            <span style="background-color: #2196f3; color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px;">
+                                                @cap.Horas h
+                                            </span>
+                                        </td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">@cap.FechaInicio.ToString("dd/MM/yyyy")</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">@cap.FechaFin.ToString("dd/MM/yyyy")</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            <span style="background-color: @(cap.Externo ? "#ff9800" : "#2196f3"); color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px;">
+                                                @(cap.Externo ? "Externo" : "Interno")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        <div style="margin-top: 10px; font-weight: bold;">
+                            Total horas: @capacitacionesDocente.Sum(c => c.Horas) horas
+                        </div>
+                        break;
+                        
+                    case "Publicaciones académicas":
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background-color: #f0f0f0;">
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Título</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Revista/Editorial</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Año</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Tipo</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var pub in publicacionesDocente)
+                                {
+                                    <tr>
+                                        <td style="border: 1px solid #ddd; padding: 8px; max-width: 200px; word-wrap: break-word;">@pub.Titulo</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">@pub.Revista</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">@pub.Anio</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            <span style="background-color: #7b1fa2; color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px;">
+                                                @pub.Tipo
+                                            </span>
+                                        </td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            <span style="background-color: #4caf50; color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px;">
+                                                Publicado
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        break;
+                        
+                    case "Proyectos de investigación":
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background-color: #f0f0f0;">
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Título</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Período</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Duración</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var proy in proyectosDocente)
+                                {
+                                    <tr>
+                                        <td style="border: 1px solid #ddd; padding: 8px; max-width: 200px; word-wrap: break-word;">@proy.Titulo</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">@proy.FechaInicio.ToString("MM/yyyy") - @proy.FechaFin.ToString("MM/yyyy")</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            @{
+                                                var meses = (proy.FechaFin.Year - proy.FechaInicio.Year) * 12 + (proy.FechaFin.Month - proy.FechaInicio.Month);
+                                            }
+                                            <span style="background-color: #2196f3; color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px;">
+                                                @meses meses
+                                            </span>
+                                        </td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            <span style="background-color: @(proy.FechaFin > DateTime.Now ? "#ff9800" : "#4caf50"); color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px;">
+                                                @(proy.FechaFin > DateTime.Now ? "En curso" : "Completado")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        break;
+                        
+                    default:
+                        <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; text-align: center;">
+                            No hay documentos específicos disponibles para mostrar.
+                        </div>
+                        break;
+                }
+            }
+            else
+            {
+                <div style="background-color: #fff3e0; padding: 15px; border-radius: 6px; text-align: center;">
+                    El docente no ha registrado documentos de este tipo en el sistema.
+                </div>
+            }
+        </div>;
     }
 
     private async Task GuardarProgreso()
