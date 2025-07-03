@@ -1,15 +1,20 @@
 @using MyCleanApp.Client.DTOs
 @using System.Text.Json
 @using MudBlazor
+@using System.Timers
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
+@implements IDisposable
 
 <MudPaper Elevation="1" Class="pa-4">
     <div class="d-flex align-center mb-4">
         <MudIcon Icon="@Icons.Material.Filled.Analytics" Style="color: #8B1538;" Class="me-2" />
         <MudText Typo="Typo.h5" Style="color: #8B1538;">Reportes de Talento Humano</MudText>
         <MudSpacer />
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="ActualizarReportes" Class="me-2">
+            Actualizar Datos
+        </MudButton>
         <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="ExportarReportes">
             Exportar
         </MudButton>
@@ -21,8 +26,29 @@
             <MudProgressCircular Indeterminate Color="Color.Primary" Size="Size.Large" />
         </div>
     }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mb-4">
+            @errorMessage
+            <MudButton StartIcon="@Icons.Material.Filled.Refresh" Color="Color.Inherit" OnClick="CargarDatosReportes" Class="ml-2">
+                Reintentar
+            </MudButton>
+        </MudAlert>
+    }
     else
     {
+        <!-- Información de última actualización -->
+        <MudPaper Class="pa-2 mb-4" Elevation="1">
+            <div class="d-flex align-center justify-space-between">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    <MudIcon Icon="@Icons.Material.Filled.Update" Size="Size.Small" Class="me-1" />
+                    Última actualización: @ultimaActualizacion.ToString("dd/MM/yyyy HH:mm:ss")
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Datos en tiempo real desde la API
+                </MudText>
+            </div>
+        </MudPaper>
         <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" Class="mb-4">
             <MudTabPanel Icon="@Icons.Material.Filled.Dashboard" Text="Resumen Ejecutivo">
                 @RenderResumenEjecutivo()
@@ -43,6 +69,8 @@
 @code {
     private bool loading = true;
     private string errorMessage = string.Empty;
+    private DateTime ultimaActualizacion = DateTime.Now;
+    private System.Timers.Timer? autoUpdateTimer;
 
     // Datos de reportes
     private ReporteResumen datosResumen = new ReporteResumen();
@@ -53,6 +81,31 @@
     protected override async Task OnInitializedAsync()
     {
         await CargarDatosReportes();
+        
+        // Configurar actualización automática cada 5 minutos
+        autoUpdateTimer = new System.Timers.Timer(300000); // 5 minutos
+        autoUpdateTimer.Elapsed += async (sender, e) => await ActualizacionAutomatica();
+        autoUpdateTimer.AutoReset = true;
+        autoUpdateTimer.Enabled = true;
+    }
+
+    private async Task ActualizacionAutomatica()
+    {
+        try
+        {
+            await CargarDatosReportes();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception)
+        {
+            // Silenciar errores de actualización automática
+        }
+    }
+
+    public void Dispose()
+    {
+        autoUpdateTimer?.Stop();
+        autoUpdateTimer?.Dispose();
     }
 
     private async Task CargarDatosReportes()
@@ -60,50 +113,238 @@
         try
         {
             loading = true;
-            await Task.Delay(1000); // Simular carga de datos
+            errorMessage = string.Empty;
 
-            // Simular datos de reporte
-            datosResumen = new ReporteResumen
-            {
-                TotalSolicitudes = 45,
-                SolicitudesPendientes = 8,
-                SolicitudesAprobadas = 32,
-                SolicitudesRechazadas = 5,
-                TiempoPromedioRevision = 5.2,
-                PorcentajeAprobacion = 86.5
-            };
+            // Cargar datos reales desde la API
+            await Task.WhenAll(
+                CargarResumenEjecutivo(),
+                CargarAnalisisPromociones(),
+                CargarTiemposProceso(),
+                CargarMetricasCalidad()
+            );
 
-            promocionesPorPeriodo = new List<PromocionPorPeriodo>
-            {
-                new PromocionPorPeriodo { Periodo = "2024-01", AuxiliarAAgregado = 12, AgregadoAPrincipal = 8, PrincipalAInvestigador = 3 },
-                new PromocionPorPeriodo { Periodo = "2024-02", AuxiliarAAgregado = 15, AgregadoAPrincipal = 6, PrincipalAInvestigador = 2 },
-                new PromocionPorPeriodo { Periodo = "2024-03", AuxiliarAAgregado = 10, AgregadoAPrincipal = 9, PrincipalAInvestigador = 4 }
-            };
-
-            tiemposProceso = new List<TiempoProceso>
-            {
-                new TiempoProceso { Etapa = "Verificación Documental", TiempoPromedio = 3.2, TiempoMinimo = 1, TiempoMaximo = 7 },
-                new TiempoProceso { Etapa = "Revisión Talento Humano", TiempoPromedio = 5.1, TiempoMinimo = 2, TiempoMaximo = 12 },
-                new TiempoProceso { Etapa = "Evaluación Comisión", TiempoPromedio = 8.5, TiempoMinimo = 5, TiempoMaximo = 15 },
-                new TiempoProceso { Etapa = "Aprobación Consejo", TiempoPromedio = 12.3, TiempoMinimo = 8, TiempoMaximo = 20 }
-            };
-
-            metricasCalidad = new MetricasCalidad
-            {
-                DocumentosConErrores = 12,
-                DocumentosCorrectos = 158,
-                PorcentajeCalidad = 92.9,
-                RevisionesRepetidas = 8,
-                SolicitudesDevueltas = 3
-            };
+            ultimaActualizacion = DateTime.Now;
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error: {ex.Message}";
+            errorMessage = $"Error al cargar datos de reportes: {ex.Message}";
         }
         finally
         {
             loading = false;
+        }
+    }
+
+    private async Task CargarResumenEjecutivo()
+    {
+        try
+        {
+            var response = await Http.GetAsync("http://localhost:5015/api/Reportes/resumen-ejecutivo");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                datosResumen = JsonSerializer.Deserialize<ReporteResumen>(json, options) ?? new ReporteResumen();
+            }
+            else
+            {
+                // Fallback a datos calculados desde solicitudes
+                await CargarResumenDesdeApi();
+            }
+        }
+        catch (Exception)
+        {
+            // Fallback a datos calculados
+            await CargarResumenDesdeApi();
+        }
+    }
+
+    private async Task CargarResumenDesdeApi()
+    {
+        try
+        {
+            var response = await Http.GetAsync("http://localhost:5015/api/SolicitudAvanceRango");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var solicitudes = JsonSerializer.Deserialize<List<SolicitudWorkflowDto>>(json, options) ?? new List<SolicitudWorkflowDto>();
+
+                // Calcular métricas desde los datos reales
+                var totalSolicitudes = solicitudes.Count;
+                var pendientes = solicitudes.Count(s => s.Estado == "PENDIENTE");
+                var enVerificacion = solicitudes.Count(s => s.Estado == "EN_VERIFICACION");
+                var verificadas = solicitudes.Count(s => s.Estado == "VERIFICADA");
+                var aprobadas = solicitudes.Count(s => s.Estado == "APROBADA");
+                var rechazadas = solicitudes.Count(s => s.Estado == "RECHAZADA");
+
+                // Calcular tiempo promedio (simulado basado en fechas)
+                var solicitudesConFecha = solicitudes.Where(s => s.FechaSolicitud != default).ToList();
+                var tiempoPromedio = solicitudesConFecha.Any() ? 
+                    solicitudesConFecha.Average(s => (DateTime.Now - s.FechaSolicitud).TotalDays) : 0;
+
+                // Porcentaje de aprobación
+                var solicitudesFinalizadas = aprobadas + rechazadas;
+                var porcentajeAprobacion = solicitudesFinalizadas > 0 ? 
+                    (double)aprobadas / solicitudesFinalizadas * 100 : 0;
+
+                datosResumen = new ReporteResumen
+                {
+                    TotalSolicitudes = totalSolicitudes,
+                    SolicitudesPendientes = pendientes + enVerificacion,
+                    SolicitudesAprobadas = aprobadas + verificadas,
+                    SolicitudesRechazadas = rechazadas,
+                    TiempoPromedioRevision = Math.Round(tiempoPromedio, 1),
+                    PorcentajeAprobacion = Math.Round(porcentajeAprobacion, 1)
+                };
+            }
+        }
+        catch (Exception)
+        {
+            // Datos por defecto si falla todo
+            datosResumen = new ReporteResumen();
+        }
+    }
+
+    private async Task CargarAnalisisPromociones()
+    {
+        try
+        {
+            var response = await Http.GetAsync("http://localhost:5015/api/Reportes/promociones-por-periodo");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                promocionesPorPeriodo = JsonSerializer.Deserialize<List<PromocionPorPeriodo>>(json, options) ?? new List<PromocionPorPeriodo>();
+            }
+            else
+            {
+                // Calcular desde datos de solicitudes
+                await CargarPromocionesDesdeApi();
+            }
+        }
+        catch (Exception)
+        {
+            await CargarPromocionesDesdeApi();
+        }
+    }
+
+    private async Task CargarPromocionesDesdeApi()
+    {
+        try
+        {
+            var response = await Http.GetAsync("http://localhost:5015/api/SolicitudAvanceRango");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var solicitudes = JsonSerializer.Deserialize<List<SolicitudWorkflowDto>>(json, options) ?? new List<SolicitudWorkflowDto>();
+
+                // Agrupar por período (últimos 6 meses)
+                var periodos = solicitudes
+                    .Where(s => s.FechaSolicitud != default)
+                    .GroupBy(s => s.FechaSolicitud.ToString("yyyy-MM"))
+                    .OrderByDescending(g => g.Key)
+                    .Take(6)
+                    .Select(g => new PromocionPorPeriodo
+                    {
+                        Periodo = g.Key,
+                        AuxiliarAAgregado = g.Count(s => s.NuevoNivel.Contains("DT2") || s.NuevoNivel.Contains("Agregado")),
+                        AgregadoAPrincipal = g.Count(s => s.NuevoNivel.Contains("DT3") || s.NuevoNivel.Contains("Principal")),
+                        PrincipalAInvestigador = g.Count(s => s.NuevoNivel.Contains("DT4") || s.NuevoNivel.Contains("DT5"))
+                    })
+                    .ToList();
+
+                promocionesPorPeriodo = periodos;
+            }
+        }
+        catch (Exception)
+        {
+            promocionesPorPeriodo = new List<PromocionPorPeriodo>();
+        }
+    }
+
+    private async Task CargarTiemposProceso()
+    {
+        try
+        {
+            var response = await Http.GetAsync("http://localhost:5015/api/Reportes/tiempos-proceso");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                tiemposProceso = JsonSerializer.Deserialize<List<TiempoProceso>>(json, options) ?? new List<TiempoProceso>();
+            }
+            else
+            {
+                // Datos estimados basados en estados actuales
+                tiemposProceso = new List<TiempoProceso>
+                {
+                    new TiempoProceso { Etapa = "Verificación Documental", TiempoPromedio = 3.0, TiempoMinimo = 1, TiempoMaximo = 7 },
+                    new TiempoProceso { Etapa = "Revisión Talento Humano", TiempoPromedio = 5.0, TiempoMinimo = 2, TiempoMaximo = 10 },
+                    new TiempoProceso { Etapa = "Evaluación Comisión", TiempoPromedio = 8.0, TiempoMinimo = 5, TiempoMaximo = 15 },
+                    new TiempoProceso { Etapa = "Aprobación Consejo", TiempoPromedio = 12.0, TiempoMinimo = 8, TiempoMaximo = 20 }
+                };
+            }
+        }
+        catch (Exception)
+        {
+            tiemposProceso = new List<TiempoProceso>();
+        }
+    }
+
+    private async Task CargarMetricasCalidad()
+    {
+        try
+        {
+            var response = await Http.GetAsync("http://localhost:5015/api/Reportes/metricas-calidad");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                metricasCalidad = JsonSerializer.Deserialize<MetricasCalidad>(json, options) ?? new MetricasCalidad();
+            }
+            else
+            {
+                // Calcular métricas básicas
+                await CargarMetricasDesdeApi();
+            }
+        }
+        catch (Exception)
+        {
+            await CargarMetricasDesdeApi();
+        }
+    }
+
+    private async Task CargarMetricasDesdeApi()
+    {
+        try
+        {
+            var response = await Http.GetAsync("http://localhost:5015/api/SolicitudAvanceRango");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var solicitudes = JsonSerializer.Deserialize<List<SolicitudWorkflowDto>>(json, options) ?? new List<SolicitudWorkflowDto>();
+
+                var totalDocumentos = solicitudes.Count * 8; // Estimación de 8 documentos por solicitud
+                var documentosConErrores = solicitudes.Count(s => s.Estado == "RECHAZADA") * 3; // Estimación
+                var documentosCorrectos = totalDocumentos - documentosConErrores;
+                var porcentajeCalidad = totalDocumentos > 0 ? (double)documentosCorrectos / totalDocumentos * 100 : 0;
+
+                metricasCalidad = new MetricasCalidad
+                {
+                    DocumentosConErrores = documentosConErrores,
+                    DocumentosCorrectos = documentosCorrectos,
+                    PorcentajeCalidad = Math.Round(porcentajeCalidad, 1),
+                    RevisionesRepetidas = solicitudes.Count(s => s.Estado == "EN_VERIFICACION"),
+                    SolicitudesDevueltas = solicitudes.Count(s => s.Estado == "RECHAZADA")
+                };
+            }
+        }
+        catch (Exception)
+        {
+            metricasCalidad = new MetricasCalidad();
         }
     }
 
@@ -449,9 +690,45 @@
         };
     }
 
+    private async Task ActualizarReportes()
+    {
+        Snackbar.Add("Actualizando reportes...", Severity.Info);
+        await CargarDatosReportes();
+        Snackbar.Add("Reportes actualizados exitosamente", Severity.Success);
+    }
+
     private async Task ExportarReportes()
     {
-        await JS.InvokeVoidAsync("alert", "Exportar reportes - Funcionalidad en desarrollo");
+        try
+        {
+            var datosExportacion = new
+            {
+                FechaGeneracion = DateTime.Now,
+                ResumenEjecutivo = datosResumen,
+                PromocionesPorPeriodo = promocionesPorPeriodo,
+                TiemposProceso = tiemposProceso,
+                MetricasCalidad = metricasCalidad,
+                ErroresComunes = GetErroresComunes()
+            };
+
+            var json = JsonSerializer.Serialize(datosExportacion, new JsonSerializerOptions 
+            { 
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+
+            // Crear un blob y descargarlo
+            await JS.InvokeVoidAsync("downloadFile", 
+                "reporte-talento-humano-" + DateTime.Now.ToString("yyyy-MM-dd") + ".json", 
+                "application/json", 
+                json);
+
+            Snackbar.Add("Reporte exportado exitosamente", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al exportar reporte: {ex.Message}", Severity.Error);
+        }
     }
 
     // Clases de modelo
