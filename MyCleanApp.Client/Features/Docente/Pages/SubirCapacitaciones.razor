@@ -1,110 +1,381 @@
 @page "/subir-capacitacion"
+@using MyCleanApp.Client.DTOs
 @inject DocenteService DocenteService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject ISnackbar Snackbar
 
-@using System.ComponentModel.DataAnnotations
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+    <MudPaper Class="pa-6" Elevation="3">
+        <!-- Header con botón de regreso -->
+        <MudGrid>
+            <MudItem xs="12">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.School" Color="Color.Primary" Size="Size.Large" />
+                        <MudText Typo="Typo.h4" Color="Color.Primary" Class="font-weight-bold">
+                            Nueva Capacitación
+                        </MudText>
+                    </MudStack>
+                    <MudButton Variant="Variant.Outlined" 
+                              Color="Color.Primary" 
+                              StartIcon="@Icons.Material.Filled.ArrowBack"
+                              OnClick="VolverAlDashboard">
+                        Volver al Dashboard
+                    </MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
 
-<div class="max-w-xl mx-auto mt-10">
-    <div class="bg-white border border-gray-200 rounded-lg shadow-lg p-8">
-        <div class="flex justify-end mb-4">
-            <button
-                class="flex items-center gap-2 bg-gray-100 hover:bg-blue-100 text-blue-700 font-medium py-1.5 px-4 rounded transition-colors border border-gray-200 shadow-sm"
-                @onclick="VolverAlDashboard">
-                <svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                Volver al Dashboard
-            </button>
-        </div>
-        <h2 class="text-2xl font-bold text-blue-700 mb-2 flex items-center gap-2">
-            <svg class="h-7 w-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Nueva Capacitación
-        </h2>
-        <p class="text-gray-600 mb-6">Completa el formulario para registrar una nueva capacitación.</p>
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+            Completa el formulario para registrar una nueva capacitación en el sistema.
+        </MudText>
 
-        <EditForm Model="@capacitacion" OnValidSubmit="SubirCapacitacion" class="space-y-5">
-            <DataAnnotationsValidator />
-            <ValidationSummary />
+        <!-- Formulario -->
+        <EditForm Model="@capacitacion" OnValidSubmit="SubirCapacitacion">
+            <MudGrid Spacing="4">
+                <!-- Nombre del Curso -->
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="capacitacion.Nombre"
+                                 Label="Nombre del Curso *"
+                                 Variant="Variant.Outlined"
+                                 Required="true"
+                                 RequiredError="El nombre del curso es requerido"
+                                 Placeholder="Ej: Curso de Metodología de la Investigación"
+                                 HelperText="Ingresa el nombre completo del curso o capacitación" />
+                </MudItem>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del Curso</label>
-                <InputText @bind-Value="capacitacion.Nombre"
-                    class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <ValidationMessage For="@(() => capacitacion.Nombre)" />
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label>
-                    <InputDate @bind-Value="capacitacion.FechaInicio"
-                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <ValidationMessage For="@(() => capacitacion.FechaInicio)" />
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Fin</label>
-                    <InputDate @bind-Value="capacitacion.FechaFin"
-                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <ValidationMessage For="@(() => capacitacion.FechaFin)" />
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Horas</label>
-                <InputNumber @bind-Value="capacitacion.Horas"
-                    class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <ValidationMessage For="@(() => capacitacion.Horas)" />
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Certificado (PDF)</label>
-                <InputFile OnChange="OnFileChange" class="w-full text-gray-700" />
-                <ValidationMessage For="@(() => capacitacion.Certificado)" />
-            </div>
-            <div class="flex justify-end">
-                <button type="submit"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-md shadow transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    Guardar Capacitación
-                </button>
-            </div>
+                <!-- Fechas -->
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker Date="capacitacion.FechaInicio"
+                                  DateChanged="OnFechaInicioChanged"
+                                  Label="Fecha de Inicio *"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="La fecha de inicio es requerida"
+                                  DateFormat="dd/MM/yyyy"
+                                  PickerVariant="PickerVariant.Dialog" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="capacitacion.FechaFin"
+                                  Label="Fecha de Fin *"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="La fecha de fin es requerida"
+                                  DateFormat="dd/MM/yyyy"
+                                  PickerVariant="PickerVariant.Dialog"
+                                  MinDate="@minFechaFin"
+                                  MaxDate="@maxFechaFin" />
+                </MudItem>
+
+                <!-- Indicador de duración -->
+                @if (capacitacion.FechaInicio.HasValue && capacitacion.FechaFin.HasValue && capacitacion.FechaFin.Value > capacitacion.FechaInicio.Value)
+                {
+                    <MudItem xs="12">
+                        @{
+                            var duracion = capacitacion.FechaFin.Value - capacitacion.FechaInicio.Value;
+                            var dias = duracion.Days;
+                            var meses = (int)(dias / 30.44);
+                            var años = (int)(dias / 365.25);
+                        }
+                        <MudAlert Severity="Severity.Normal" Variant="Variant.Filled" Class="mb-3">
+                            <strong>Duración de la capacitación: </strong> 
+                            @if (años > 0)
+                            {
+                                <span>@años año@(años > 1 ? "s" : "")</span>
+                            }
+                            else if (meses > 0)
+                            {
+                                <span>@meses mes@(meses > 1 ? "es" : "")</span>
+                            }
+                            else
+                            {
+                                <span>@dias día@(dias > 1 ? "s" : "")</span>
+                            }
+                        </MudAlert>
+                    </MudItem>
+                }
+
+                <!-- Horas -->
+                <MudItem xs="12" sm="6">
+                    <MudNumericField @bind-Value="capacitacion.Horas"
+                                    Label="Horas de Capacitación *"
+                                    Variant="Variant.Outlined"
+                                    Required="true"
+                                    Min="1"
+                                    Max="1000"
+                                    Step="1"
+                                    RequiredError="Las horas son requeridas"
+                                    HelperText="Número total de horas del curso"
+                                    Adornment="Adornment.End"
+                                    AdornmentText="hrs" />
+                </MudItem>
+
+                <!-- Tipo de Capacitación -->
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" 
+                              Label="Tipo de Capacitación" 
+                              @bind-Value="tipoCapacitacion"
+                              Variant="Variant.Outlined"
+                              HelperText="Opcional: Especifica el tipo de capacitación">
+                        <MudSelectItem Value="@("FORMAL")">Formal</MudSelectItem>
+                        <MudSelectItem Value="@("INFORMAL")">Informal</MudSelectItem>
+                        <MudSelectItem Value="@("CERTIFICACION")">Certificación</MudSelectItem>
+                        <MudSelectItem Value="@("DIPLOMADO")">Diplomado</MudSelectItem>
+                        <MudSelectItem Value="@("CURSO")">Curso</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <!-- Descripción -->
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="descripcion"
+                                 Label="Descripción del Curso"
+                                 Variant="Variant.Outlined"
+                                 Lines="3"
+                                 Placeholder="Describe brevemente el contenido y objetivos del curso..."
+                                 HelperText="Opcional: Agrega detalles sobre el contenido del curso" />
+                </MudItem>
+
+                <!-- Certificado PDF -->
+                <MudItem xs="12">
+                    <MudPaper Class="pa-4" Elevation="1" Style="border: 2px dashed #ccc;">
+                        <MudStack Spacing="2">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">
+                                <MudIcon Icon="@Icons.Material.Filled.Upload" Class="mr-2" />
+                                Certificado PDF
+                            </MudText>
+                            
+                            @if (archivoSeleccionado != null)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Value="@archivoSeleccionado.Name">
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Class="mr-1" />
+                                    @archivoSeleccionado.Name (@FormatFileSize(archivoSeleccionado.Size))
+                                </MudChip>
+                            }
+                            
+                            <InputFile OnChange="OnFileChange" class="mud-input-file" accept=".pdf" />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Solo archivos PDF son permitidos. Tamaño máximo: 10MB.
+                            </MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- Botones de acción -->
+                <MudItem xs="12">
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="3" Class="mt-4">
+                        <MudButton Variant="Variant.Outlined" 
+                                  Color="Color.Secondary"
+                                  OnClick="VolverAlDashboard">
+                            Cancelar
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" 
+                                  Color="Color.Primary"
+                                  ButtonType="ButtonType.Submit"
+                                  StartIcon="@Icons.Material.Filled.Save"
+                                  Disabled="@isSubmitting">
+                            @if (isSubmitting)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <span>Guardando...</span>
+                            }
+                            else
+                            {
+                                <span>Guardar Capacitación</span>
+                            }
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
         </EditForm>
-    </div>
-</div>
+    </MudPaper>
+</MudContainer>
 
 @code {
-    CursoCapacitacionCreateReques capacitacion = new();
+    CursoCapacitacionCreateReques capacitacion = new()
+    {
+        FechaInicio = DateTime.Now,
+        FechaFin = DateTime.Now.AddDays(30),
+        Horas = 0,
+        Externo = false
+    };
+
+    private IBrowserFile? archivoSeleccionado;
+    private bool isSubmitting = false;
+    private string tipoCapacitacion = string.Empty;
+    private string descripcion = string.Empty;
+    
+    // Variables para control de fechas
+    private DateTime? minFechaFin = DateTime.Today;
+    private DateTime? maxFechaFin = DateTime.Today.AddYears(2); // Máximo 2 años en el futuro
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+
+    private void OnFechaInicioChanged(DateTime? nuevaFechaInicio)
+    {
+        // Actualizar la propiedad del modelo
+        capacitacion.FechaInicio = nuevaFechaInicio;
+        
+        if (nuevaFechaInicio.HasValue)
+        {
+            // Actualizar la fecha mínima para la fecha de fin
+            minFechaFin = nuevaFechaInicio.Value.AddDays(1); // Mínimo 1 día después del inicio
+            
+            // Si la fecha de fin actual es anterior a la nueva fecha mínima, resetearla
+            if (capacitacion.FechaFin.HasValue && capacitacion.FechaFin.Value < minFechaFin.Value)
+            {
+                capacitacion.FechaFin = minFechaFin.Value;
+                Snackbar.Add("⚠️ La fecha de fin se ha ajustado automáticamente para ser posterior a la fecha de inicio.", Severity.Warning);
+            }
+            
+            // Actualizar la fecha máxima (máximo 2 años después del inicio)
+            maxFechaFin = nuevaFechaInicio.Value.AddYears(2);
+        }
+        else
+        {
+            // Si no hay fecha de inicio, resetear las restricciones
+            minFechaFin = DateTime.Today;
+            maxFechaFin = DateTime.Today.AddYears(2);
+        }
+    }
 
     private async Task OnFileChange(InputFileChangeEventArgs e)
     {
         var file = e.File;
-        using var stream = file.OpenReadStream();
-        using var ms = new MemoryStream();
-        await stream.CopyToAsync(ms);
-        capacitacion.Certificado = Convert.ToBase64String(ms.ToArray());
+        archivoSeleccionado = file;
+        
+        // Validar que sea un archivo PDF
+        if (!file.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            Snackbar.Add("❌ Error: Solo se permiten archivos PDF para el certificado.", Severity.Error);
+            archivoSeleccionado = null;
+            return;
+        }
+        
+        // Validar tamaño del archivo (máximo 10MB)
+        const int maxSizeInBytes = 10 * 1024 * 1024; // 10MB
+        if (file.Size > maxSizeInBytes)
+        {
+            Snackbar.Add("❌ Error: El archivo es demasiado grande. Máximo permitido: 10MB.", Severity.Error);
+            archivoSeleccionado = null;
+            return;
+        }
+        
+        try
+        {
+            using var stream = file.OpenReadStream(maxSizeInBytes);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            capacitacion.Certificado = Convert.ToBase64String(ms.ToArray());
+            
+            Snackbar.Add("✅ Archivo PDF cargado correctamente.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"❌ Error al procesar el archivo: {ex.Message}", Severity.Error);
+            archivoSeleccionado = null;
+        }
     }
 
     private async Task SubirCapacitacion()
     {
-        // Mapear a tu DTO original si es necesario
-        var dto = new CursoCapacitacionCreateReques
+        isSubmitting = true;
+        
+        try
         {
-            Nombre = capacitacion.Nombre,
-            FechaInicio = capacitacion.FechaInicio,
-            FechaFin = capacitacion.FechaFin,
-            Certificado = capacitacion.Certificado,
-            Horas = (int) capacitacion.Horas,
-            Externo = false // Siempre local
-        };
+            // Validaciones básicas
+            if (string.IsNullOrWhiteSpace(capacitacion.Nombre))
+            {
+                Snackbar.Add("❌ Error: El nombre del curso es requerido.", Severity.Error);
+                return;
+            }
+            
+            if (!capacitacion.FechaInicio.HasValue)
+            {
+                Snackbar.Add("❌ Error: La fecha de inicio es requerida.", Severity.Error);
+                return;
+            }
+            
+            if (!capacitacion.FechaFin.HasValue)
+            {
+                Snackbar.Add("❌ Error: La fecha de fin es requerida.", Severity.Error);
+                return;
+            }
+            
+            if (capacitacion.FechaFin.Value <= capacitacion.FechaInicio.Value)
+            {
+                Snackbar.Add("❌ Error: La fecha de fin debe ser posterior a la fecha de inicio.", Severity.Error);
+                return;
+            }
+            
+            // Validar que la capacitación no sea muy corta (mínimo 1 día)
+            var duracionDias = (capacitacion.FechaFin.Value - capacitacion.FechaInicio.Value).Days;
+            if (duracionDias < 1)
+            {
+                Snackbar.Add("❌ Error: La capacitación debe tener al menos 1 día de duración.", Severity.Error);
+                return;
+            }
+            
+            // Validar que la capacitación no sea muy larga (máximo 2 años)
+            if (duracionDias > 730) // 2 años = 730 días aproximadamente
+            {
+                Snackbar.Add("❌ Error: La capacitación no puede durar más de 2 años.", Severity.Error);
+                return;
+            }
+            
+            if (capacitacion.Horas <= 0)
+            {
+                Snackbar.Add("❌ Error: Las horas deben ser mayores a 0.", Severity.Error);
+                return;
+            }
+            
+            // Mapear a tu DTO original si es necesario
+            var dto = new CursoCapacitacionCreateReques
+            {
+                Nombre = capacitacion.Nombre,
+                FechaInicio = capacitacion.FechaInicio,
+                FechaFin = capacitacion.FechaFin,
+                Certificado = capacitacion.Certificado,
+                Horas = (int)capacitacion.Horas,
+                Externo = false // Siempre local
+            };
 
-        var ok = await DocenteService.SubirCapacigtaciones(dto);
-        if (ok)
-            await JS.InvokeVoidAsync("alert", "✅ Capacitación subida con éxito.");
-        else
-            await JS.InvokeVoidAsync("alert", "❌ Error al subir la capacitación.");
+            var ok = await DocenteService.SubirCapacigtaciones(dto);
+            if (ok)
+            {
+                Snackbar.Add("✅ Capacitación subida con éxito.", Severity.Success);
+                await Task.Delay(1500); // Pequeña pausa para mostrar el mensaje
+                VolverAlDashboard();
+            }
+            else
+            {
+                Snackbar.Add("❌ Error al subir la capacitación.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"❌ Error inesperado: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
     }
 
     private void VolverAlDashboard()
     {
         Navigation.NavigateTo("/teacher-dashboard");
     }
-
 }
