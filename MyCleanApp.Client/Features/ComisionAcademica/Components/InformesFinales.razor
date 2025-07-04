@@ -1,10 +1,12 @@
 @using MyCleanApp.Client.DTOs
+@using MudBlazor
+@using System.Net.Http.Json
 @inject HttpClient Http
 @inject ISnackbar Snackbar
 
 <MudPaper Elevation="1" Class="pa-4">
     <div class="d-flex justify-space-between align-center mb-4">
-        <MudText Typo="Typo.h6">Informes Finales</MudText>
+        <MudText Typo="Typo.h6">📄 Informes Finales de Promoción</MudText>
         <MudButton StartIcon="@Icons.Material.Filled.Refresh" 
                    Color="Color.Primary" 
                    OnClick="CargarSolicitudesFinalizadas">
@@ -68,7 +70,26 @@
                                    OnClick="@(() => VerDetalleSolicitud(context))">
                             Ver
                         </MudButton>
-                        @if (!informesGenerados.ContainsKey(context.Id))
+                        
+                        @if (context.Estado == "APROBADA_DOCENTE")
+                        {
+                            <MudButton StartIcon="@Icons.Material.Filled.Assignment"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       OnClick="@(() => IniciarGeneracionInformes(context.Id))">
+                                Iniciar Informes
+                            </MudButton>
+                        }
+                        else if (context.Estado == "INFORMES_FINALES")
+                        {
+                            <MudButton StartIcon="@Icons.Material.Filled.Article"
+                                       Color="Color.Success"
+                                       Size="Size.Small"
+                                       OnClick="@(() => GenerarInformeFinal(context.Id))">
+                                Generar Informe
+                            </MudButton>
+                        }
+                        else if (!informesGenerados.ContainsKey(context.Id))
                         {
                             <MudButton StartIcon="@Icons.Material.Filled.Article"
                                        Color="Color.Success"
@@ -94,7 +115,9 @@
     else
     {
         <MudAlert Severity="Severity.Info">
-            No hay solicitudes finalizadas para generar informes en este momento.
+            No hay solicitudes que requieran generación de informes finales en este momento.
+            <br />
+            <small>Las solicitudes aparecerán aquí cuando el docente acepte la decisión de la comisión.</small>
         </MudAlert>
     }
 </MudPaper>
@@ -223,10 +246,21 @@
             if (response.IsSuccessStatusCode)
             {
                 var todasSolicitudes = await response.Content.ReadFromJsonAsync<List<SolicitudComisionDto>>() ?? new();
-                // Filtramos las solicitudes que ya tienen decisión final (incluyendo apelaciones resueltas)
+                
+                // Debug: Mostrar todas las solicitudes y sus estados
+                Console.WriteLine($"Total solicitudes recibidas: {todasSolicitudes.Count}");
+                foreach (var sol in todasSolicitudes)
+                {
+                    Console.WriteLine($"Solicitud ID: {sol.Id}, Estado: '{sol.Estado}', Docente: {sol.DocenteNombre}");
+                }
+                
+                // Filtramos las solicitudes que requieren generación de informes finales
                 solicitudesFinalizadas = todasSolicitudes
-                    .Where(s => s.Estado == "APROBADO" || s.Estado == "RECHAZADO" || s.Estado == "FINALIZADO")
+                    .Where(s => s.Estado == "APROBADA_DOCENTE" || s.Estado == "INFORMES_FINALES" || 
+                               s.Estado == "APROBADO" || s.Estado == "RECHAZADO" || s.Estado == "FINALIZADO")
                     .ToList();
+                    
+                Console.WriteLine($"Solicitudes filtradas para informes: {solicitudesFinalizadas.Count}");
             }
             else
             {
@@ -318,6 +352,29 @@
         }
     }
 
+    private async Task IniciarGeneracionInformes(int solicitudId)
+    {
+        try
+        {
+            var response = await Http.PostAsync($"http://localhost:5015/api/comision-academica/solicitud/{solicitudId}/iniciar-informes", null);
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Proceso de generación de informes iniciado correctamente", Severity.Success);
+                await CargarSolicitudesFinalizadas(); // Recargar la lista
+                StateHasChanged();
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error al iniciar la generación de informes: {errorMessage}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
     private void CerrarDetalleSolicitud()
     {
         mostrarDetalleSolicitud = false;
@@ -328,6 +385,8 @@
     {
         return estado switch
         {
+            "APROBADA_DOCENTE" => Color.Primary,
+            "INFORMES_FINALES" => Color.Info,
             "APROBADO" => Color.Success,
             "RECHAZADO" => Color.Error,
             "FINALIZADO" => Color.Info,
@@ -349,6 +408,8 @@
     {
         return estado switch
         {
+            "APROBADA_DOCENTE" => "Aceptada por Docente",
+            "INFORMES_FINALES" => "Generando Informes",
             "APROBADO" => "Promoción Aprobada",
             "RECHAZADO" => "Promoción Rechazada",
             "FINALIZADO" => "Proceso Finalizado",
