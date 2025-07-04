@@ -6,77 +6,169 @@
 @inject DocenteService DocenteService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject ISnackbar Snackbar
 
-<div class="max-w-xl mx-auto mt-10">
-    <div class="bg-white border border-gray-200 rounded-lg shadow-lg p-8">
-        <div class="flex justify-end mb-4">
-            <button
-                class="flex items-center gap-2 bg-gray-100 hover:bg-blue-100 text-blue-700 font-medium py-1.5 px-4 rounded transition-colors border border-gray-200 shadow-sm"
-                @onclick="Volver">
-                <svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                Volver al Dashboard
-            </button>
-        </div>
-        <h2 class="text-2xl font-bold text-blue-700 mb-2 flex items-center gap-2">
-            <svg class="h-7 w-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Nuevo Proyecto de Investigación
-        </h2>
-        <p class="text-gray-600 mb-6">Completa el formulario para registrar un nuevo proyecto de investigación.</p>
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+    <MudPaper Class="pa-6" Elevation="3">
+        <!-- Header con botón de regreso -->
+        <MudGrid>
+            <MudItem xs="12">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Science" Color="Color.Primary" Size="Size.Large" />
+                        <MudText Typo="Typo.h4" Color="Color.Primary" Class="font-weight-bold">
+                            Nuevo Proyecto de Investigación
+                        </MudText>
+                    </MudStack>
+                    <MudButton Variant="Variant.Outlined" 
+                              Color="Color.Primary" 
+                              StartIcon="@Icons.Material.Filled.ArrowBack"
+                              OnClick="Volver">
+                        Volver al Dashboard
+                    </MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
 
-        <EditForm Model="proyecto" OnValidSubmit="RegistrarProyecto" class="space-y-5">
-            <DataAnnotationsValidator />
-            <ValidationSummary />
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Título</label>
-                <InputText @bind-Value="proyecto.Titulo"
-                    class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label>
-                    <InputDate @bind-Value="proyecto.FechaInicio"
-                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Fin</label>
-                    <InputDate @bind-Value="proyecto.FechaFin"
-                        class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Rol en el Proyecto</label>
-                <InputText @bind-Value="proyecto.RolEnProyecto"
-                    class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Documento (opcional, PDF)</label>
-                <InputFile OnChange="OnFileChange" class="w-full text-gray-700" />
-            </div>
-            <div class="flex justify-end">
-                <button type="submit"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-                    Registrar Proyecto
-                </button>
-            </div>
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+            Completa el formulario para registrar un nuevo proyecto de investigación.
+        </MudText>
+
+        <!-- Formulario -->
+        <EditForm Model="@proyecto" OnValidSubmit="RegistrarProyecto">
+            <MudGrid Spacing="4">
+                <!-- Título -->
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="proyecto.Titulo"
+                                 Label="Título *"
+                                 Variant="Variant.Outlined"
+                                 Required="true"
+                                 RequiredError="El título es requerido"
+                                 Placeholder="Ej: Investigación en IA" />
+                </MudItem>
+                <!-- Fechas -->
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="proyecto.FechaInicio"
+                                   Label="Fecha de Inicio"
+                                   Variant="Variant.Outlined"
+                                   Required="false"
+                                   HelperText="Opcional" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="proyecto.FechaFin"
+                                   Label="Fecha de Fin"
+                                   Variant="Variant.Outlined"
+                                   Required="false"
+                                   HelperText="Opcional" />
+                </MudItem>
+                <!-- Rol en el Proyecto -->
+                <MudItem xs="12">
+                    <MudSelect T="string"
+                              @bind-Value="rolSeleccionado"
+                              Label="Rol en el Proyecto *"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              RequiredError="El rol es requerido"
+                              HelperText="Selecciona el rol que tuviste en el proyecto"
+                              Dense="true"
+                              Clearable="true">
+                        <MudSelectItem Value="@("sin-rol")">Selecciona un rol...</MudSelectItem>
+                        @foreach (var rol in rolesProyecto)
+                        {
+                            <MudSelectItem Value="@rol">@rol</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <!-- Documento PDF (opcional) -->
+                <MudItem xs="12">
+                    <MudPaper Class="pa-4" Elevation="1" Style="border: 2px dashed #ccc;">
+                        <MudStack Spacing="2">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">
+                                <MudIcon Icon="@Icons.Material.Filled.Upload" Class="mr-2" />
+                                Documento (opcional, PDF)
+                            </MudText>
+                            @if (archivoSeleccionado != null)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Value="@archivoSeleccionado.Name">
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Class="mr-1" />
+                                    @archivoSeleccionado.Name (@FormatFileSize(archivoSeleccionado.Size))
+                                </MudChip>
+                            }
+                            <InputFile OnChange="OnFileChange" class="mud-input-file" accept=".pdf" />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Solo archivos PDF son permitidos. Opcional.
+                            </MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <!-- Botones de acción -->
+                <MudItem xs="12">
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="3" Class="mt-4">
+                        <MudButton Variant="Variant.Outlined" 
+                                  Color="Color.Secondary"
+                                  OnClick="Volver">
+                            Cancelar
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" 
+                                  Color="Color.Primary"
+                                  ButtonType="ButtonType.Submit"
+                                  StartIcon="@Icons.Material.Filled.Save"
+                                  Disabled="@isSubmitting">
+                            @if (isSubmitting)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <span>Registrando...</span>
+                            }
+                            else
+                            {
+                                <span>Registrar Proyecto</span>
+                            }
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
         </EditForm>
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-4">@errorMessage</div>
+            <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mt-4">@errorMessage</MudAlert>
         }
-    </div>
-</div>
+    </MudPaper>
+</MudContainer>
 
 @code {
     private ProyectoInvestigacionRequest proyecto = new ProyectoInvestigacionRequest();
     private string? errorMessage;
+    private IBrowserFile? archivoSeleccionado;
+    private bool isSubmitting = false;
+    private string rolSeleccionado = "sin-rol";
+    private readonly string[] rolesProyecto = new[]
+    {
+        "Investigador Principal",
+        "Co-Investigador",
+        "Asistente de Investigación",
+        "Colaborador",
+        "Estudiante",
+        "Consultor",
+        "Otro"
+    };
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
 
     private async Task OnFileChange(InputFileChangeEventArgs e)
     {
         var file = e.File;
+        archivoSeleccionado = file;
         using var stream = file.OpenReadStream();
         using var ms = new MemoryStream();
         await stream.CopyToAsync(ms);
@@ -87,24 +179,46 @@
     private async Task RegistrarProyecto()
     {
         errorMessage = null;
+        isSubmitting = true;
         try
         {
+            // Validación: Fecha de Fin debe ser mayor o igual a Fecha de Inicio
+            if (proyecto.FechaInicio.HasValue && proyecto.FechaFin.HasValue && proyecto.FechaFin < proyecto.FechaInicio)
+            {
+                errorMessage = "La fecha de fin debe ser mayor o igual a la fecha de inicio.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+            // Validación: Rol seleccionado
+            if (string.IsNullOrWhiteSpace(rolSeleccionado) || rolSeleccionado == "sin-rol")
+            {
+                errorMessage = "El rol en el proyecto es requerido.";
+                Snackbar.Add(errorMessage, Severity.Error);
+                return;
+            }
+            proyecto.RolEnProyecto = rolSeleccionado;
             // Igual que publicaciones: DocenteId se setea en el servicio
             var result = await DocenteService.RegistrarProyectoInvestigacionAsync(proyecto);
             if (result)
             {
-                await JS.InvokeVoidAsync("alert", "✅ Proyecto registrado con éxito.");
+                Snackbar.Add("✅ Proyecto registrado con éxito.", Severity.Success);
+                await Task.Delay(1500);
                 Navigation.NavigateTo("/teacher-dashboard");
             }
             else
             {
                 errorMessage = "No se pudo registrar el proyecto. Intenta nuevamente.";
-                await JS.InvokeVoidAsync("alert", "❌ Error al registrar el proyecto. Verifica que tu usuario sea un docente válido.");
+                Snackbar.Add("❌ Error al registrar el proyecto. Verifica que tu usuario sea un docente válido.", Severity.Error);
             }
         }
         catch (Exception ex)
         {
             errorMessage = $"Error: {ex.Message}";
+            Snackbar.Add($"❌ Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
         }
     }
 
