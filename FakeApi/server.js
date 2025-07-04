@@ -221,6 +221,52 @@ app.get('/docente/:id/completo', (req, res) => {
 })
 
 
+// ENDPOINTS DE IMPORTACIÓN EXTERNA
+function writeData(db) {
+  fs.writeFileSync('db.json', JSON.stringify(db, null, 2), 'utf-8');
+}
+
+function getNextId(arr) {
+  if (!arr || arr.length === 0) return 1;
+  return Math.max(...arr.map(x => x.id || 0)) + 1;
+}
+
+app.post('/PublicacionAcademica/importar', (req, res) => {
+  const db = readData();
+  const pub = req.body;
+  pub.id = getNextId(db.PublicacionAcademica);
+  db.PublicacionAcademica.push(pub);
+  writeData(db);
+  res.status(201).json(pub);
+});
+
+app.post('/EvaluacionDocente/importar', (req, res) => {
+  const db = readData();
+  const evalua = req.body;
+  evalua.id = getNextId(db.EvaluacionDocente);
+  db.EvaluacionDocente.push(evalua);
+  writeData(db);
+  res.status(201).json(evalua);
+});
+
+app.post('/ProyectoInvestigacion/importar', (req, res) => {
+  const db = readData();
+  const proyecto = req.body;
+  proyecto.id = getNextId(db.ProyectoInvestigacion);
+  db.ProyectoInvestigacion.push(proyecto);
+  writeData(db);
+  res.status(201).json(proyecto);
+});
+
+app.post('/CursoCapacitacion/importar', (req, res) => {
+  const db = readData();
+  const curso = req.body;
+  curso.id = getNextId(db.CursoCapacitacion);
+  db.CursoCapacitacion.push(curso);
+  writeData(db);
+  res.status(201).json(curso);
+});
+
 // Levantar servidor
 app.listen(PORT, () => {
   console.log(`API corriendo en http://localhost:${PORT}`)
