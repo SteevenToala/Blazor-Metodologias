@@ -35,7 +35,7 @@ namespace MyCleanApp.API.ComisionAcademica
                     .Where(s => s.Estado == "VERIFICADA" || s.Estado == "EN_COMISION" || s.Estado == "EN_EVALUACION" || 
                                s.Estado == "DECIDIDO_APROBADA" || s.Estado == "DECIDIDO_RECHAZADA" || 
                                s.Estado == "APROBADA_DOCENTE" || s.Estado == "INFORMES_FINALES" || 
-                               s.Estado == "ENVIADA_CONSEJO")
+                               s.Estado == "ENVIADA_CONSEJO" || s.Estado == "EN_ANALISIS_COMISION")
                     .Select(s => new
                     {
                         s.Id,
@@ -49,7 +49,7 @@ namespace MyCleanApp.API.ComisionAcademica
                         NivelActual = s.Docente.NivelAcademico != null ? s.Docente.NivelAcademico.nombre : "Sin nivel",
                         NivelSolicitado = s.NuevoNivelAcademico != null ? s.NuevoNivelAcademico.nombre : "Sin información",
                         s.FechaRespuesta,
-                        RequiereAnalisis = s.Estado == "VERIFICADA"
+                        RequiereAnalisis = s.Estado == "VERIFICADA" || s.Estado == "EN_ANALISIS_COMISION"
                     })
                     .ToListAsync();
 

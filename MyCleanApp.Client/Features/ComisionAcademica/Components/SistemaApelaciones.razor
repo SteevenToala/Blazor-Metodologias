@@ -1,5 +1,7 @@
 @using MyCleanApp.Client.DTOs
 @using System.Text.Json
+@using System.Net.Http.Json
+@using Microsoft.JSInterop
 @inject HttpClient Http
 @inject IJSRuntime JS
 
@@ -315,6 +317,17 @@
         await CargarApelaciones();
     }
 
+    private string MapearEstadoApelacion(string estadoSolicitud)
+    {
+        return estadoSolicitud switch
+        {
+            "EN_APELACION" => "RECIBIDA",
+            "APELACION_APROBADA" => "RESUELTA",
+            "APELACION_RECHAZADA" => "RESUELTA",
+            _ => "RECIBIDA"
+        };
+    }
+
     private void SetActiveTab(string tab)
     {
         activeTab = tab;
@@ -326,18 +339,48 @@
         loading = true;
         try
         {
-            // Cargar apelaciones desde el backend
-            var response = await Http.GetAsync("http://localhost:5015/api/Apelaciones");
+            // Cargar solicitudes en estado de apelación desde el endpoint real
+            var response = await Http.GetAsync("http://localhost:5015/api/SolicitudAvanceRango");
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
-                var todasLasApelaciones = JsonSerializer.Deserialize<List<ApelacionDto>>(json, 
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<ApelacionDto>();
+                var todasLasSolicitudes = JsonSerializer.Deserialize<List<dynamic>>(json, 
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<dynamic>();
 
-                // Filtrar por estado
-                apelacionesRecibidas = todasLasApelaciones.Where(a => a.Estado == "RECIBIDA" || a.Estado == "PENDIENTE").ToList();
-                apelacionesEnProceso = todasLasApelaciones.Where(a => a.Estado == "EN_PROCESO" || a.Estado == "EN_REVISION").ToList();
-                apelacionesResueltas = todasLasApelaciones.Where(a => a.Estado == "RESUELTA" || a.Estado == "APROBADA" || a.Estado == "RECHAZADA").ToList();
+                // Convertir solicitudes a formato de apelaciones
+                var apelaciones = new List<ApelacionDto>();
+                
+                foreach (var s in todasLasSolicitudes)
+                {
+                    var elemento = JsonSerializer.Deserialize<JsonElement>(s.ToString());
+                    var estado = elemento.GetProperty("estado").GetString() ?? "";
+                    
+                    if (estado == "EN_APELACION" || estado == "APELACION_APROBADA" || estado == "APELACION_RECHAZADA")
+                    {
+                        var apelacion = new ApelacionDto
+                        {
+                            Id = elemento.GetProperty("id").GetInt32(),
+                            DocenteNombre = elemento.GetProperty("docenteNombre").GetString() ?? "Docente Desconocido",
+                            PromocionSolicitada = $"De {elemento.GetProperty("nivelActual").GetString()} a {elemento.GetProperty("nuevoNivel").GetString()}",
+                            FechaPresentacion = elemento.GetProperty("fechaSolicitud").GetDateTime(),
+                            FechaLimite = elemento.GetProperty("fechaSolicitud").GetDateTime().AddDays(3),
+                            MotivoApelacion = "Desacuerdo con la decisión de la comisión",
+                            Fundamentos = elemento.GetProperty("observaciones").GetString() ?? "Sin fundamentos especificados",
+                            Estado = MapearEstadoApelacion(estado),
+                            DecisionFinal = estado == "APELACION_APROBADA" ? "APROBADA" : 
+                                           estado == "APELACION_RECHAZADA" ? "RECHAZADA" : null,
+                            FechaResolucion = elemento.TryGetProperty("fechaRespuesta", out JsonElement fechaResp) && fechaResp.ValueKind != JsonValueKind.Null ? 
+                                             fechaResp.GetDateTime() : null,
+                            DocumentosAdjuntos = new List<DocumentoDto>()
+                        };
+                        apelaciones.Add(apelacion);
+                    }
+                }
+
+                // Filtrar por estado mapeado
+                apelacionesRecibidas = apelaciones.Where(a => a.Estado == "RECIBIDA").ToList();
+                apelacionesEnProceso = apelaciones.Where(a => a.Estado == "EN_PROCESO").ToList();
+                apelacionesResueltas = apelaciones.Where(a => a.Estado == "RESUELTA").ToList();
 
                 // Identificar apelaciones con plazos críticos
                 apelacionesVenciendo = apelacionesRecibidas
@@ -583,44 +626,62 @@
         return Task.CompletedTask;
     }
 
-    private Task FinalizarApelacion()
+    private async Task FinalizarApelacion()
     {
         try
         {
             if (apelacionSeleccionada != null)
             {
-                // Finalizar apelación
-                apelacionSeleccionada.Estado = "RESUELTA";
-                apelacionSeleccionada.DecisionFinal = decisionComision;
-                apelacionSeleccionada.FundamentosDecision = fundamentosDecision;
-                apelacionSeleccionada.FechaResolucion = DateTime.Now;
+                // Crear objeto de resolución de apelación
+                var resolucionApelacion = new
+                {
+                    Decision = decisionComision == "APELACION_ACEPTADA" ? "APROBADA" : "RECHAZADA",
+                    Fundamentos = fundamentosDecision,
+                    AccionesCorrectivas = accionesCorrectivas,
+                    AnalisisFundamentos = analisisFundamentos
+                };
+
+                // Llamar al endpoint del backend para resolver la apelación
+                var endpoint = decisionComision == "APELACION_ACEPTADA" 
+                    ? $"http://localhost:5015/api/SolicitudAvanceRango/{apelacionSeleccionada.Id}/resolver-apelacion-aprobada"
+                    : $"http://localhost:5015/api/SolicitudAvanceRango/{apelacionSeleccionada.Id}/resolver-apelacion-rechazada";
+
+                var response = await Http.PostAsJsonAsync(endpoint, resolucionApelacion);
                 
-                // Mover a resueltas
-                apelacionesRecibidas.Remove(apelacionSeleccionada);
-                apelacionesEnProceso.Remove(apelacionSeleccionada);
-                apelacionesResueltas.Add(apelacionSeleccionada);
-                
-                // Actualizar lista de críticas
-                apelacionesVenciendo = apelacionesRecibidas
-                    .Concat(apelacionesEnProceso)
-                    .Where(a => a.EsCritico)
-                    .OrderBy(a => a.FechaLimite)
-                    .ToList();
-                
-                // Aquí se haría la llamada real a la API
-                // await Http.PostAsJsonAsync("/api/Apelaciones/finalizar", resolucionData);
-                
-                CerrarModalProcesamiento();
-                SetActiveTab("resueltas");
-                StateHasChanged();
+                if (response.IsSuccessStatusCode)
+                {
+                    // Actualizar estado localmente
+                    apelacionSeleccionada.Estado = "RESUELTA";
+                    apelacionSeleccionada.DecisionFinal = decisionComision;
+                    apelacionSeleccionada.FundamentosDecision = fundamentosDecision;
+                    apelacionSeleccionada.FechaResolucion = DateTime.Now;
+                    
+                    // Mover a resueltas
+                    apelacionesRecibidas.Remove(apelacionSeleccionada);
+                    apelacionesEnProceso.Remove(apelacionSeleccionada);
+                    apelacionesResueltas.Add(apelacionSeleccionada);
+                    
+                    // Actualizar lista de críticas
+                    apelacionesVenciendo = apelacionesRecibidas
+                        .Concat(apelacionesEnProceso)
+                        .Where(a => a.EsCritico)
+                        .OrderBy(a => a.FechaLimite)
+                        .ToList();
+                    
+                    CerrarModalProcesamiento();
+                    SetActiveTab("resueltas");
+                    StateHasChanged();
+                }
+                else
+                {
+                    errorMessage = $"Error al procesar la apelación: {response.StatusCode}";
+                }
             }
         }
         catch (Exception ex)
         {
             errorMessage = $"Error al finalizar apelación: {ex.Message}";
         }
-        
-        return Task.CompletedTask;
     }
 
     private string GetEstadoClasses(string estado)

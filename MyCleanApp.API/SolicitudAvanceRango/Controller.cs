@@ -532,6 +532,14 @@ namespace MyCleanApp.API.Controllers
             public bool Aceptada { get; set; }
             public string Resolucion { get; set; } = "";
         }
+
+        public class ResolucionApelacionComisionRequest
+        {
+            public string Decision { get; set; } = "";
+            public string Fundamentos { get; set; } = "";
+            public string AccionesCorrectivas { get; set; } = "";
+            public string AnalisisFundamentos { get; set; } = "";
+        }
     }
 
     public class AprobacionRequest

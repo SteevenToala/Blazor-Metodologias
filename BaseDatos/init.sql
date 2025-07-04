@@ -569,6 +569,16 @@ INSERT INTO Usuario (correo, passwordHash, rol, personaId, activo) VALUES
 UPDATE PublicacionAcademica SET externo = 0 WHERE externo IS NULL;
 
 -- =====================
+-- MODIFICACIONES PARA SOPORTE DE APELACIONES
+-- =====================
+
+-- Ampliar la columna observaciones para soportar textos más largos de apelaciones
+IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'SolicitudAvanceRango' AND COLUMN_NAME = 'observaciones')
+BEGIN
+    ALTER TABLE SolicitudAvanceRango ALTER COLUMN observaciones VARCHAR(2000);
+END;
+
+-- =====================
 -- INSERTAR MÁS DATOS DE EJEMPLO PARA PRUEBAS COMPLETAS
 -- =====================
 

@@ -231,11 +231,20 @@ namespace MyCleanApp.Infrastructure.Services
             if (solicitud == null)
                 return WorkflowResult.CreateError("Solicitud no encontrada");
 
-            if (solicitud.Estado != "EN_APELACION")
-                return WorkflowResult.CreateError("La solicitud debe estar en estado de apelación");
+            if (solicitud.Estado != "DECIDIDO_RECHAZADA")
+                return WorkflowResult.CreateError("Solo se puede apelar una solicitud rechazada por la comisión");
 
-            solicitud.Estado = "APELACION_PRESENTADA";
+            // Verificar que no hayan pasado más de 3 días
+            if (solicitud.FechaRespuesta.HasValue)
+            {
+                var diasTranscurridos = (DateTime.Now - solicitud.FechaRespuesta.Value).Days;
+                if (diasTranscurridos > 3)
+                    return WorkflowResult.CreateError("El plazo para presentar la apelación ha vencido (3 días máximo)");
+            }
+
+            solicitud.Estado = "EN_APELACION";
             solicitud.Observaciones = $"{solicitud.Observaciones} | Apelación: {motivo} - Fundamentos: {fundamentos}";
+            solicitud.FechaRespuesta = DateTime.Now; // Actualizar fecha de respuesta
 
             await _context.SaveChangesAsync();
 
@@ -249,18 +258,30 @@ namespace MyCleanApp.Infrastructure.Services
             if (solicitud == null)
                 return WorkflowResult.CreateError("Solicitud no encontrada");
 
-            if (solicitud.Estado != "APELACION_PRESENTADA")
-                return WorkflowResult.CreateError("Debe existir una apelación presentada");
+            if (solicitud.Estado != "EN_APELACION")
+                return WorkflowResult.CreateError("Debe existir una apelación para resolver");
 
-            solicitud.Estado = aceptada ? "APELACION_ACEPTADA" : "APELACION_RECHAZADA";
-            solicitud.Observaciones = $"{solicitud.Observaciones} | Resolución apelación: {resolucion}";
-            solicitud.FechaRespuesta = DateTime.Now;
-
-            await _context.SaveChangesAsync();
-
-            var mensaje = aceptada ? "aceptada" : "rechazada";
-            return WorkflowResult.CreateSuccess($"Apelación {mensaje}", 
-                $"La apelación ha sido {mensaje}");
+            if (aceptada)
+            {
+                // Si la apelación es aceptada, volver a análisis de comisión para reevaluación
+                solicitud.Estado = "EN_ANALISIS_COMISION";
+                solicitud.Observaciones = $"{solicitud.Observaciones} | APELACIÓN ACEPTADA - Reevaluación solicitada: {resolucion}";
+                var mensaje = "Apelación aceptada - solicitud enviada para reevaluación";
+                
+                await _context.SaveChangesAsync();
+                return WorkflowResult.CreateSuccess("Apelación aceptada", mensaje);
+            }
+            else
+            {
+                // Si la apelación es rechazada, finalizar como rechazada
+                solicitud.Estado = "APELACION_RECHAZADA";
+                solicitud.Observaciones = $"{solicitud.Observaciones} | APELACIÓN RECHAZADA: {resolucion}";
+                solicitud.FechaRespuesta = DateTime.Now;
+                
+                await _context.SaveChangesAsync();
+                return WorkflowResult.CreateSuccess("Apelación rechazada", 
+                    "La apelación ha sido rechazada - decisión original mantenida");
+            }
         }
 
         public async Task<WorkflowResult> GenerarInformeFinalAsync(int solicitudId)

@@ -256,17 +256,6 @@
                             }
                         }
                         
-                        @* Apelación para solicitudes ya rechazadas definitivamente *@
-                        @if (context.Estado == "RECHAZADA" && PuedeApelar(context))
-                        {
-                            <MudButton StartIcon="@Icons.Material.Filled.Gavel" 
-                                     Size="Size.Small" 
-                                     Color="Color.Warning"
-                                     OnClick="@(() => AbrirModalApelacion(context))">
-                                Apelar
-                            </MudButton>
-                        }
-                        
                         @* Mostrar si la solicitud quedó sin efecto *@
                         @if (context.Estado == "SIN_EFECTO")
                         {
@@ -391,86 +380,90 @@
                     </MudButton>
                 }
             }
-            @if (solicitudSeleccionada.Estado == "RECHAZADA" && PuedeApelar(solicitudSeleccionada))
-            {
-                <MudButton StartIcon="@Icons.Material.Filled.Gavel" 
-                         Color="Color.Warning"
-                         OnClick="@(() => AbrirModalApelacion(solicitudSeleccionada))">
-                    Presentar Apelación
-                </MudButton>
-            }
         </DialogActions>
     </MudDialog>
 }
 
-<!-- Modal de Apelación -->
+<!-- Modal de Apelación usando MudOverlay -->
 @if (mostrarModalApelacion && solicitudParaApelar != null)
 {
-    <MudDialog IsVisible="@mostrarModalApelacion" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true })">
-        <TitleContent>
-            <MudText Typo="Typo.h6">
-                <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-2" />
-                Presentar Apelación - Solicitud #@solicitudParaApelar.Id
-            </MudText>
-        </TitleContent>
-        <DialogContent>
-            <MudGrid Spacing="3">
-                <MudItem xs="12">
-                    <MudAlert Severity="Severity.Info" Class="mb-4">
-                        <MudText Typo="Typo.body2">
-                            <strong>Tienes @ObtenerDiasRestantesParaResponder(solicitudParaApelar) días restantes</strong> para presentar tu apelación.
-                            Una vez presentada, la Comisión tendrá 3 días para resolver y notificar el resultado.
-                        </MudText>
-                    </MudAlert>
-                </MudItem>
-                
-                <MudItem xs="12">
-                    <MudCard Elevation="1" Class="pa-4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-3">📋 Información de la Solicitud</MudText>
-                        <div class="d-flex flex-column gap-2">
-                            <div><strong>Estado Actual:</strong> 
-                                <MudChip T="string" Color="@GetEstadoColor(solicitudParaApelar.Estado)" Size="Size.Small">
-                                    @GetEstadoTexto(solicitudParaApelar.Estado)
-                                </MudChip>
+    <MudOverlay Visible="true" DarkBackground="true" Absolute="false">
+        <MudCard Style="max-width: 700px; margin: auto; margin-top: 50px; max-height: 90vh; overflow-y: auto;">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">
+                        <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-2" />
+                        Presentar Apelación - Solicitud #@solicitudParaApelar.Id
+                    </MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton StartIcon="@Icons.Material.Filled.Close" 
+                             Color="Color.Secondary" 
+                             OnClick="CerrarModalApelacion">
+                        Cerrar
+                    </MudButton>
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudGrid Spacing="3">
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Info" Class="mb-4">
+                            <MudText Typo="Typo.body2">
+                                <strong>Tienes @ObtenerDiasRestantesParaResponder(solicitudParaApelar) días restantes</strong> para presentar tu apelación.
+                                <br />
+                                <small>Solo puedes apelar solicitudes que han sido rechazadas por la comisión. Una vez presentada, la Comisión tendrá 3 días para resolver.</small>
+                            </MudText>
+                        </MudAlert>
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudCard Elevation="1" Class="pa-4">
+                            <MudText Typo="Typo.subtitle1" Class="mb-3">📋 Información de la Solicitud</MudText>
+                            <div class="d-flex flex-column gap-2">
+                                <div><strong>Estado Actual:</strong> 
+                                    <MudChip T="string" Color="@GetEstadoColor(solicitudParaApelar.Estado)" Size="Size.Small">
+                                        @GetEstadoTexto(solicitudParaApelar.Estado)
+                                    </MudChip>
+                                </div>
+                                <div><strong>Promoción Solicitada:</strong> @ObtenerNombreNivelAcademico(solicitudParaApelar.NuevoNivelAcademicoId)</div>
+                                <div><strong>Fecha de Decisión:</strong> @(solicitudParaApelar.FechaRespuesta?.ToString("dd/MM/yyyy HH:mm") ?? "No disponible")</div>
+                                @if (!string.IsNullOrEmpty(solicitudParaApelar.Observaciones))
+                                {
+                                    <div><strong>Observaciones de la Comisión:</strong></div>
+                                    <MudPaper Elevation="0" Class="pa-3" Style="background-color: #f5f5f5;">
+                                        <MudText Typo="Typo.body2">@solicitudParaApelar.Observaciones</MudText>
+                                    </MudPaper>
+                                }
                             </div>
-                            <div><strong>Promoción Solicitada:</strong> @ObtenerNombreNivelAcademico(solicitudParaApelar.NuevoNivelAcademicoId)</div>
-                            <div><strong>Fecha de Decisión:</strong> @(solicitudParaApelar.FechaRespuesta?.ToString("dd/MM/yyyy HH:mm") ?? "No disponible")</div>
-                            @if (!string.IsNullOrEmpty(solicitudParaApelar.Observaciones))
-                            {
-                                <div><strong>Observaciones de la Comisión:</strong></div>
-                                <MudPaper Elevation="0" Class="pa-3" Style="background-color: #f5f5f5;">
-                                    <MudText Typo="Typo.body2">@solicitudParaApelar.Observaciones</MudText>
-                                </MudPaper>
-                            }
-                        </div>
-                    </MudCard>
-                </MudItem>
-                
-                <MudItem xs="12">
-                    <MudCard Elevation="1" Class="pa-4">
-                        <MudText Typo="Typo.subtitle1" Class="mb-3">📝 Motivos de la Apelación</MudText>
-                        <MudTextField @bind-Value="motivosApelacion"
-                                    Label="Describe los motivos de tu apelación"
-                                    Variant="Variant.Outlined"
-                                    Lines="5"
-                                    MaxLength="1000"
-                                    Counter="1000"
-                                    HelperText="Explica claramente por qué consideras que la decisión debe ser reconsiderada"
-                                    Required="true" />
-                    </MudCard>
-                </MudItem>
-            </MudGrid>
-        </DialogContent>
-        <DialogActions>
-            <MudButton OnClick="CerrarModalApelacion">Cancelar</MudButton>
-            <MudButton StartIcon="@Icons.Material.Filled.Send" 
-                     Color="Color.Warning"
-                     Disabled="@(string.IsNullOrWhiteSpace(motivosApelacion))"
-                     OnClick="ConfirmarApelacion">
-                Presentar Apelación
-            </MudButton>
-        </DialogActions>
-    </MudDialog>
+                        </MudCard>
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudCard Elevation="1" Class="pa-4">
+                            <MudText Typo="Typo.subtitle1" Class="mb-3">📝 Motivos de la Apelación</MudText>
+                            <MudTextField @bind-Value="motivosApelacion"
+                                        Label="Describe los motivos de tu apelación"
+                                        Variant="Variant.Outlined"
+                                        Lines="5"
+                                        MaxLength="1000"
+                                        Counter="1000"
+                                        HelperText="Explica claramente por qué consideras que la decisión debe ser reconsiderada"
+                                        Required="true" />
+                        </MudCard>
+                    </MudItem>
+                </MudGrid>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton OnClick="CerrarModalApelacion">Cancelar</MudButton>
+                <MudButton StartIcon="@Icons.Material.Filled.Send" 
+                         Color="Color.Warning"
+                         Disabled="@(string.IsNullOrWhiteSpace(motivosApelacion))"
+                         OnClick="ConfirmarApelacion">
+                    Presentar Apelación
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudOverlay>
 }
 
 @code {
@@ -721,11 +714,12 @@
 
     private bool PuedeApelar(SolicitudAvanceRangoDto solicitud)
     {
-        // Verificar si han pasado menos de 30 días desde la respuesta
-        if (solicitud.FechaRespuesta.HasValue)
+        // Solo se puede apelar cuando la solicitud está en estado DECIDIDO_RECHAZADA
+        // y han pasado menos de 3 días desde la respuesta (mismo plazo que para aceptar)
+        if (solicitud.Estado == "DECIDIDO_RECHAZADA" && solicitud.FechaRespuesta.HasValue)
         {
             var diasTranscurridos = (DateTime.Now - solicitud.FechaRespuesta.Value).Days;
-            return diasTranscurridos <= 30;
+            return diasTranscurridos <= 3;
         }
         return false;
     }
@@ -780,10 +774,20 @@
 
     private void AbrirModalApelacion(SolicitudAvanceRangoDto solicitud)
     {
+        Console.WriteLine($"[DEBUG] AbrirModalApelacion llamado para solicitud ID: {solicitud.Id}, Estado: {solicitud.Estado}");
+        Console.WriteLine($"[DEBUG] Estado inicial mostrarModalApelacion: {mostrarModalApelacion}");
+        
         solicitudParaApelar = solicitud;
         motivosApelacion = "";
         mostrarModalApelacion = true;
+        
+        Console.WriteLine($"[DEBUG] Estado después mostrarModalApelacion: {mostrarModalApelacion}");
+        Console.WriteLine($"[DEBUG] solicitudParaApelar ID: {solicitudParaApelar?.Id}");
+        
         CerrarModalDetalle();
+        StateHasChanged(); // Forzar actualización del componente
+        
+        Console.WriteLine($"[DEBUG] Estado final mostrarModalApelacion: {mostrarModalApelacion}");
     }
 
     private void CerrarModalApelacion()
