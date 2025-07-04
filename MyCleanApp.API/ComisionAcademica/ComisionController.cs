@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
+using MyCleanApp.Infrastructure.Services;
 using MyCleanApp.API.DTOs;
 
 namespace MyCleanApp.API.ComisionAcademica
@@ -11,10 +12,12 @@ namespace MyCleanApp.API.ComisionAcademica
     public class ComisionController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IEmailService _emailService;
 
-        public ComisionController(AppDbContext context)
+        public ComisionController(AppDbContext context, IEmailService emailService)
         {
             _context = context;
+            _emailService = emailService;
         }
 
         [HttpGet("solicitudes-pendientes")]
@@ -188,7 +191,15 @@ namespace MyCleanApp.API.ComisionAcademica
         {
             try
             {
-                var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
+                var solicitud = await _context.SolicitudAvanceRango
+                    .Include(s => s.Docente)
+                        .ThenInclude(d => d!.Usuario)
+                        .ThenInclude(u => u!.Persona)
+                    .Include(s => s.Docente)
+                        .ThenInclude(d => d!.NivelAcademico)
+                    .Include(s => s.NuevoNivelAcademico)
+                    .FirstOrDefaultAsync(s => s.Id == id);
+
                 if (solicitud == null)
                 {
                     return NotFound("Solicitud no encontrada");
@@ -225,11 +236,48 @@ namespace MyCleanApp.API.ComisionAcademica
 
                 await _context.SaveChangesAsync();
 
+                // Enviar correo electrónico de notificación
+                if (decisionRequest.RequiereNotificacion && solicitud.Docente?.Usuario != null)
+                {
+                    var correoDocente = solicitud.Docente.Usuario?.Correo;
+                    var nombreDocente = solicitud.Docente.Usuario?.Persona != null 
+                        ? $"{solicitud.Docente.Usuario.Persona.Nombres} {solicitud.Docente.Usuario.Persona.Apellidos}"
+                        : "Docente";
+                    var nivelSolicitado = solicitud.NuevoNivelAcademico?.nombre ?? "Sin información";
+
+                    if (!string.IsNullOrEmpty(correoDocente))
+                    {
+                        try
+                        {
+                            var emailEnviado = await _emailService.EnviarCorreoDecisionComision(
+                                correoDocente,
+                                decisionRequest.Decision,
+                                decisionRequest.Observaciones ?? "",
+                                nombreDocente,
+                                nivelSolicitado
+                            );
+
+                            if (!emailEnviado)
+                            {
+                                // Log del error, pero no falla la operación principal
+                                Console.WriteLine($"Advertencia: No se pudo enviar el correo a {correoDocente}");
+                            }
+                        }
+                        catch (Exception emailEx)
+                        {
+                            // Log del error, pero no falla la operación principal
+                            Console.WriteLine($"Error al enviar correo: {emailEx.Message}");
+                        }
+                    }
+                }
+
                 return Ok(new { 
                     mensaje = "Decisión emitida correctamente",
                     decision = decisionRequest.Decision,
                     estadoFinal = solicitud.Estado,
-                    fechaDecision = DateTime.Now 
+                    fechaDecision = DateTime.Now,
+                    correoEnviado = decisionRequest.RequiereNotificacion && 
+                                  !string.IsNullOrEmpty(solicitud.Docente?.Usuario?.Correo)
                 });
             }
             catch (Exception ex)

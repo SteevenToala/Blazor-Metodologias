@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http;
 using MyCleanApp.Infrastructure.Persistence;
 using MyCleanApp.Infrastructure.Services;
 
@@ -16,6 +17,9 @@ namespace MyCleanApp.Infrastructure
             // Registrar servicios del workflow de promoción
             services.AddScoped<IPromocionWorkflowService, PromocionWorkflowService>();
             services.AddScoped<INotificacionService, NotificacionService>();
+            
+            // Registrar servicio de correo electrónico
+            services.AddHttpClient<IEmailService, EmailService>();
 
             return services;
         }

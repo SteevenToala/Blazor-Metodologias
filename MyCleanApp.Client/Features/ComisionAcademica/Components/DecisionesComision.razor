@@ -114,7 +114,30 @@
                              placeholder="Escriba las observaciones y fundamentos de la decisión..."
                              style="width: 100%; height: 120px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
                 </div>
+
+                <div style="margin-bottom: 20px; padding: 15px; background-color: #e3f2fd; border-radius: 6px; border-left: 4px solid #2196f3;">
+                    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                        <input type="checkbox" @bind="enviarNotificacion" id="enviarCorreo" style="margin-right: 8px;" />
+                        <label for="enviarCorreo" style="font-weight: bold; color: #1976d2;">
+                            📧 Enviar notificación por correo electrónico al docente
+                        </label>
+                    </div>
+                    <div style="font-size: 12px; color: #666; margin-left: 20px;">
+                        Se enviará un correo detallado con la decisión de la comisión al docente.
+                    </div>
+                </div>
             </div>
+
+            <!-- Estado del envío de correo -->
+            @if (!string.IsNullOrEmpty(mensajeEnvioCorreo))
+            {
+                <div style="margin-bottom: 20px; padding: 15px; border-radius: 6px; @(mensajeEnvioCorreo.Contains("exitoso") ? "background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724;" : "background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;")">
+                    <div style="font-weight: bold; margin-bottom: 5px;">
+                        @(mensajeEnvioCorreo.Contains("exitoso") ? "✅" : "⚠️") Estado del Correo Electrónico
+                    </div>
+                    <div>@mensajeEnvioCorreo</div>
+                </div>
+            }
             
             <!-- Botones de acción -->
             <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid #ddd;">
@@ -124,7 +147,22 @@
                 </button>
                 <button @onclick="GuardarDecision" disabled="@(procesandoDecision || string.IsNullOrEmpty(decisionSeleccionada))"
                         style="padding: 10px 20px; border: 1px solid #4caf50; background-color: #4caf50; color: white; border-radius: 4px; cursor: pointer;">
-                    @if (procesandoDecision) { <span>Procesando...</span> } else { <span>Emitir Decisión</span> }
+                    @if (procesandoDecision) 
+                    { 
+                        <span>⏳ Procesando decisión...</span> 
+                        @if (enviarNotificacion)
+                        {
+                            <span> y enviando correo</span>
+                        }
+                    } 
+                    else 
+                    { 
+                        <span>⚖️ Emitir Decisión</span> 
+                        @if (enviarNotificacion)
+                        {
+                            <span> y Enviar Correo</span>
+                        }
+                    }
                 </button>
             </div>
         </div>
@@ -141,6 +179,8 @@
     private string decisionSeleccionada = string.Empty;
     private string observacionesDecision = string.Empty;
     private bool procesandoDecision = false;
+    private bool enviarNotificacion = true; // Por defecto enviar correo
+    private string mensajeEnvioCorreo = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -186,6 +226,8 @@
         solicitudParaDecision = solicitud;
         decisionSeleccionada = string.Empty;
         observacionesDecision = string.Empty;
+        enviarNotificacion = true; // Resetear a true por defecto
+        mensajeEnvioCorreo = string.Empty;
         mostrarModalDecision = true;
         StateHasChanged();
     }
@@ -196,6 +238,8 @@
         solicitudParaDecision = null;
         decisionSeleccionada = string.Empty;
         observacionesDecision = string.Empty;
+        enviarNotificacion = true;
+        mensajeEnvioCorreo = string.Empty;
         procesandoDecision = false;
     }
 
@@ -210,32 +254,76 @@
         try
         {
             procesandoDecision = true;
+            mensajeEnvioCorreo = enviarNotificacion ? "⏳ Preparando envío de correo..." : "";
             StateHasChanged();
 
             var request = new
             {
                 decision = decisionSeleccionada,
-                observaciones = observacionesDecision
+                observaciones = observacionesDecision,
+                requiereNotificacion = enviarNotificacion
             };
 
+            Console.WriteLine($"Enviando petición: {System.Text.Json.JsonSerializer.Serialize(request)}");
+            
             var json = System.Text.Json.JsonSerializer.Serialize(request);
             var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
             var response = await Http.PostAsync($"http://localhost:5015/api/comision-academica/solicitud/{solicitudParaDecision.Id}/emitir-decision", content);
 
+            Console.WriteLine($"Respuesta del servidor: {response.StatusCode}");
+            
             if (response.IsSuccessStatusCode)
             {
-                Snackbar.Add("Decisión emitida exitosamente", Severity.Success);
+                var responseContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Contenido de respuesta: {responseContent}");
+                
+                var responseData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(responseContent);
+                
+                var mensaje = "Decisión emitida exitosamente";
+                
+                // Verificar si se envió el correo
+                if (enviarNotificacion && responseData.TryGetProperty("correoEnviado", out var correoEnviado))
+                {
+                    if (correoEnviado.GetBoolean())
+                    {
+                        mensaje += " y correo de notificación enviado al docente";
+                        mensajeEnvioCorreo = "✅ Correo enviado exitosamente al docente";
+                    }
+                    else
+                    {
+                        mensaje += " pero hubo un problema al enviar el correo de notificación";
+                        mensajeEnvioCorreo = "⚠️ Error al enviar el correo al docente";
+                    }
+                }
+                else if (!enviarNotificacion)
+                {
+                    mensaje += " (sin envío de correo)";
+                    mensajeEnvioCorreo = "📧 Correo no enviado por elección del usuario";
+                }
+                else 
+                {
+                    mensajeEnvioCorreo = "⚠️ No se pudo verificar el estado del correo";
+                }
+                
+                StateHasChanged();
+                await Task.Delay(2000); // Mostrar el mensaje por 2 segundos
+                
+                Snackbar.Add(mensaje, Severity.Success);
                 CerrarModalDecision();
                 await CargarSolicitudesAnalisis(); // Refrescar la lista
             }
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error del servidor: {errorContent}");
+                mensajeEnvioCorreo = "❌ Error al procesar la solicitud";
                 Snackbar.Add($"Error al emitir la decisión: {errorContent}", Severity.Error);
             }
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"Excepción: {ex.Message}");
+            mensajeEnvioCorreo = $"❌ Error: {ex.Message}";
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
         }
         finally
