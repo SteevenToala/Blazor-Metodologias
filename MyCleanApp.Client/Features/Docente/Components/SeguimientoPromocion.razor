@@ -122,14 +122,70 @@
                     </MudChip>
                 </MudTd>
                 <MudTd DataLabel="Progreso">
-                    <div class="d-flex flex-column" style="min-width: 150px;">
-                        <MudProgressLinear Color="@GetEstadoColor(context.Estado)" 
-                                         Value="@GetProgresoValue(context.Estado)" 
-                                         Size="Size.Small" 
-                                         Class="mb-1" />
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                            @GetProgresoTexto(context.Estado)
-                        </MudText>
+                    <div style="min-width: 280px;">
+                        @{
+                            var timelineSteps = GetTimelineSteps(context.Estado);
+                        }
+                        <!-- Timeline mejorado -->
+                        <div class="timeline-vertical" style="position: relative; padding-left: 20px;">
+                            @for (int i = 0; i < timelineSteps.Count; i++)
+                            {
+                                var step = timelineSteps[i];
+                                <div class="timeline-step mb-2" style="position: relative;">
+                                    <!-- Línea vertical conectora -->
+                                    @if (i < timelineSteps.Count - 1)
+                                    {
+                                        <div style="position: absolute; left: -12px; top: 16px; width: 2px; height: 24px; 
+                                                    background-color: @(step.IsCompleted ? "#4CAF50" : "#E0E0E0");"></div>
+                                    }
+                                    
+                                    <!-- Marcador del paso -->
+                                    <div style="position: absolute; left: -20px; top: 0; width: 16px; height: 16px; 
+                                                border-radius: 50%; background: white; border: 2px solid @GetStepBorderColor(step);">
+                                        @if (step.IsCompleted)
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.Check" 
+                                                   Size="Size.Small" 
+                                                   Style="font-size: 10px; margin: -2px; color: #4CAF50;" />
+                                        }
+                                        else if (step.IsCurrent)
+                                        {
+                                            <div style="width: 8px; height: 8px; border-radius: 50%; background: #2196F3; margin: 2px;"></div>
+                                        }
+                                    </div>
+                                    
+                                    <!-- Contenido del paso -->
+                                    <div style="margin-left: 8px;">
+                                        <MudText Typo="Typo.caption" 
+                                               Style="@GetStepTextStyle(step)"
+                                               Class="mb-0">
+                                            @step.Title
+                                        </MudText>
+                                        
+                                        @if (step.IsCurrent && !string.IsNullOrEmpty(step.ResponsibleEntity))
+                                        {
+                                            <MudText Typo="Typo.caption" 
+                                                   Color="Color.Info" 
+                                                   Style="font-size: 0.65rem; font-weight: 500;"
+                                                   Class="d-flex align-center mt-1">
+                                                <MudIcon Icon="@Icons.Material.Filled.AssignmentInd" Size="Size.Small" Style="font-size: 12px;" Class="mr-1" />
+                                                @step.ResponsibleEntity
+                                            </MudText>
+                                        }
+                                        
+                                        @if (step.IsCompleted && !string.IsNullOrEmpty(step.CompletedDate))
+                                        {
+                                            <MudText Typo="Typo.caption" 
+                                                   Color="Color.Success" 
+                                                   Style="font-size: 0.65rem;"
+                                                   Class="mt-1">
+                                                ✓ @step.CompletedDate
+                                            </MudText>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </MudTd>
                 <MudTd DataLabel="Fecha Respuesta">
@@ -540,5 +596,99 @@
             Nombre = nombre;
             Completada = completada;
         }
+    }
+
+    public class TimelineStep
+    {
+        public string Title { get; set; } = "";
+        public bool IsCompleted { get; set; }
+        public bool IsCurrent { get; set; }
+        public string ResponsibleEntity { get; set; } = "";
+        public string CompletedDate { get; set; } = "";
+    }
+
+    private List<TimelineStep> GetTimelineSteps(string estado)
+    {
+        var steps = new List<TimelineStep>();
+        
+        // Definir todas las etapas posibles
+        var allSteps = new[]
+        {
+            ("Solicitud Recibida", "PENDIENTE", "Secretaría Académica"),
+            ("Verificación de Documentos", "EN_VERIFICACION", "Oficina de Verificación"),
+            ("Documentos Verificados", "VERIFICADA", "Secretaría Académica"),
+            ("Enviada a Comisión", "ENVIADA_COMISION", "Secretaría Académica"),
+            ("Análisis de Comisión", "EN_ANALISIS_COMISION", "Comisión Académica"),
+            ("Decisión Final", "DECIDIDO_APROBADA,DECIDIDO_RECHAZADA", "Comisión Académica")
+        };
+
+        var currentStateOrder = GetStateOrder(estado);
+        
+        foreach (var (title, stateCode, responsible) in allSteps)
+        {
+            var stepStates = stateCode.Split(',');
+            var stepOrder = stepStates.Select(GetStateOrder).Max();
+            
+            var isCompleted = currentStateOrder > stepOrder;
+            var isCurrent = currentStateOrder == stepOrder;
+            
+            var step = new TimelineStep
+            {
+                Title = title,
+                IsCompleted = isCompleted,
+                IsCurrent = isCurrent,
+                ResponsibleEntity = isCurrent ? responsible : "",
+                CompletedDate = isCompleted ? "Completado" : ""
+            };
+            
+            steps.Add(step);
+        }
+
+        // Si está efectiva, agregar paso final
+        if (estado == "EFECTIVA")
+        {
+            steps.Add(new TimelineStep
+            {
+                Title = "Promoción Efectiva",
+                IsCompleted = true,
+                IsCurrent = false,
+                CompletedDate = "Completado"
+            });
+        }
+
+        return steps;
+    }
+
+    private int GetStateOrder(string estado)
+    {
+        return estado switch
+        {
+            "PENDIENTE" => 1,
+            "EN_VERIFICACION" => 2,
+            "VERIFICADA" => 3,
+            "ENVIADA_COMISION" => 4,
+            "EN_ANALISIS_COMISION" => 5,
+            "DECIDIDO_APROBADA" => 6,
+            "DECIDIDO_RECHAZADA" => 6,
+            "APROBADA" => 7,
+            "RECHAZADA" => 7,
+            "EFECTIVA" => 8,
+            _ => 0
+        };
+    }
+
+    private string GetStepBorderColor(TimelineStep step)
+    {
+        if (step.IsCompleted) return "#4CAF50";
+        if (step.IsCurrent) return "#2196F3";
+        return "#E0E0E0";
+    }
+
+    private string GetStepTextStyle(TimelineStep step)
+    {
+        var baseStyle = "font-size: 0.75rem; line-height: 1.2;";
+        if (step.IsCurrent) return baseStyle + " font-weight: 600; color: #2196F3;";
+        if (step.IsCompleted) return baseStyle + " color: #4CAF50;";
+        return baseStyle + " color: #9E9E9E;";
     }
 }
