@@ -65,6 +65,10 @@
                         <MudProgressLinear Color="@(requisito.Cumple ? Color.Success : Color.Warning)" Value="@Math.Min(requisito.Porcentaje, 100)" Height="8" Rounded Class="mb-1" />
                         <MudText Typo="Typo.caption">
                             @requisito.Porcentaje.ToString("F1")% completado
+                            @if (requisito.TipoRequisito.ToLower().Contains("evaluacion") || requisito.TipoRequisito.ToLower().Contains("evaluación") || requisito.TipoRequisito.ToLower().Contains("puntaje"))
+                            {
+                                <span class="ms-2 text-info">Promedio: @requisito.ValorActual.ToString("F2")</span>
+                            }
                         </MudText>
                     </MudPaper>
                 </MudItem>
@@ -181,9 +185,11 @@
 
                                     foreach (var requisito in requisitosNivel)
                                     {
-                                        float valorActual = 0;
 
-                                        switch (requisito.TipoRequisitoNombre.ToLower())
+                                        float valorActual = 0;
+                                        var tipoReq = requisito.TipoRequisitoNombre.Trim().ToLower();
+                                        Console.WriteLine($"[REQUISITOS] Analizando tipo: '{requisito.TipoRequisitoNombre}' (normalizado: '{tipoReq}')");
+                                        switch (tipoReq)
                                         {
                                             case "investigaciones":
                                             case "meses de investigación":
@@ -200,6 +206,9 @@
                                             case "papers":
                                             case "publicaciones":
                                             case "publicaciones académicas":
+                                            case "paper":
+                                            case "artículos":
+                                            case "articulo":
                                                 var publicacionesFiltradas = await DocenteService.ObtenerPublicacionesDesdeAsync(docenteId.Value, fechaInicioNivelActual.Value);
                                                 valorActual = publicacionesFiltradas.Count;
                                                 Console.WriteLine($"[REQUISITOS] Publicaciones filtradas: {valorActual}");
@@ -208,12 +217,16 @@
                                             case "horas capacitación":
                                             case "cursos capacitación":
                                             case "cursos de capacitación":
+                                            case "horas de capacitación":
+                                            case "horas de capacitacion":
                                                 var capacitacionesFiltradas = await DocenteService.ObtenerCapacitacionesDesdeAsync(docenteId.Value, fechaInicioNivelActual.Value);
                                                 valorActual = capacitacionesFiltradas.Sum(c => c.Horas);
                                                 Console.WriteLine($"[REQUISITOS] Horas de capacitación filtradas: {valorActual}");
                                                 break;
 
                                             case "años en el rango":
+                                            case "años en el rango actual":
+                                            case "años rango":
                                                 var añosEnRango = (DateTime.Now - fechaInicioNivelActual.Value).TotalDays / 365.25;
                                                 valorActual = (float)Math.Max(0, añosEnRango);
                                                 Console.WriteLine($"[REQUISITOS] Años en el rango desde {fechaInicioNivelActual.Value:yyyy-MM-dd}: {valorActual}");
@@ -221,23 +234,51 @@
 
                                             case "puntaje evaluación":
                                             case "puntaje docencia":
-                                                var puntajeEvaluacion = await DocenteService.ObtenerPuntajeEvaluacionDesdeAsync(docenteId.Value, fechaInicioNivelActual.Value);
-                                                valorActual = (float)puntajeEvaluacion;
-                                                Console.WriteLine($"[REQUISITOS] Puntaje evaluación filtrado: {valorActual}");
+                                            case "puntaje de evaluación":
+                                            case "puntaje evaluacion":
+                                            case "evaluación":
+                                            case "evaluacion":
+                                                var todasLasEvaluaciones = await DocenteService.getEvaluacionesDocentes();
+                                                if (todasLasEvaluaciones != null)
+                                                {
+                                                    var evaluacionesFiltradas = todasLasEvaluaciones
+                                                        .Where(e => e.FechaEvaluacion >= fechaInicioNivelActual.Value)
+                                                        .ToList();
+                                                    valorActual = evaluacionesFiltradas.Any() ? (float)evaluacionesFiltradas.Average(e => e.Puntaje) : 0;
+                                                    Console.WriteLine($"[REQUISITOS] Evaluaciones filtradas: {evaluacionesFiltradas.Count}, Promedio: {valorActual}");
+                                                }
+                                                else
+                                                {
+                                                    valorActual = 0;
+                                                    Console.WriteLine("[REQUISITOS] No se pudieron obtener evaluaciones para el cálculo de promedio.");
+                                                }
                                                 break;
 
                                             default:
-                                                Console.WriteLine($"[REQUISITOS] Tipo de requisito no reconocido: {requisito.TipoRequisitoNombre}");
+                                                Console.WriteLine($"[REQUISITOS] Tipo de requisito no reconocido: '{requisito.TipoRequisitoNombre}' (normalizado: '{tipoReq}')");
                                                 break;
                                         }
 
+                                        float porcentaje = 0;
+                                        if ((float)requisito.ValorRequerido > 0)
+                                        {
+                                            porcentaje = valorActual * 100.0f / (float)requisito.ValorRequerido;
+                                        }
+                                        else
+                                        {
+                                            porcentaje = valorActual > 0 ? 100 : 0;
+                                        }
+                                        if (tipoReq.Contains("evaluacion") || tipoReq.Contains("evaluación") || tipoReq.Contains("puntaje"))
+                                        {
+                                            Console.WriteLine($"[REQUISITOS][EVAL] ValorActual: {valorActual}, ValorRequerido: {requisito.ValorRequerido}, Porcentaje: {porcentaje}");
+                                        }
                                         var requirement = new RequisitoEvaluacion
                                         {
                                             TipoRequisito = requisito.TipoRequisitoNombre,
                                             ValorRequerido = (float)requisito.ValorRequerido,
                                             ValorActual = valorActual,
                                             Cumple = valorActual >= (float)requisito.ValorRequerido,
-                                            Porcentaje = (float)requisito.ValorRequerido > 0 ? (valorActual * 100.0f / (float)requisito.ValorRequerido) : 0
+                                            Porcentaje = porcentaje
                                         };
 
                                         requirements.Add(requirement);
