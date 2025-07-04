@@ -97,6 +97,71 @@ public async Task<ActionResult<IEnumerable<object>>> GetSolicitudesPendientesPor
     }
 }
 
+[HttpGet("SolicitudesAprobadasTotalConsejo")]
+public async Task<ActionResult<IEnumerable<object>>> GetSolicitudesTotalmenteAprobadasPorConsejo()
+{
+    try
+    {
+        string connectionString = _context.Database.GetConnectionString();
+
+        using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+
+        var solicitudesAprobadas = new List<object>();
+
+        string query = @"
+            WITH ConsejoCount AS (
+                SELECT COUNT(*) AS totalConsejo
+                FROM Usuario
+                WHERE rol = 'CONSEJO_UNIVERSITARIO'
+            ),
+            AprobadasPorConsejo AS (
+                SELECT s.id, COUNT(DISTINCT a.usuarioId) AS totalAprobaciones
+                FROM SolicitudAvanceRango s
+                JOIN AprobacionSolicitudRango a ON a.solicitudId = s.id
+                JOIN Usuario u ON a.usuarioId = u.id
+                WHERE u.rol = 'CONSEJO_UNIVERSITARIO'
+                  AND s.estado = 'APROBADA_COMICION'
+                GROUP BY s.id
+            )
+            SELECT s.id, s.docenteId, s.fechaSolicitud, s.estado,
+                   p.nombres + ' ' + p.apellidos AS docenteNombre,
+                   naActual.nombre AS nivelActual,
+                   naNuevo.nombre AS nuevoNivel
+            FROM SolicitudAvanceRango s
+            JOIN AprobadasPorConsejo apc ON apc.id = s.id
+            CROSS JOIN ConsejoCount cc
+            INNER JOIN Docente d ON s.docenteId = d.id
+            INNER JOIN Usuario uDocente ON d.usuarioId = uDocente.id
+            INNER JOIN Persona p ON uDocente.personaId = p.id
+            LEFT JOIN NivelAcademico naActual ON d.nivelAcademicoId = naActual.id
+            LEFT JOIN NivelAcademico naNuevo ON s.nuevoNivelAcademicoId = naNuevo.id
+            WHERE apc.totalAprobaciones = cc.totalConsejo
+        ";
+
+        using var command = new SqlCommand(query, connection);
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            solicitudesAprobadas.Add(new
+            {
+                Id = reader.GetInt32(0),
+                DocenteId = reader.GetInt32(1),
+                FechaSolicitud = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                Estado = reader.GetString(3),
+                DocenteNombre = reader.GetString(4),
+                NivelActual = reader.IsDBNull(5) ? null : reader.GetString(5),
+                NuevoNivel = reader.IsDBNull(6) ? null : reader.GetString(6)
+            });
+        }
+
+        return Ok(solicitudesAprobadas);
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+    }
+}
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> Get()
@@ -575,33 +640,33 @@ public async Task<IActionResult> ActualizarEstado([FromBody] ActualizarEstadoReq
             if (request.Estado == "RECHAZADO" && !string.IsNullOrEmpty(email))
             {
                 var html = $@"
-UNIVERSIDAD - SISTEMA DE PROMOCIÓN ACADÉMICA<br/>
-============================================<br/><br/>
+                    UNIVERSIDAD - SISTEMA DE PROMOCIÓN ACADÉMICA<br/>
+                    ============================================<br/><br/>
 
-<b>DECISIÓN DEL CONSEJO UNIVERSITARIO</b><br/><br/>
+                    <b>DECISIÓN DEL CONSEJO UNIVERSITARIO</b><br/><br/>
 
-Estimado/a <b>{nombreCompleto}</b>,<br/><br/>
+                    Estimado/a <b>{nombreCompleto}</b>,<br/><br/>
 
-El Consejo Universitario ha emitido una decisión sobre su solicitud de promoción al nivel académico <b>{nivelSolicitado}</b>.<br/><br/>
+                    El Consejo Universitario ha emitido una decisión sobre su solicitud de promoción al nivel académico <b>{nivelSolicitado}</b>.<br/><br/>
 
-<h3 style='color:red;'>*** SOLICITUD RECHAZADA ***</h3><br/>
+                    <h3 style='color:red;'>*** SOLICITUD RECHAZADA ***</h3><br/>
 
-<b>DETALLES DE LA DECISIÓN:</b><br/>
-• Resultado: RECHAZADO<br/>
-• Nivel Solicitado: {nivelSolicitado}<br/>
-• Fecha de Decisión: {fechaDecision:dd/MM/yyyy HH:mm}<br/>
-• Observaciones: Su solicitud ha sido rechazada por la el consejo Universitario.<br/><br/>
+                    <b>DETALLES DE LA DECISIÓN:</b><br/>
+                    • Resultado: RECHAZADO<br/>
+                    • Nivel Solicitado: {nivelSolicitado}<br/>
+                    • Fecha de Decisión: {fechaDecision:dd/MM/yyyy HH:mm}<br/>
+                    • Observaciones: Su solicitud ha sido rechazada por la el consejo Universitario.<br/><br/>
 
-Para más información o consultas, puede comunicarse con la Secretaría Académica.<br/><br/>
+                    Para más información o consultas, puede comunicarse con la Secretaría Académica.<br/><br/>
 
-Cordialmente,<br/>
-Consejo Universitario<br/>
-Universidad<br/><br/>
+                    Cordialmente,<br/>
+                    Consejo Universitario<br/>
+                    Universidad<br/><br/>
 
-<hr/>
-<small>Este es un correo electrónico automático del Sistema de Promoción Académica.<br/>
-Por favor, no responda a este mensaje.<br/>
-Fecha de envío: {fechaDecision:dd/MM/yyyy HH:mm:ss}</small>";
+                    <hr/>
+                    <small>Este es un correo electrónico automático del Sistema de Promoción Académica.<br/>
+                    Por favor, no responda a este mensaje.<br/>
+                    Fecha de envío: {fechaDecision:dd/MM/yyyy HH:mm:ss}</small>";
 
                 using var httpClient = new HttpClient();
                 var correoPayload = new

@@ -1,3 +1,4 @@
+@inject HttpClient Http
 <MudCard>
     <MudCardContent>
         <div class="d-flex justify-space-between align-center mb-4">
@@ -10,7 +11,7 @@
                     <MudCardContent>
                         <div class="d-flex justify-space-between align-center">
                             <div>
-                                <MudText Typo="Typo.h4" Color="Color.Primary">@TotalSolicitudes</MudText>
+                                <MudText Typo="Typo.h4" Style="color: #222;">@TotalSolicitudes</MudText>
                                 <MudText Typo="Typo.body2">Total Solicitudes</MudText>
                             </div>
                             <MudIcon Icon="@Icons.Material.Filled.Assignment" Size="Size.Large" Color="Color.Primary" />
@@ -24,7 +25,7 @@
                     <MudCardContent>
                         <div class="d-flex justify-space-between align-center">
                             <div>
-                                <MudText Typo="Typo.h4" Color="Color.Warning">@PendientesAprobacion</MudText>
+                                <MudText Typo="Typo.h4" Style="color: #222;">@PendientesAprobacion</MudText>
                                 <MudText Typo="Typo.body2">Pendientes Aprobación</MudText>
                             </div>
                             <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty" Size="Size.Large" Color="Color.Warning" />
@@ -38,7 +39,7 @@
                     <MudCardContent>
                         <div class="d-flex justify-space-between align-center">
                             <div>
-                                <MudText Typo="Typo.h4" Color="Color.Success">@Aprobadas</MudText>
+                                <MudText Typo="Typo.h4" Style="color: #222;">@Aprobadas</MudText>
                                 <MudText Typo="Typo.body2">Aprobadas</MudText>
                             </div>
                             <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
@@ -52,7 +53,7 @@
                     <MudCardContent>
                         <div class="d-flex justify-space-between align-center">
                             <div>
-                                <MudText Typo="Typo.h4" Color="Color.Error">@Rechazadas</MudText>
+                                <MudText Typo="Typo.h4" Style="color: #222;">@Rechazadas</MudText>
                                 <MudText Typo="Typo.body2">Rechazadas</MudText>
                             </div>
                             <MudIcon Icon="@Icons.Material.Filled.Cancel" Size="Size.Large" Color="Color.Error" />
@@ -70,12 +71,37 @@
     [Parameter] public int Aprobadas { get; set; }
     [Parameter] public int Rechazadas { get; set; }
 
-    protected override void OnInitialized()
+    public class Solicitud
     {
-        // Valores por defecto para demo
-        if (TotalSolicitudes == 0) TotalSolicitudes = 45;
-        if (PendientesAprobacion == 0) PendientesAprobacion = 12;
-        if (Aprobadas == 0) Aprobadas = 28;
-        if (Rechazadas == 0) Rechazadas = 5;
+        public int Id { get; set; }
+        public int DocenteId { get; set; }
+        public DateTime FechaSolicitud { get; set; }
+        public string Estado { get; set; } = string.Empty;
+        public DateTime? FechaRespuesta { get; set; }
+        public string? Observaciones { get; set; }
+        public int NuevoNivelAcademicoId { get; set; }
+        public string? DocenteNombre { get; set; }
+        public string? NivelActual { get; set; }
+        public string? NuevoNivel { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<List<Solicitud>>("http://localhost:5015/api/SolicitudAvanceRango");
+
+            if (response is not null)
+            {
+                TotalSolicitudes = response.Count;
+                PendientesAprobacion = response.Count(s => s.Estado == "APROBADA_COMICION");
+                Aprobadas = response.Count(s => s.Estado == "PROMOVIDA");
+                Rechazadas = response.Count(s => s.Estado == "RECHAZADA" || s.Estado == "RECHAZADO");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando estadísticas: {ex.Message}");
+        }
     }
 }
