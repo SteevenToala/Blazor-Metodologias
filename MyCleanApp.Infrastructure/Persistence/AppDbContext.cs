@@ -30,6 +30,8 @@ namespace MyCleanApp.Infrastructure.Persistence
         // Entidades del esquema de la base de datos (corregidas)
         public DbSet<ComisionAcademica> ComisionAcademica { get; set; }
         public DbSet<ApelacionPromocion> ApelacionPromocion { get; set; }
+        public DbSet<SeguimientoPlazos> SeguimientoPlazos { get; set; }
+        public DbSet<VerificacionDocumentos> VerificacionDocumentos { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

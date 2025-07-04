@@ -59,17 +59,17 @@ public class ListaVerificacionController : ControllerBase
             }
 
             // Crear registro de verificación
-            var verificacion = new ListaVerificacion
+            var verificacion = new VerificacionDocumentos
             {
                 SolicitudId = solicitudId,
-                TipoDocumento = request.TipoDocumento,
+                ListaVerificacionId = request.ListaVerificacionId,
                 Verificado = request.Verificado,
                 FechaVerificacion = DateTime.Now,
-                VerificadoPor = request.VerificadoPor ?? "Sistema",
+                VerificadoPor = request.VerificadoPorId,
                 Observaciones = request.Observaciones
             };
 
-            _context.ListaVerificacion.Add(verificacion);
+            _context.VerificacionDocumentos.Add(verificacion);
             await _context.SaveChangesAsync();
 
             return Ok(new { mensaje = "Verificación registrada correctamente" });
@@ -110,15 +110,18 @@ public class ListaVerificacionController : ControllerBase
     {
         try
         {
-            var verificaciones = await _context.ListaVerificacion
+            var verificaciones = await _context.VerificacionDocumentos
                 .Where(v => v.SolicitudId == solicitudId)
+                .Include(v => v.ListaVerificacion)
+                .Include(v => v.VerificadoPorUsuario)
                 .Select(v => new
                 {
                     v.Id,
-                    v.TipoDocumento,
+                    TipoDocumento = v.ListaVerificacion!.NombreDocumento,
                     v.Verificado,
                     v.FechaVerificacion,
-                    v.VerificadoPor,
+                    VerificadoPor = v.VerificadoPorUsuario != null && v.VerificadoPorUsuario.Persona != null ? 
+                        v.VerificadoPorUsuario.Persona.Nombres + " " + v.VerificadoPorUsuario.Persona.Apellidos : "Sistema",
                     v.Observaciones
                 })
                 .ToListAsync();
@@ -143,7 +146,7 @@ public class ListaVerificacionController : ControllerBase
             }
 
             // Verificar que todos los documentos estén verificados
-            var verificacionesPendientes = await _context.ListaVerificacion
+            var verificacionesPendientes = await _context.VerificacionDocumentos
                 .Where(v => v.SolicitudId == solicitudId && !v.Verificado)
                 .CountAsync();
 
@@ -169,10 +172,10 @@ public class ListaVerificacionController : ControllerBase
 
 public class VerificacionRequest
 {
-    public string TipoDocumento { get; set; } = "";
+    public int ListaVerificacionId { get; set; }
     public bool Verificado { get; set; }
     public string? Observaciones { get; set; }
-    public string? VerificadoPor { get; set; }
+    public int? VerificadoPorId { get; set; }
 }
 
 public class EstadoSolicitudRequest

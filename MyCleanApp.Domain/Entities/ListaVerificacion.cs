@@ -3,14 +3,15 @@ namespace MyCleanApp.Domain.Entities
     public class ListaVerificacion
     {
         public int Id { get; set; }
-        public int SolicitudId { get; set; }
-        public string TipoDocumento { get; set; } = string.Empty;
-        public bool Verificado { get; set; }
-        public DateTime FechaVerificacion { get; set; }
-        public string VerificadoPor { get; set; } = string.Empty;
-        public string? Observaciones { get; set; }
+        public int NivelAcademicoId { get; set; }
+        public string NombreDocumento { get; set; } = string.Empty;
+        public string Descripcion { get; set; } = string.Empty;
+        public bool Obligatorio { get; set; } = true;
+        public int Orden { get; set; }
+        public bool Activo { get; set; } = true;
 
         // Navegación
-        public SolicitudAvanceRango? SolicitudAvanceRango { get; set; }
+        public virtual NivelAcademico? NivelAcademico { get; set; }
+        public virtual ICollection<VerificacionDocumentos> VerificacionDocumentos { get; set; } = new List<VerificacionDocumentos>();
     }
 }
