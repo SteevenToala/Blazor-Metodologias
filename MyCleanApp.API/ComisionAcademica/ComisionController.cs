@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
+using MyCleanApp.API.DTOs;
 
 namespace MyCleanApp.API.ComisionAcademica
 {
@@ -183,7 +184,7 @@ namespace MyCleanApp.API.ComisionAcademica
         }
 
         [HttpPost("solicitud/{id}/emitir-decision")]
-        public async Task<ActionResult> EmitirDecision(int id, [FromBody] object decisionRequest)
+        public async Task<ActionResult> EmitirDecision(int id, [FromBody] DecisionComisionDto decisionRequest)
         {
             try
             {
@@ -193,13 +194,30 @@ namespace MyCleanApp.API.ComisionAcademica
                     return NotFound("Solicitud no encontrada");
                 }
 
-                // Aquí deberías deserializar decisionRequest según tus DTOs
+                if (solicitud.Estado != "EN_EVALUACION")
+                {
+                    return BadRequest("La solicitud no se encuentra en estado de evaluación");
+                }
+
+                // Actualizar el estado y datos de la decisión
                 solicitud.Estado = "DECIDIDA";
                 solicitud.FechaRespuesta = DateTime.Now;
+                
+                // Combinar la decisión con las observaciones
+                var observacionesCompletas = $"DECISIÓN: {decisionRequest.Decision}";
+                if (!string.IsNullOrEmpty(decisionRequest.Observaciones))
+                {
+                    observacionesCompletas += $" - OBSERVACIONES: {decisionRequest.Observaciones}";
+                }
+                solicitud.Observaciones = observacionesCompletas;
 
                 await _context.SaveChangesAsync();
 
-                return Ok(new { mensaje = "Decisión emitida correctamente" });
+                return Ok(new { 
+                    mensaje = "Decisión emitida correctamente",
+                    decision = decisionRequest.Decision,
+                    fechaDecision = DateTime.Now 
+                });
             }
             catch (Exception ex)
             {

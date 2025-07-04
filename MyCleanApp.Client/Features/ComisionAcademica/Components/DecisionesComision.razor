@@ -1,4 +1,5 @@
 @using MyCleanApp.Client.DTOs
+@using MudBlazor
 @inject HttpClient Http
 @inject ISnackbar Snackbar
 
@@ -49,7 +50,7 @@
                         <MudButton StartIcon="@Icons.Material.Filled.Gavel"
                                    Color="Color.Success"
                                    Size="Size.Small"
-                                   OnClick="@(() => AbrirDialogDecision(context))">
+                                   OnClick="@(() => AbrirModalDecision(context))">
                             Emitir Decisión
                         </MudButton>
                     }
@@ -71,82 +72,76 @@
     }
 </MudPaper>
 
-<!-- Dialog para emitir decisión -->
-<MudDialog @bind-IsVisible="mostrarDialogDecision" Options="dialogOptions">
-    <TitleContent>
-        <MudText Typo="Typo.h6">
-            <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-3"/>
-            Emitir Decisión de Promoción
-        </MudText>
-    </TitleContent>
-    <DialogContent>
-        @if (solicitudSeleccionada != null)
-        {
-            <div class="mb-4">
-                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">
-                    @solicitudSeleccionada.DocenteNombre @solicitudSeleccionada.DocenteApellido
-                </MudText>
-                <MudText>Promoción a: @solicitudSeleccionada.NivelSolicitado</MudText>
+<!-- Modal de Decisión -->
+@if (mostrarModalDecision && solicitudParaDecision != null)
+{
+    <div class="modal" style="display: block; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+        <div class="modal-content" style="background-color: white; margin: 10% auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 600px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 15px;">
+                <h3 style="margin: 0; color: #8B1538;">
+                    ⚖️ Emitir Decisión de Comisión
+                </h3>
+                <button @onclick="CerrarModalDecision" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">×</button>
+            </div>
+            
+            <!-- Información de la Solicitud -->
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+                <h4 style="margin-top: 0; color: #495057;">Información de la Solicitud</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div><strong>Docente:</strong> @solicitudParaDecision.DocenteNombre @solicitudParaDecision.DocenteApellido</div>
+                    <div><strong>Nivel Solicitado:</strong> @solicitudParaDecision.NivelSolicitado</div>
+                    <div><strong>Fecha Análisis:</strong> @(solicitudParaDecision.FechaAnalisis?.ToString("dd/MM/yyyy") ?? "N/A")</div>
+                    <div><strong>Estado Actual:</strong> @solicitudParaDecision.Estado</div>
+                </div>
             </div>
 
-            <MudForm @ref="formDecision" @bind-IsValid="@isFormValid">
-                <MudSelect @bind-Value="decisionComision.Decision" 
-                           Label="Decisión" 
-                           Required="true"
-                           Variant="Variant.Outlined"
-                           Margin="Margin.Dense">
-                    <MudSelectItem Value="@("APROBADO")">Aprobar Promoción</MudSelectItem>
-                    <MudSelectItem Value="@("RECHAZADO")">Rechazar Promoción</MudSelectItem>
-                </MudSelect>
+            <!-- Formulario de Decisión -->
+            <div style="background-color: white; border: 1px solid #ddd; border-radius: 6px; padding: 20px; margin-bottom: 20px;">
+                <h4 style="margin-top: 0;">Decisión de la Comisión</h4>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Decisión:</label>
+                    <select @bind="decisionSeleccionada" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Seleccione una decisión...</option>
+                        <option value="APROBADA">Aprobar Promoción</option>
+                        <option value="RECHAZADA">Rechazar Promoción</option>
+                        <option value="OBSERVACIONES">Solicitar Observaciones</option>
+                    </select>
+                </div>
 
-                <MudTextField @bind-Value="decisionComision.Observaciones"
-                              Label="Observaciones y Justificación"
-                              Lines="4"
-                              Variant="Variant.Outlined"
-                              Margin="Margin.Dense"
-                              Class="mt-3"
-                              Required="true" />
-
-                <MudCheckBox T="bool" @bind-Checked="decisionComision.RequiereNotificacion"
-                             Label="Notificar al docente inmediatamente"
-                             Class="mt-3" />
-            </MudForm>
-        }
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="CerrarDialogDecision">Cancelar</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Send"
-                   Color="Color.Success"
-                   Disabled="@(!isFormValid || enviandoDecision)"
-                   OnClick="EmitirDecision">
-            @if (enviandoDecision)
-            {
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                <span class="ml-2">Enviando...</span>
-            }
-            else
-            {
-                <span>Emitir Decisión</span>
-            }
-        </MudButton>
-    </DialogActions>
-</MudDialog>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold;">Observaciones de la Comisión:</label>
+                    <textarea @bind="observacionesDecision" 
+                             placeholder="Escriba las observaciones y fundamentos de la decisión..."
+                             style="width: 100%; height: 120px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+                </div>
+            </div>
+            
+            <!-- Botones de acción -->
+            <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid #ddd;">
+                <button @onclick="CerrarModalDecision" 
+                        style="padding: 10px 20px; border: 1px solid #ddd; background-color: white; border-radius: 4px; cursor: pointer;">
+                    Cancelar
+                </button>
+                <button @onclick="GuardarDecision" disabled="@(procesandoDecision || string.IsNullOrEmpty(decisionSeleccionada))"
+                        style="padding: 10px 20px; border: 1px solid #4caf50; background-color: #4caf50; color: white; border-radius: 4px; cursor: pointer;">
+                    @if (procesandoDecision) { <span>Procesando...</span> } else { <span>Emitir Decisión</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private bool isLoading = true;
-    private bool mostrarDialogDecision = false;
-    private bool isFormValid = false;
-    private bool enviandoDecision = false;
     private List<SolicitudComisionDto> solicitudesAnalisis = new();
-    private SolicitudComisionDto? solicitudSeleccionada = null;
-    private DecisionComisionDto decisionComision = new();
-    private MudForm? formDecision;
     
-    private DialogOptions dialogOptions = new() 
-    { 
-        MaxWidth = MaxWidth.Medium, 
-        FullWidth = true 
-    };
+    // Variables para el modal de decisión
+    private bool mostrarModalDecision = false;
+    private SolicitudComisionDto? solicitudParaDecision = null;
+    private string decisionSeleccionada = string.Empty;
+    private string observacionesDecision = string.Empty;
+    private bool procesandoDecision = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -164,7 +159,9 @@
             var response = await Http.GetAsync("http://localhost:5015/api/comision-academica/solicitudes-pendientes");
             if (response.IsSuccessStatusCode)
             {
-                var todasSolicitudes = await response.Content.ReadFromJsonAsync<List<SolicitudComisionDto>>() ?? new();
+                var json = await response.Content.ReadAsStringAsync();
+                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var todasSolicitudes = System.Text.Json.JsonSerializer.Deserialize<List<SolicitudComisionDto>>(json, options) ?? new();
                 solicitudesAnalisis = todasSolicitudes
                     .Where(s => s.Estado == "EN_EVALUACION" || s.Estado == "DECIDIDA" || s.Estado == "DECISION_EMITIDA")
                     .ToList();
@@ -185,40 +182,57 @@
         }
     }
 
-    private void AbrirDialogDecision(SolicitudComisionDto solicitud)
+    private void AbrirModalDecision(SolicitudComisionDto solicitud)
     {
-        solicitudSeleccionada = solicitud;
-        decisionComision = new DecisionComisionDto 
-        { 
-            SolicitudId = solicitud.Id,
-            RequiereNotificacion = true
-        };
-        mostrarDialogDecision = true;
+        solicitudParaDecision = solicitud;
+        decisionSeleccionada = string.Empty;
+        observacionesDecision = string.Empty;
+        mostrarModalDecision = true;
+        StateHasChanged();
     }
 
-    private async Task EmitirDecision()
+    private void CerrarModalDecision()
     {
-        if (!isFormValid || enviandoDecision) return;
+        mostrarModalDecision = false;
+        solicitudParaDecision = null;
+        decisionSeleccionada = string.Empty;
+        observacionesDecision = string.Empty;
+        procesandoDecision = false;
+    }
+
+    private async Task GuardarDecision()
+    {
+        if (solicitudParaDecision == null || string.IsNullOrEmpty(decisionSeleccionada))
+        {
+            Snackbar.Add("Debe seleccionar una decisión", Severity.Warning);
+            return;
+        }
 
         try
         {
-            enviandoDecision = true;
+            procesandoDecision = true;
             StateHasChanged();
 
-            var response = await Http.PostAsJsonAsync(
-                $"http://localhost:5015/api/comision-academica/solicitud/{decisionComision.SolicitudId}/emitir-decision", 
-                decisionComision);
+            var request = new
+            {
+                decision = decisionSeleccionada,
+                observaciones = observacionesDecision
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(request);
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            var response = await Http.PostAsync($"http://localhost:5015/api/comision-academica/solicitud/{solicitudParaDecision.Id}/emitir-decision", content);
 
             if (response.IsSuccessStatusCode)
             {
-                Snackbar.Add("Decisión emitida correctamente", Severity.Success);
-                await CargarSolicitudesAnalisis();
-                CerrarDialogDecision();
+                Snackbar.Add("Decisión emitida exitosamente", Severity.Success);
+                CerrarModalDecision();
+                await CargarSolicitudesAnalisis(); // Refrescar la lista
             }
             else
             {
-                var errorMessage = await response.Content.ReadAsStringAsync();
-                Snackbar.Add($"Error al emitir la decisión: {errorMessage}", Severity.Error);
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error al emitir la decisión: {errorContent}", Severity.Error);
             }
         }
         catch (Exception ex)
@@ -227,16 +241,9 @@
         }
         finally
         {
-            enviandoDecision = false;
+            procesandoDecision = false;
             StateHasChanged();
         }
-    }
-
-    private void CerrarDialogDecision()
-    {
-        mostrarDialogDecision = false;
-        solicitudSeleccionada = null;
-        decisionComision = new();
     }
 
     private Color GetEstadoColor(string estado)
