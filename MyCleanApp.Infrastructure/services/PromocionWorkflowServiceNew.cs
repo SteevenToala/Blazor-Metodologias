@@ -15,6 +15,7 @@ namespace MyCleanApp.Infrastructure.Services
         Task<WorkflowResult> IniciarAnalisisComisionAsync(int solicitudId);
         Task<WorkflowResult> NotificarResultadoAsync(int solicitudId, bool aprobada, string observaciones);
         Task<WorkflowResult> RegistrarRespuestaDocenteAsync(int solicitudId, bool acepta);
+        Task<WorkflowResult> IniciarInformesFinalesAsync(int solicitudId);
         Task<WorkflowResult> PresentarApelacionAsync(int solicitudId, string motivo, string fundamentos);
         Task<WorkflowResult> ResolverApelacionAsync(int solicitudId, bool aceptada, string resolucion);
         Task<WorkflowResult> GenerarInformeFinalAsync(int solicitudId);
@@ -192,7 +193,7 @@ namespace MyCleanApp.Infrastructure.Services
 
             if (acepta)
             {
-                solicitud.Estado = "ACEPTADA";
+                solicitud.Estado = "APROBADA_DOCENTE";
             }
             else
             {
@@ -204,6 +205,24 @@ namespace MyCleanApp.Infrastructure.Services
             var mensaje = acepta ? "aceptada" : "rechazada (puede presentar apelación)";
             return WorkflowResult.CreateSuccess("Respuesta registrada", 
                 $"La respuesta del docente ha sido registrada como {mensaje}");
+        }
+
+        public async Task<WorkflowResult> IniciarInformesFinalesAsync(int solicitudId)
+        {
+            var solicitud = await _context.SolicitudAvanceRango.FindAsync(solicitudId);
+            if (solicitud == null)
+                return WorkflowResult.CreateError("Solicitud no encontrada");
+
+            if (solicitud.Estado != "APROBADA_DOCENTE")
+                return WorkflowResult.CreateError("La solicitud debe estar aceptada por el docente");
+
+            solicitud.Estado = "INFORMES_FINALES";
+            solicitud.Observaciones = $"{solicitud.Observaciones} | Iniciando generación de informes finales - Fecha: {DateTime.Now:dd/MM/yyyy HH:mm}";
+
+            await _context.SaveChangesAsync();
+
+            return WorkflowResult.CreateSuccess("Informes finales iniciados", 
+                "Se ha iniciado el proceso de generación de informes finales de promoción académica");
         }
 
         public async Task<WorkflowResult> PresentarApelacionAsync(int solicitudId, string motivo, string fundamentos)

@@ -9,538 +9,538 @@ namespace MyCleanApp.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     public class SolicitudAvanceRangoController : ControllerBase
-{
-    private readonly AppDbContext _context;
-    public SolicitudAvanceRangoController(AppDbContext context) => _context = context;
-
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<object>>> Get()
     {
-        try
+        private readonly AppDbContext _context;
+        public SolicitudAvanceRangoController(AppDbContext context) => _context = context;
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<object>>> Get()
         {
-            var solicitudes = await _context.SolicitudAvanceRango
-                .Include(s => s.Docente)
-                    .ThenInclude(d => d.Usuario)
-                        .ThenInclude(u => u.Persona)
-                .Include(s => s.Docente)
-                    .ThenInclude(d => d.NivelAcademico)
-                .Include(s => s.NuevoNivelAcademico)
-                .Select(s => new
+            try
+            {
+                var solicitudes = await _context.SolicitudAvanceRango
+                    .Include(s => s.Docente)
+                        .ThenInclude(d => d.Usuario)
+                            .ThenInclude(u => u.Persona)
+                    .Include(s => s.Docente)
+                        .ThenInclude(d => d.NivelAcademico)
+                    .Include(s => s.NuevoNivelAcademico)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.DocenteId,
+                        s.FechaSolicitud,
+                        Estado = s.Estado ?? "PENDIENTE",
+                        s.FechaRespuesta,
+                        Observaciones = s.Observaciones ?? "",
+                        s.NuevoNivelAcademicoId,
+                        DocenteNombre = s.Docente != null && s.Docente.Usuario != null && s.Docente.Usuario.Persona != null
+                            ? (s.Docente.Usuario.Persona.Nombres ?? "") + " " + (s.Docente.Usuario.Persona.Apellidos ?? "")
+                            : "Sin información",
+                        NivelActual = s.Docente != null && s.Docente.NivelAcademico != null
+                            ? s.Docente.NivelAcademico.nombre ?? "Sin nivel"
+                            : "Sin nivel",
+                        NuevoNivel = s.NuevoNivelAcademico != null
+                            ? s.NuevoNivelAcademico.nombre ?? "Sin nivel"
+                            : "Sin nivel"
+                    })
+                    .ToListAsync();
+
+                return Ok(solicitudes);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            }
+        }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<object>> Get(int id)
+        {
+            try
+            {
+                var solicitud = await _context.SolicitudAvanceRango
+                    .Include(s => s.Docente)
+                        .ThenInclude(d => d.Usuario)
+                            .ThenInclude(u => u.Persona)
+                    .Include(s => s.Docente)
+                        .ThenInclude(d => d.NivelAcademico)
+                    .Include(s => s.NuevoNivelAcademico)
+                    .Where(s => s.Id == id)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.DocenteId,
+                        s.FechaSolicitud,
+                        Estado = s.Estado ?? "PENDIENTE",
+                        s.FechaRespuesta,
+                        Observaciones = s.Observaciones ?? "",
+                        s.NuevoNivelAcademicoId,
+                        DocenteNombre = s.Docente != null && s.Docente.Usuario != null && s.Docente.Usuario.Persona != null
+                            ? (s.Docente.Usuario.Persona.Nombres ?? "") + " " + (s.Docente.Usuario.Persona.Apellidos ?? "")
+                            : "Sin información",
+                        NivelActual = s.Docente != null && s.Docente.NivelAcademico != null
+                            ? s.Docente.NivelAcademico.nombre ?? "Sin nivel"
+                            : "Sin nivel",
+                        NuevoNivel = s.NuevoNivelAcademico != null
+                            ? s.NuevoNivelAcademico.nombre ?? "Sin nivel"
+                            : "Sin nivel"
+                    })
+                    .FirstOrDefaultAsync();
+
+                return solicitud == null ? NotFound() : Ok(solicitud);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<ActionResult> Post([FromBody] SolicitudAvanceRango solicitud)
+        {
+            try
+            {
+                _context.SolicitudAvanceRango.Add(solicitud);
+                await _context.SaveChangesAsync();
+                return CreatedAtAction(nameof(Get), new { id = solicitud.Id }, solicitud);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Put(int id, [FromBody] SolicitudAvanceRango solicitud)
+        {
+            try
+            {
+                if (id != solicitud.Id) return BadRequest();
+
+                _context.Entry(solicitud).State = EntityState.Modified;
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            }
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            try
+            {
+                var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
+                if (solicitud == null) return NotFound();
+
+                _context.SolicitudAvanceRango.Remove(solicitud);
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            }
+        }
+
+        [HttpPost("{id}/aprobar")]
+        public async Task<IActionResult> AprobarSolicitud(int id, [FromBody] AprobacionRequest request)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Buscar la solicitud con sus relaciones
+                var solicitud = await _context.SolicitudAvanceRango
+                    .Include(s => s.Docente)
+                    .FirstOrDefaultAsync(s => s.Id == id);
+
+                if (solicitud == null)
+                    return NotFound(new { error = "Solicitud no encontrada" });
+
+                if (solicitud.Estado == "APROBADA")
+                    return BadRequest(new { error = "La solicitud ya ha sido aprobada" });
+
+                // Actualizar el estado de la solicitud
+                solicitud.Estado = "APROBADA";
+                solicitud.FechaRespuesta = DateTime.Now;
+                solicitud.Observaciones = request.Observaciones ?? "Promoción aprobada";
+
+                // Actualizar el nivel del docente
+                var docente = solicitud.Docente;
+                if (docente != null && solicitud.NuevoNivelAcademicoId.HasValue)
                 {
-                    s.Id,
-                    s.DocenteId,
-                    s.FechaSolicitud,
-                    Estado = s.Estado ?? "PENDIENTE",
-                    s.FechaRespuesta,
-                    Observaciones = s.Observaciones ?? "",
-                    s.NuevoNivelAcademicoId,
-                    DocenteNombre = s.Docente != null && s.Docente.Usuario != null && s.Docente.Usuario.Persona != null
-                        ? (s.Docente.Usuario.Persona.Nombres ?? "") + " " + (s.Docente.Usuario.Persona.Apellidos ?? "")
-                        : "Sin información",
-                    NivelActual = s.Docente != null && s.Docente.NivelAcademico != null
-                        ? s.Docente.NivelAcademico.nombre ?? "Sin nivel"
-                        : "Sin nivel",
-                    NuevoNivel = s.NuevoNivelAcademico != null
-                        ? s.NuevoNivelAcademico.nombre ?? "Sin nivel"
-                        : "Sin nivel"
-                })
-                .ToListAsync();
-            
+                    docente.NivelAcademicoId = solicitud.NuevoNivelAcademicoId.Value;
+                    docente.FechaInicioNivel = DateTime.Now;
+                    _context.Entry(docente).State = EntityState.Modified;
+
+                    // Resetear la evaluación del docente a 0 al ser promovido
+                    var evaluacionDocente = await _context.EvaluacionDocente
+                        .FirstOrDefaultAsync(e => e.DocenteId == docente.Id);
+
+                    if (evaluacionDocente != null)
+                    {
+                        evaluacionDocente.Puntaje = 0;
+                        evaluacionDocente.Periodo = $"{DateTime.Now.Year}{(DateTime.Now.Month <= 6 ? "A" : "B")}";
+                        _context.Entry(evaluacionDocente).State = EntityState.Modified;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new
+                {
+                    message = "Solicitud aprobada exitosamente",
+                    solicitudId = id,
+                    nuevoNivelId = solicitud.NuevoNivelAcademicoId,
+                    fechaPromocion = DateTime.Now
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            }
+        }
+
+        [HttpPost("{id}/rechazar")]
+        public async Task<IActionResult> RechazarSolicitud(int id, [FromBody] RechazoRequest request)
+        {
+            try
+            {
+                var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
+                if (solicitud == null)
+                    return NotFound(new { error = "Solicitud no encontrada" });
+
+                if (solicitud.Estado == "RECHAZADA")
+                    return BadRequest(new { error = "La solicitud ya ha sido rechazada" });
+
+                solicitud.Estado = "RECHAZADA";
+                solicitud.FechaRespuesta = DateTime.Now;
+                solicitud.Observaciones = request.Motivo ?? "Solicitud rechazada";
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Solicitud rechazada",
+                    solicitudId = id,
+                    motivo = request.Motivo
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            }
+        }
+
+        // Nuevos endpoints para el workflow de promoción
+
+        [HttpPost("{id}/presentar")]
+        public async Task<IActionResult> PresentarSolicitud(int id)
+        {
+            // TODO: Re-enable when IPromocionWorkflowService is properly registered
+            // var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            // var resultado = await workflowService.PresentarSolicitudAsync(id);
+            // return resultado.Success ? Ok(resultado) : BadRequest(resultado);
+            return Ok(new { Success = true, Message = "Workflow service temporarily disabled" });
+        }
+
+        [HttpPost("{id}/recibir-talento-humano")]
+        public async Task<IActionResult> RecibirEnTalentoHumano(int id, [FromBody] UsuarioRequest request)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.RecibirEnTalentoHumanoAsync(id, request.UsuarioId);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+        [HttpPost("{id}/iniciar-verificacion")]
+        public async Task<IActionResult> IniciarVerificacion(int id, [FromBody] UsuarioRequest request)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.IniciarVerificacionAsync(id, request.UsuarioId);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+
+
+        [HttpPost("{id}/enviar-comision")]
+        public async Task<IActionResult> EnviarAComision(int id)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.EnviarAComisionAsync(id);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+        [HttpPost("{id}/iniciar-analisis-comision")]
+        public async Task<IActionResult> IniciarAnalisisComision(int id)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.IniciarAnalisisComisionAsync(id);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+        [HttpPost("{id}/notificar-resultado")]
+        public async Task<IActionResult> NotificarResultado(int id, [FromBody] ResultadoComisionRequest request)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.NotificarResultadoAsync(id, request.Aprobada, request.Observaciones);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+        [HttpPost("{id}/respuesta-docente")]
+        public async Task<IActionResult> RegistrarRespuestaDocente(int id, [FromBody] RespuestaDocenteRequest request)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.RegistrarRespuestaDocenteAsync(id, request.Acepta);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+        [HttpPost("{id}/presentar-apelacion")]
+        public async Task<IActionResult> PresentarApelacion(int id, [FromBody] ApelacionRequest request)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.PresentarApelacionAsync(id, request.Motivo, request.Fundamentos);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+        [HttpPost("{id}/resolver-apelacion")]
+        public async Task<IActionResult> ResolverApelacion(int id, [FromBody] ResolucionApelacionRequest request)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.ResolverApelacionAsync(id, request.Aceptada, request.Resolucion);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+        [HttpPost("{id}/generar-informe-final")]
+        public async Task<IActionResult> GenerarInformeFinal(int id)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.GenerarInformeFinalAsync(id);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+        [HttpPost("{id}/enviar-consejo")]
+        public async Task<IActionResult> EnviarAConsejo(int id)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.EnviarAConsejoAsync(id);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+        [HttpPost("{id}/aprobar-consejo")]
+        public async Task<IActionResult> AprobarEnConsejo(int id)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.AprobarEnConsejoAsync(id);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+        [HttpPost("{id}/hacer-efectiva")]
+        public async Task<IActionResult> HacerPromocionEfectiva(int id)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var resultado = await workflowService.HacerPromocionEfectivaAsync(id);
+
+            if (resultado.Success)
+                return Ok(resultado);
+            else
+                return BadRequest(resultado);
+        }
+
+        [HttpGet("por-estado/{estado}")]
+        public async Task<IActionResult> GetSolicitudesPorEstado(string estado)
+        {
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var solicitudes = await workflowService.GetSolicitudesPorEstadoAsync(estado);
             return Ok(solicitudes);
         }
-        catch (Exception ex)
+
+        [HttpGet("vencidas")]
+        public async Task<IActionResult> GetSolicitudesVencidas()
         {
-            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            var solicitudes = await workflowService.GetSolicitudesVencidasAsync();
+            return Ok(solicitudes);
         }
-    }
 
-    [HttpGet("{id}")]
-    public async Task<ActionResult<object>> Get(int id)
-    {
-        try
+        [HttpPost("procesar-vencidas")]
+        public async Task<IActionResult> ProcesarSolicitudesVencidas()
         {
-            var solicitud = await _context.SolicitudAvanceRango
-                .Include(s => s.Docente)
-                    .ThenInclude(d => d.Usuario)
-                        .ThenInclude(u => u.Persona)
-                .Include(s => s.Docente)
-                    .ThenInclude(d => d.NivelAcademico)
-                .Include(s => s.NuevoNivelAcademico)
-                .Where(s => s.Id == id)
-                .Select(s => new
-                {
-                    s.Id,
-                    s.DocenteId,
-                    s.FechaSolicitud,
-                    Estado = s.Estado ?? "PENDIENTE",
-                    s.FechaRespuesta,
-                    Observaciones = s.Observaciones ?? "",
-                    s.NuevoNivelAcademicoId,
-                    DocenteNombre = s.Docente != null && s.Docente.Usuario != null && s.Docente.Usuario.Persona != null
-                        ? (s.Docente.Usuario.Persona.Nombres ?? "") + " " + (s.Docente.Usuario.Persona.Apellidos ?? "")
-                        : "Sin información",
-                    NivelActual = s.Docente != null && s.Docente.NivelAcademico != null
-                        ? s.Docente.NivelAcademico.nombre ?? "Sin nivel"
-                        : "Sin nivel",
-                    NuevoNivel = s.NuevoNivelAcademico != null
-                        ? s.NuevoNivelAcademico.nombre ?? "Sin nivel"
-                        : "Sin nivel"
-                })
-                .FirstOrDefaultAsync();
-
-            return solicitud == null ? NotFound() : Ok(solicitud);
+            var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
+            await workflowService.ProcesarSolicitudesVencidasAsync();
+            return Ok(new { message = "Solicitudes vencidas procesadas" });
         }
-        catch (Exception ex)
+
+        // Clases de request adicionales
+        public class UsuarioRequest
         {
-            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            public int UsuarioId { get; set; }
         }
-    }
 
-    [HttpPost]
-    public async Task<ActionResult> Post([FromBody] SolicitudAvanceRango solicitud)
-    {
-        try
+        public class VerificacionRequest
         {
-            _context.SolicitudAvanceRango.Add(solicitud);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(Get), new { id = solicitud.Id }, solicitud);
+            public bool DocumentosValidos { get; set; }
+            public string Observaciones { get; set; } = "";
         }
-        catch (Exception ex)
+
+        public class ResultadoComisionRequest
         {
-            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            public bool Aprobada { get; set; }
+            public string Observaciones { get; set; } = "";
         }
-    }
 
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Put(int id, [FromBody] SolicitudAvanceRango solicitud)
-    {
-        try
+        [HttpPost("{id}/guardar-progreso-verificacion")]
+        public async Task<ActionResult> GuardarProgresoVerificacion(int id, [FromBody] GuardarProgresoRequest request)
         {
-            if (id != solicitud.Id) return BadRequest();
-            
-            _context.Entry(solicitud).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
-        }
-    }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        try
-        {
-            var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
-            if (solicitud == null) return NotFound();
-
-            _context.SolicitudAvanceRango.Remove(solicitud);
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
-        }
-    }
-
-    [HttpPost("{id}/aprobar")]
-    public async Task<IActionResult> AprobarSolicitud(int id, [FromBody] AprobacionRequest request)
-    {
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        try
-        {
-            // Buscar la solicitud con sus relaciones
-            var solicitud = await _context.SolicitudAvanceRango
-                .Include(s => s.Docente)
-                .FirstOrDefaultAsync(s => s.Id == id);
-
-            if (solicitud == null)
-                return NotFound(new { error = "Solicitud no encontrada" });
-
-            if (solicitud.Estado == "APROBADA")
-                return BadRequest(new { error = "La solicitud ya ha sido aprobada" });
-
-            // Actualizar el estado de la solicitud
-            solicitud.Estado = "APROBADA";
-            solicitud.FechaRespuesta = DateTime.Now;
-            solicitud.Observaciones = request.Observaciones ?? "Promoción aprobada";
-
-            // Actualizar el nivel del docente
-            var docente = solicitud.Docente;
-            if (docente != null && solicitud.NuevoNivelAcademicoId.HasValue)
+            try
             {
-                docente.NivelAcademicoId = solicitud.NuevoNivelAcademicoId.Value;
-                docente.FechaInicioNivel = DateTime.Now;
-                _context.Entry(docente).State = EntityState.Modified;
+                var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
+                if (solicitud == null)
+                    return NotFound();
 
-                // Resetear la evaluación del docente a 0 al ser promovido
-                var evaluacionDocente = await _context.EvaluacionDocente
-                    .FirstOrDefaultAsync(e => e.DocenteId == docente.Id);
-                
-                if (evaluacionDocente != null)
+                // Actualizar estado a EN_VERIFICACION si estaba PENDIENTE
+                if (solicitud.Estado == "PENDIENTE")
                 {
-                    evaluacionDocente.Puntaje = 0;
-                    evaluacionDocente.Periodo = $"{DateTime.Now.Year}{(DateTime.Now.Month <= 6 ? "A" : "B")}";
-                    _context.Entry(evaluacionDocente).State = EntityState.Modified;
+                    solicitud.Estado = "EN_VERIFICACION";
                 }
+
+                // Guardar observaciones generales
+                solicitud.Observaciones = request.ObservacionesGenerales;
+
+                // Aquí podrías guardar el progreso de verificación de documentos en una tabla separada
+                // Por ahora solo actualizamos el estado y observaciones
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Progreso guardado exitosamente" });
             }
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            return Ok(new 
-            { 
-                message = "Solicitud aprobada exitosamente",
-                solicitudId = id,
-                nuevoNivelId = solicitud.NuevoNivelAcademicoId,
-                fechaPromocion = DateTime.Now
-            });
-        }
-        catch (Exception ex)
-        {
-            await transaction.RollbackAsync();
-            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
-        }
-    }
-
-    [HttpPost("{id}/rechazar")]
-    public async Task<IActionResult> RechazarSolicitud(int id, [FromBody] RechazoRequest request)
-    {
-        try
-        {
-            var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
-            if (solicitud == null)
-                return NotFound(new { error = "Solicitud no encontrada" });
-
-            if (solicitud.Estado == "RECHAZADA")
-                return BadRequest(new { error = "La solicitud ya ha sido rechazada" });
-
-            solicitud.Estado = "RECHAZADA";
-            solicitud.FechaRespuesta = DateTime.Now;
-            solicitud.Observaciones = request.Motivo ?? "Solicitud rechazada";
-
-            await _context.SaveChangesAsync();
-
-            return Ok(new 
-            { 
-                message = "Solicitud rechazada",
-                solicitudId = id,
-                motivo = request.Motivo
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
-        }
-    }
-
-    // Nuevos endpoints para el workflow de promoción
-
-    [HttpPost("{id}/presentar")]
-    public async Task<IActionResult> PresentarSolicitud(int id)
-    {
-        // TODO: Re-enable when IPromocionWorkflowService is properly registered
-        // var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        // var resultado = await workflowService.PresentarSolicitudAsync(id);
-        // return resultado.Success ? Ok(resultado) : BadRequest(resultado);
-        return Ok(new { Success = true, Message = "Workflow service temporarily disabled" });
-    }
-
-    [HttpPost("{id}/recibir-talento-humano")]
-    public async Task<IActionResult> RecibirEnTalentoHumano(int id, [FromBody] UsuarioRequest request)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.RecibirEnTalentoHumanoAsync(id, request.UsuarioId);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-    [HttpPost("{id}/iniciar-verificacion")]
-    public async Task<IActionResult> IniciarVerificacion(int id, [FromBody] UsuarioRequest request)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.IniciarVerificacionAsync(id, request.UsuarioId);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-
-
-    [HttpPost("{id}/enviar-comision")]
-    public async Task<IActionResult> EnviarAComision(int id)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.EnviarAComisionAsync(id);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-    [HttpPost("{id}/iniciar-analisis-comision")]
-    public async Task<IActionResult> IniciarAnalisisComision(int id)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.IniciarAnalisisComisionAsync(id);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-    [HttpPost("{id}/notificar-resultado")]
-    public async Task<IActionResult> NotificarResultado(int id, [FromBody] ResultadoComisionRequest request)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.NotificarResultadoAsync(id, request.Aprobada, request.Observaciones);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-    [HttpPost("{id}/respuesta-docente")]
-    public async Task<IActionResult> RegistrarRespuestaDocente(int id, [FromBody] RespuestaDocenteRequest request)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.RegistrarRespuestaDocenteAsync(id, request.Acepta);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-    [HttpPost("{id}/presentar-apelacion")]
-    public async Task<IActionResult> PresentarApelacion(int id, [FromBody] ApelacionRequest request)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.PresentarApelacionAsync(id, request.Motivo, request.Fundamentos);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-    [HttpPost("{id}/resolver-apelacion")]
-    public async Task<IActionResult> ResolverApelacion(int id, [FromBody] ResolucionApelacionRequest request)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.ResolverApelacionAsync(id, request.Aceptada, request.Resolucion);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-    [HttpPost("{id}/generar-informe-final")]
-    public async Task<IActionResult> GenerarInformeFinal(int id)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.GenerarInformeFinalAsync(id);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-    [HttpPost("{id}/enviar-consejo")]
-    public async Task<IActionResult> EnviarAConsejo(int id)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.EnviarAConsejoAsync(id);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-    [HttpPost("{id}/aprobar-consejo")]
-    public async Task<IActionResult> AprobarEnConsejo(int id)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.AprobarEnConsejoAsync(id);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-    [HttpPost("{id}/hacer-efectiva")]
-    public async Task<IActionResult> HacerPromocionEfectiva(int id)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var resultado = await workflowService.HacerPromocionEfectivaAsync(id);
-        
-        if (resultado.Success)
-            return Ok(resultado);
-        else
-            return BadRequest(resultado);
-    }
-
-    [HttpGet("por-estado/{estado}")]
-    public async Task<IActionResult> GetSolicitudesPorEstado(string estado)
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var solicitudes = await workflowService.GetSolicitudesPorEstadoAsync(estado);
-        return Ok(solicitudes);
-    }
-
-    [HttpGet("vencidas")]
-    public async Task<IActionResult> GetSolicitudesVencidas()
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        var solicitudes = await workflowService.GetSolicitudesVencidasAsync();
-        return Ok(solicitudes);
-    }
-
-    [HttpPost("procesar-vencidas")]
-    public async Task<IActionResult> ProcesarSolicitudesVencidas()
-    {
-        var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
-        await workflowService.ProcesarSolicitudesVencidasAsync();
-        return Ok(new { message = "Solicitudes vencidas procesadas" });
-    }
-
-    // Clases de request adicionales
-    public class UsuarioRequest
-    {
-        public int UsuarioId { get; set; }
-    }
-
-    public class VerificacionRequest
-    {
-        public bool DocumentosValidos { get; set; }
-        public string Observaciones { get; set; } = "";
-    }
-
-    public class ResultadoComisionRequest
-    {
-        public bool Aprobada { get; set; }
-        public string Observaciones { get; set; } = "";
-    }
-
-    [HttpPost("{id}/guardar-progreso-verificacion")]
-    public async Task<ActionResult> GuardarProgresoVerificacion(int id, [FromBody] GuardarProgresoRequest request)
-    {
-        try
-        {
-            var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
-            if (solicitud == null)
-                return NotFound();
-
-            // Actualizar estado a EN_VERIFICACION si estaba PENDIENTE
-            if (solicitud.Estado == "PENDIENTE")
+            catch (Exception ex)
             {
-                solicitud.Estado = "EN_VERIFICACION";
+                return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
             }
-
-            // Guardar observaciones generales
-            solicitud.Observaciones = request.ObservacionesGenerales;
-            
-            // Aquí podrías guardar el progreso de verificación de documentos en una tabla separada
-            // Por ahora solo actualizamos el estado y observaciones
-
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Progreso guardado exitosamente" });
         }
-        catch (Exception ex)
+
+        [HttpPost("{id}/completar-verificacion")]
+        public async Task<ActionResult> CompletarVerificacion(int id, [FromBody] CompletarVerificacionRequest request)
         {
-            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
-        }
-    }
+            try
+            {
+                var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
+                if (solicitud == null)
+                    return NotFound();
 
-    [HttpPost("{id}/completar-verificacion")]
-    public async Task<ActionResult> CompletarVerificacion(int id, [FromBody] CompletarVerificacionRequest request)
-    {
-        try
+                // Actualizar estado según si los documentos son válidos o no
+                solicitud.Estado = request.DocumentosValidos ? "VERIFICADA" : "RECHAZADA";
+                solicitud.FechaRespuesta = DateTime.Now;
+                solicitud.Observaciones = request.Observaciones;
+
+                await _context.SaveChangesAsync();
+
+                string mensaje = request.DocumentosValidos
+                    ? "Verificación completada exitosamente"
+                    : "Solicitud rechazada por documentos inválidos";
+
+                return Ok(new { message = mensaje });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            }
+        }
+
+        public class GuardarProgresoRequest
         {
-            var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
-            if (solicitud == null)
-                return NotFound();
-
-            // Actualizar estado según si los documentos son válidos o no
-            solicitud.Estado = request.DocumentosValidos ? "VERIFICADA" : "RECHAZADA";
-            solicitud.FechaRespuesta = DateTime.Now;
-            solicitud.Observaciones = request.Observaciones;
-
-            await _context.SaveChangesAsync();
-            
-            string mensaje = request.DocumentosValidos 
-                ? "Verificación completada exitosamente" 
-                : "Solicitud rechazada por documentos inválidos";
-                
-            return Ok(new { message = mensaje });
+            public int SolicitudId { get; set; }
+            public List<DocumentoVerificado> DocumentosVerificados { get; set; } = new List<DocumentoVerificado>();
+            public string ObservacionesGenerales { get; set; } = "";
+            public bool VerificacionCompleta { get; set; }
         }
-        catch (Exception ex)
+
+        public class DocumentoVerificado
         {
-            return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+            public string Nombre { get; set; } = "";
+            public bool Verificado { get; set; }
+            public string Observaciones { get; set; } = "";
+        }
+
+        public class CompletarVerificacionRequest
+        {
+            public bool DocumentosValidos { get; set; }
+            public string Observaciones { get; set; } = "";
+        }
+
+        public class RespuestaDocenteRequest
+        {
+            public bool Acepta { get; set; }
+        }
+
+        public class ApelacionRequest
+        {
+            public string Motivo { get; set; } = "";
+            public string Fundamentos { get; set; } = "";
+        }
+
+        public class ResolucionApelacionRequest
+        {
+            public bool Aceptada { get; set; }
+            public string Resolucion { get; set; } = "";
         }
     }
 
-    public class GuardarProgresoRequest
+    public class AprobacionRequest
     {
-        public int SolicitudId { get; set; }
-        public List<DocumentoVerificado> DocumentosVerificados { get; set; } = new List<DocumentoVerificado>();
-        public string ObservacionesGenerales { get; set; } = "";
-        public bool VerificacionCompleta { get; set; }
+        public string? Observaciones { get; set; }
     }
 
-    public class DocumentoVerificado
+    public class RechazoRequest
     {
-        public string Nombre { get; set; } = "";
-        public bool Verificado { get; set; }
-        public string Observaciones { get; set; } = "";
+        public string? Motivo { get; set; }
     }
-
-    public class CompletarVerificacionRequest
-    {
-        public bool DocumentosValidos { get; set; }
-        public string Observaciones { get; set; } = "";
-    }
-
-    public class RespuestaDocenteRequest
-    {
-        public bool Acepta { get; set; }
-    }
-
-    public class ApelacionRequest
-    {
-        public string Motivo { get; set; } = "";
-        public string Fundamentos { get; set; } = "";
-    }
-
-    public class ResolucionApelacionRequest
-    {
-        public bool Aceptada { get; set; }
-        public string Resolucion { get; set; } = "";
-    }
-}
-
-public class AprobacionRequest
-{
-    public string? Observaciones { get; set; }
-}
-
-public class RechazoRequest
-{
-    public string? Motivo { get; set; }
-}
 }

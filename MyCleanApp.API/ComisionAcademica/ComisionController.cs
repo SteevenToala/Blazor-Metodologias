@@ -32,7 +32,10 @@ namespace MyCleanApp.API.ComisionAcademica
                     .Include(s => s.Docente)
                         .ThenInclude(d => d.NivelAcademico)
                     .Include(s => s.NuevoNivelAcademico)
-                    .Where(s => s.Estado == "VERIFICADA" || s.Estado == "EN_COMISION" || s.Estado == "EN_EVALUACION" || s.Estado == "DECIDIDO_APROBADA" || s.Estado == "DECIDIDO_RECHAZADA")
+                    .Where(s => s.Estado == "VERIFICADA" || s.Estado == "EN_COMISION" || s.Estado == "EN_EVALUACION" || 
+                               s.Estado == "DECIDIDO_APROBADA" || s.Estado == "DECIDIDO_RECHAZADA" || 
+                               s.Estado == "APROBADA_DOCENTE" || s.Estado == "INFORMES_FINALES" || 
+                               s.Estado == "ENVIADA_CONSEJO")
                     .Select(s => new
                     {
                         s.Id,
