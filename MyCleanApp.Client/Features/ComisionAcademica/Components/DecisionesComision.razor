@@ -25,7 +25,7 @@
             <HeaderContent>
                 <MudTh>Docente</MudTh>
                 <MudTh>Nivel Solicitado</MudTh>
-                <MudTh>Fecha Análisis</MudTh>
+               
                 <MudTh>Estado</MudTh>
                 <MudTh>Acciones</MudTh>
             </HeaderContent>
@@ -36,9 +36,6 @@
                     </MudText>
                 </MudTd>
                 <MudTd DataLabel="Nivel Solicitado">@context.NivelSolicitado</MudTd>
-                <MudTd DataLabel="Fecha Análisis">
-                    @(context.FechaAnalisis?.ToString("dd/MM/yyyy") ?? "N/A")
-                </MudTd>
                 <MudTd DataLabel="Estado">
                     <MudChip T="string" Color="@GetEstadoColor(context.Estado)" Size="Size.Small">
                         @GetEstadoTexto(context.Estado)

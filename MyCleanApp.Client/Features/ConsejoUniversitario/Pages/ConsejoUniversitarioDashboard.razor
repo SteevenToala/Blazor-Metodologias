@@ -59,7 +59,7 @@ else
                                 </div>
                             </div>
                         </MudPaper>
-                        <ConsejoStats />
+                        <InformesParaAprobacion />
                         break;
                     case "informes":
                         <MudPaper Elevation="1" Class="pa-4 mb-4">
@@ -80,7 +80,6 @@ else
     private List<MenuItem> SideMenu = new List<MenuItem>
     {
         new MenuItem { id = "overview", label = "Resumen", icon = Icons.Material.Filled.Dashboard },
-        new MenuItem { id = "informes", label = "Informes Recibidos", icon = Icons.Material.Filled.Description },
     };
 
     public class MenuItem

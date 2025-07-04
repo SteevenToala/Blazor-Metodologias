@@ -36,6 +36,8 @@
             @foreach (var tab in new[] { 
                 (Id: "recibidas", Label: "Apelaciones Recibidas", Icon: "📨"), 
                 (Id: "proceso", Label: "En Proceso", Icon: "⏳"), 
+                (Id: "resueltas", Label: "Resueltas", Icon: "✅"), 
+                (Id: "historial", Label: "Historial", Icon: "📜")
             })
             {
                 <button
@@ -79,7 +81,12 @@
             case "proceso":
                 @RenderApelacionesEnProceso()
                 break;
-            
+            case "resueltas":
+                @RenderApelacionesResueltas()
+                break;
+            case "historial":
+                @RenderHistorialApelaciones()
+                break;
         }
     }
 </div>
