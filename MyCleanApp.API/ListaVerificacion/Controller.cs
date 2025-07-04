@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
+using MyCleanApp.API.DTOs;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -166,14 +167,8 @@ public class ListaVerificacionController : ControllerBase
         }
     }
 }
+// Usar el DTO compartido de VerificacionRequest desde MyCleanApp.API.DTOs
 
-public class VerificacionRequest
-{
-    public string TipoDocumento { get; set; } = "";
-    public bool Verificado { get; set; }
-    public string? Observaciones { get; set; }
-    public string? VerificadoPor { get; set; }
-}
 
 public class EstadoSolicitudRequest
 {

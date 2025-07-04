@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
 using MyCleanApp.Infrastructure.Services;
+using MyCleanApp.API.DTOs;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -274,7 +275,7 @@ public class SolicitudAvanceRangoController : ControllerBase
     }
 
     [HttpPost("{id}/completar-verificacion")]
-    public async Task<IActionResult> CompletarVerificacion(int id, [FromBody] VerificacionRequest request)
+    public async Task<IActionResult> CompletarVerificacion(int id, [FromBody] CompletarVerificacionRequest request)
     {
         var workflowService = HttpContext.RequestServices.GetRequiredService<IPromocionWorkflowService>();
         var resultado = await workflowService.CompletarVerificacionAsync(id, request.DocumentosValidos, request.Observaciones);
@@ -433,12 +434,6 @@ public class SolicitudAvanceRangoController : ControllerBase
     public class UsuarioRequest
     {
         public int UsuarioId { get; set; }
-    }
-
-    public class VerificacionRequest
-    {
-        public bool DocumentosValidos { get; set; }
-        public string Observaciones { get; set; } = "";
     }
 
     public class ResultadoComisionRequest
