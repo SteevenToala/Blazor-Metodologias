@@ -1,10 +1,252 @@
-@using MudBlazor
+@using MyCleanApp.Client.DTOs
+@inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudPaper Elevation="1" Class="pa-4">
-    <MudText Typo="Typo.h6" Class="mb-4">Decisiones de Comisión</MudText>
-    <MudText>Este componente permitirá gestionar las decisiones de la comisión.</MudText>
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h6">Decisiones de Comisión</MudText>
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" 
+                   Color="Color.Primary" 
+                   OnClick="CargarSolicitudesAnalisis">
+            Actualizar
+        </MudButton>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center pa-4">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else if (solicitudesAnalisis.Any())
+    {
+        <MudTable Items="@solicitudesAnalisis" Dense="true" Hover="true" Striped="true">
+            <HeaderContent>
+                <MudTh>Docente</MudTh>
+                <MudTh>Nivel Solicitado</MudTh>
+                <MudTh>Fecha Análisis</MudTh>
+                <MudTh>Estado</MudTh>
+                <MudTh>Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Docente">
+                    <MudText Typo="Typo.body2" Class="font-weight-bold">
+                        @context.DocenteNombre @context.DocenteApellido
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Nivel Solicitado">@context.NivelSolicitado</MudTd>
+                <MudTd DataLabel="Fecha Análisis">
+                    @(context.FechaAnalisis?.ToString("dd/MM/yyyy") ?? "N/A")
+                </MudTd>
+                <MudTd DataLabel="Estado">
+                    <MudChip T="string" Color="@GetEstadoColor(context.Estado)" Size="Size.Small">
+                        @context.Estado
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Acciones">
+                    @if (context.Estado == "EN_EVALUACION")
+                    {
+                        <MudButton StartIcon="@Icons.Material.Filled.Gavel"
+                                   Color="Color.Success"
+                                   Size="Size.Small"
+                                   OnClick="@(() => AbrirDialogDecision(context))">
+                            Emitir Decisión
+                        </MudButton>
+                    }
+                    else if (context.Estado == "DECIDIDA" || context.Estado == "DECISION_EMITIDA")
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small">
+                            Decisión Emitida
+                        </MudChip>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">
+            No hay solicitudes en análisis para emitir decisión en este momento.
+        </MudAlert>
+    }
 </MudPaper>
 
+<!-- Dialog para emitir decisión -->
+<MudDialog @bind-IsVisible="mostrarDialogDecision" Options="dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-3"/>
+            Emitir Decisión de Promoción
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (solicitudSeleccionada != null)
+        {
+            <div class="mb-4">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">
+                    @solicitudSeleccionada.DocenteNombre @solicitudSeleccionada.DocenteApellido
+                </MudText>
+                <MudText>Promoción a: @solicitudSeleccionada.NivelSolicitado</MudText>
+            </div>
+
+            <MudForm @ref="formDecision" @bind-IsValid="@isFormValid">
+                <MudSelect @bind-Value="decisionComision.Decision" 
+                           Label="Decisión" 
+                           Required="true"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense">
+                    <MudSelectItem Value="@("APROBADO")">Aprobar Promoción</MudSelectItem>
+                    <MudSelectItem Value="@("RECHAZADO")">Rechazar Promoción</MudSelectItem>
+                </MudSelect>
+
+                <MudTextField @bind-Value="decisionComision.Observaciones"
+                              Label="Observaciones y Justificación"
+                              Lines="4"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Class="mt-3"
+                              Required="true" />
+
+                <MudCheckBox T="bool" @bind-Checked="decisionComision.RequiereNotificacion"
+                             Label="Notificar al docente inmediatamente"
+                             Class="mt-3" />
+            </MudForm>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CerrarDialogDecision">Cancelar</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Send"
+                   Color="Color.Success"
+                   Disabled="@(!isFormValid || enviandoDecision)"
+                   OnClick="EmitirDecision">
+            @if (enviandoDecision)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                <span class="ml-2">Enviando...</span>
+            }
+            else
+            {
+                <span>Emitir Decisión</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
-    // Implementación pendiente
+    private bool isLoading = true;
+    private bool mostrarDialogDecision = false;
+    private bool isFormValid = false;
+    private bool enviandoDecision = false;
+    private List<SolicitudComisionDto> solicitudesAnalisis = new();
+    private SolicitudComisionDto? solicitudSeleccionada = null;
+    private DecisionComisionDto decisionComision = new();
+    private MudForm? formDecision;
+    
+    private DialogOptions dialogOptions = new() 
+    { 
+        MaxWidth = MaxWidth.Medium, 
+        FullWidth = true 
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarSolicitudesAnalisis();
+    }
+
+    private async Task CargarSolicitudesAnalisis()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            // Filtramos las solicitudes que están en análisis o ya tienen decisión emitida
+            var response = await Http.GetAsync("http://localhost:5015/api/comision-academica/solicitudes-pendientes");
+            if (response.IsSuccessStatusCode)
+            {
+                var todasSolicitudes = await response.Content.ReadFromJsonAsync<List<SolicitudComisionDto>>() ?? new();
+                solicitudesAnalisis = todasSolicitudes
+                    .Where(s => s.Estado == "EN_EVALUACION" || s.Estado == "DECIDIDA" || s.Estado == "DECISION_EMITIDA")
+                    .ToList();
+            }
+            else
+            {
+                Snackbar.Add("Error al cargar las solicitudes en análisis", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void AbrirDialogDecision(SolicitudComisionDto solicitud)
+    {
+        solicitudSeleccionada = solicitud;
+        decisionComision = new DecisionComisionDto 
+        { 
+            SolicitudId = solicitud.Id,
+            RequiereNotificacion = true
+        };
+        mostrarDialogDecision = true;
+    }
+
+    private async Task EmitirDecision()
+    {
+        if (!isFormValid || enviandoDecision) return;
+
+        try
+        {
+            enviandoDecision = true;
+            StateHasChanged();
+
+            var response = await Http.PostAsJsonAsync(
+                $"http://localhost:5015/api/comision-academica/solicitud/{decisionComision.SolicitudId}/emitir-decision", 
+                decisionComision);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Decisión emitida correctamente", Severity.Success);
+                await CargarSolicitudesAnalisis();
+                CerrarDialogDecision();
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error al emitir la decisión: {errorMessage}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            enviandoDecision = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CerrarDialogDecision()
+    {
+        mostrarDialogDecision = false;
+        solicitudSeleccionada = null;
+        decisionComision = new();
+    }
+
+    private Color GetEstadoColor(string estado)
+    {
+        return estado switch
+        {
+            "EN_EVALUACION" => Color.Warning,
+            "DECIDIDA" => Color.Success,
+            "DECISION_EMITIDA" => Color.Success,
+            _ => Color.Default
+        };
+    }
 }

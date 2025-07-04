@@ -1,10 +1,246 @@
 @using MudBlazor
+@using MyCleanApp.Client.DTOs
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <MudPaper Elevation="1" Class="pa-4">
-    <MudText Typo="Typo.h6" Class="mb-4">Expedientes para Análisis</MudText>
-    <MudText>Este componente permitirá gestionar los expedientes para análisis.</MudText>
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h6">Expedientes para Análisis</MudText>
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" 
+                   Color="Color.Primary" 
+                   OnClick="CargarSolicitudes">
+            Actualizar
+        </MudButton>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center pa-4">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else if (solicitudes.Any())
+    {
+        <MudTable Items="@solicitudes" Dense="true" Hover="true" Striped="true">
+            <HeaderContent>
+                <MudTh>Docente</MudTh>
+                <MudTh>Nivel Actual</MudTh>
+                <MudTh>Nivel Solicitado</MudTh>
+                <MudTh>Fecha Solicitud</MudTh>
+                <MudTh>Estado</MudTh>
+                <MudTh>Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Docente">
+                    <div>
+                        <MudText Typo="Typo.body2" Class="font-weight-bold">
+                            @context.DocenteNombre @context.DocenteApellido
+                        </MudText>
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Nivel Actual">@context.NivelActual</MudTd>
+                <MudTd DataLabel="Nivel Solicitado">@context.NivelSolicitado</MudTd>
+                <MudTd DataLabel="Fecha Solicitud">@context.FechaSolicitud.ToString("dd/MM/yyyy")</MudTd>
+                <MudTd DataLabel="Estado">
+                    <MudChip T="string" Color="@GetEstadoColor(context.Estado)" Size="Size.Small">
+                        @context.Estado
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Acciones">
+                    <MudButtonGroup Size="Size.Small">
+                        <MudButton StartIcon="@Icons.Material.Filled.Visibility"
+                                   Color="Color.Info"
+                                   Size="Size.Small"
+                                   OnClick="@(() => VerDetalle(context.Id))">
+                            Ver
+                        </MudButton>
+                        @if (context.RequiereAnalisis)
+                        {
+                            <MudButton StartIcon="@Icons.Material.Filled.PlayArrow"
+                                       Color="Color.Success"
+                                       Size="Size.Small"
+                                       OnClick="@(() => IniciarAnalisis(context.Id))">
+                                Iniciar
+                            </MudButton>
+                        }
+                    </MudButtonGroup>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">
+            No hay expedientes pendientes de análisis en este momento.
+        </MudAlert>
+    }
 </MudPaper>
 
+<!-- Dialog para detalle de solicitud -->
+<MudDialog @bind-IsVisible="mostrarDetalle" Options="dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Class="mr-3"/>
+            Detalle de Solicitud
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (solicitudDetalle != null)
+        {
+            <div class="mb-4">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Información del Docente</MudText>
+                <MudCard Elevation="1" Class="pa-3">
+                    <MudText><strong>Nombre:</strong> @solicitudDetalle.DocenteNombre @solicitudDetalle.DocenteApellido</MudText>
+                    <MudText><strong>Correo:</strong> @solicitudDetalle.DocenteCorreo</MudText>
+                    <MudText><strong>Nivel Actual:</strong> @solicitudDetalle.NivelActual</MudText>
+                    <MudText><strong>Nivel Solicitado:</strong> @solicitudDetalle.NivelSolicitado</MudText>
+                </MudCard>
+            </div>
+
+            <div class="mb-4">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Verificación de Requisitos</MudText>
+                <MudCard Elevation="1" Class="pa-3">
+                    @foreach (var requisito in solicitudDetalle.Requisitos)
+                    {
+                        <div class="d-flex align-center mb-2">
+                            <MudIcon Icon="@(requisito.Cumple ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                                     Color="@(requisito.Cumple ? Color.Success : Color.Error)" />
+                            <MudText Class="ml-2">@requisito.RequisitoNombre</MudText>
+                        </div>
+                    }
+                </MudCard>
+            </div>
+
+            <div class="mb-4">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Evaluaciones Docentes</MudText>
+                <MudText>Total de evaluaciones: @solicitudDetalle.Evaluaciones.Count</MudText>
+            </div>
+
+            <div class="mb-4">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Producción Académica</MudText>
+                <MudText>Publicaciones: @solicitudDetalle.Publicaciones.Count</MudText>
+                <MudText>Proyectos de Investigación: @solicitudDetalle.Proyectos.Count</MudText>
+                <MudText>Cursos de Capacitación: @solicitudDetalle.Cursos.Count</MudText>
+            </div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CerrarDetalle">Cerrar</MudButton>
+        @if (solicitudDetalle?.Estado == "VERIFICADO")
+        {
+            <MudButton StartIcon="@Icons.Material.Filled.PlayArrow"
+                       Color="Color.Success"
+                       OnClick="@(() => IniciarAnalisis(solicitudDetalle.Id))">
+                Iniciar Análisis
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
 @code {
-    // Implementación pendiente
+    private bool isLoading = true;
+    private bool mostrarDetalle = false;
+    private List<SolicitudComisionDto> solicitudes = new();
+    private SolicitudDetalleDto? solicitudDetalle = null;
+    
+    private DialogOptions dialogOptions = new() 
+    { 
+        MaxWidth = MaxWidth.Medium, 
+        FullWidth = true 
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarSolicitudes();
+    }
+
+    private async Task CargarSolicitudes()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var response = await Http.GetAsync("http://localhost:5015/api/comision-academica/solicitudes-pendientes");
+            if (response.IsSuccessStatusCode)
+            {
+                solicitudes = await response.Content.ReadFromJsonAsync<List<SolicitudComisionDto>>() ?? new();
+            }
+            else
+            {
+                Snackbar.Add("Error al cargar las solicitudes pendientes", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task VerDetalle(int solicitudId)
+    {
+        try
+        {
+            var response = await Http.GetAsync($"http://localhost:5015/api/comision-academica/solicitud/{solicitudId}/detalle");
+            if (response.IsSuccessStatusCode)
+            {
+                solicitudDetalle = await response.Content.ReadFromJsonAsync<SolicitudDetalleDto>();
+                mostrarDetalle = true;
+            }
+            else
+            {
+                Snackbar.Add("Error al cargar el detalle de la solicitud", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task IniciarAnalisis(int solicitudId)
+    {
+        try
+        {
+            var response = await Http.PostAsync($"http://localhost:5015/api/comision-academica/solicitud/{solicitudId}/iniciar-analisis", null);
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Análisis iniciado correctamente", Severity.Success);
+                await CargarSolicitudes();
+                CerrarDetalle();
+            }
+            else
+            {
+                Snackbar.Add("Error al iniciar el análisis", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void CerrarDetalle()
+    {
+        mostrarDetalle = false;
+        solicitudDetalle = null;
+    }
+
+    private Color GetEstadoColor(string estado)
+    {
+        return estado switch
+        {
+            "VERIFICADO" => Color.Info,
+            "EN_ANALISIS" => Color.Warning,
+            "ANALIZADO" => Color.Success,
+            _ => Color.Default
+        };
+    }
 }

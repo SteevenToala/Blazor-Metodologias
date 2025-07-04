@@ -1,10 +1,358 @@
-@using MudBlazor
+@using MyCleanApp.Client.DTOs
+@inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudPaper Elevation="1" Class="pa-4">
-    <MudText Typo="Typo.h6" Class="mb-4">Informes Finales</MudText>
-    <MudText>Este componente permitirá gestionar los informes finales.</MudText>
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h6">Informes Finales</MudText>
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" 
+                   Color="Color.Primary" 
+                   OnClick="CargarSolicitudesFinalizadas">
+            Actualizar
+        </MudButton>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center pa-4">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else if (solicitudesFinalizadas.Any())
+    {
+        <MudTable Items="@solicitudesFinalizadas" Dense="true" Hover="true" Striped="true">
+            <HeaderContent>
+                <MudTh>Docente</MudTh>
+                <MudTh>Nivel Solicitado</MudTh>
+                <MudTh>Decisión Final</MudTh>
+                <MudTh>Fecha Decisión</MudTh>
+                <MudTh>Informe</MudTh>
+                <MudTh>Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Docente">
+                    <MudText Typo="Typo.body2" Class="font-weight-bold">
+                        @context.DocenteNombre @context.DocenteApellido
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Nivel Solicitado">@context.NivelSolicitado</MudTd>
+                <MudTd DataLabel="Decisión Final">
+                    <MudChip T="string" Color="@GetDecisionColor(context.Estado)" Size="Size.Small">
+                        @GetDecisionText(context.Estado)
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Fecha Decisión">
+                    @(context.FechaDecision?.ToString("dd/MM/yyyy") ?? "N/A")
+                </MudTd>
+                <MudTd DataLabel="Informe">
+                    @if (informesGenerados.ContainsKey(context.Id))
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" />
+                            Generado
+                        </MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Color="Color.Warning" Size="Size.Small">
+                            <MudIcon Icon="@Icons.Material.Filled.Pending" Size="Size.Small" />
+                            Pendiente
+                        </MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Acciones">
+                    <MudButtonGroup Size="Size.Small">
+                        <MudButton StartIcon="@Icons.Material.Filled.Visibility"
+                                   Color="Color.Info"
+                                   Size="Size.Small"
+                                   OnClick="@(() => VerDetalleSolicitud(context))">
+                            Ver
+                        </MudButton>
+                        @if (!informesGenerados.ContainsKey(context.Id))
+                        {
+                            <MudButton StartIcon="@Icons.Material.Filled.Article"
+                                       Color="Color.Success"
+                                       Size="Size.Small"
+                                       OnClick="@(() => GenerarInformeFinal(context.Id))">
+                                Generar Informe
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudButton StartIcon="@Icons.Material.Filled.Send"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       OnClick="@(() => EnviarInforme(context.Id))">
+                                Enviar a Consejo
+                            </MudButton>
+                        }
+                    </MudButtonGroup>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">
+            No hay solicitudes finalizadas para generar informes en este momento.
+        </MudAlert>
+    }
 </MudPaper>
 
+<!-- Dialog para ver detalle de la solicitud finalizada -->
+<MudDialog @bind-IsVisible="mostrarDetalleSolicitud" Options="dialogOptionsLarge">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Article" Class="mr-3"/>
+            Resumen del Proceso de Promoción
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (solicitudDetalle != null)
+        {
+            <div class="mb-4">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Información General</MudText>
+                <MudCard Elevation="1" Class="pa-3">
+                    <MudText><strong>Docente:</strong> @solicitudDetalle.DocenteNombre @solicitudDetalle.DocenteApellido</MudText>
+                    <MudText><strong>Nivel Actual:</strong> @solicitudDetalle.NivelActual</MudText>
+                    <MudText><strong>Nivel Solicitado:</strong> @solicitudDetalle.NivelSolicitado</MudText>
+                    <MudText><strong>Fecha de Solicitud:</strong> @solicitudDetalle.FechaSolicitud.ToString("dd/MM/yyyy")</MudText>
+                    <MudText><strong>Estado Final:</strong> @solicitudDetalle.Estado</MudText>
+                </MudCard>
+            </div>
+
+            <div class="mb-4">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Cronología del Proceso</MudText>
+                <MudTimeline>
+                    <MudTimelineItem Color="Color.Success" Icon="@Icons.Material.Filled.Send">
+                        <ItemContent>
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">Solicitud Presentada</MudText>
+                            <MudText Typo="Typo.caption">@solicitudDetalle.FechaSolicitud.ToString("dd/MM/yyyy")</MudText>
+                        </ItemContent>
+                    </MudTimelineItem>
+                    
+                    @if (solicitudDetalle.FechaAnalisis.HasValue)
+                    {
+                        <MudTimelineItem Color="Color.Info" Icon="@Icons.Material.Filled.Search">
+                            <ItemContent>
+                                <MudText Typo="Typo.body2" Class="font-weight-bold">Análisis Iniciado</MudText>
+                                <MudText Typo="Typo.caption">@solicitudDetalle.FechaAnalisis.Value.ToString("dd/MM/yyyy")</MudText>
+                            </ItemContent>
+                        </MudTimelineItem>
+                    }
+                    
+                    @if (solicitudDetalle.FechaDecision.HasValue)
+                    {
+                        <MudTimelineItem Color="@GetTimelineColor(solicitudDetalle.Estado)" Icon="@Icons.Material.Filled.Gavel">
+                            <ItemContent>
+                                <MudText Typo="Typo.body2" Class="font-weight-bold">Decisión Emitida</MudText>
+                                <MudText Typo="Typo.caption">@solicitudDetalle.FechaDecision.Value.ToString("dd/MM/yyyy")</MudText>
+                                <MudText Typo="Typo.body2">Resultado: @GetDecisionText(solicitudDetalle.Estado)</MudText>
+                            </ItemContent>
+                        </MudTimelineItem>
+                    }
+                </MudTimeline>
+            </div>
+
+            @if (!string.IsNullOrEmpty(solicitudDetalle.Observaciones))
+            {
+                <div class="mb-4">
+                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Observaciones Finales</MudText>
+                    <MudCard Elevation="1" Class="pa-3">
+                        <MudText>@solicitudDetalle.Observaciones</MudText>
+                    </MudCard>
+                </div>
+            }
+
+            @if (informesGenerados.ContainsKey(solicitudDetalle.Id))
+            {
+                <div class="mb-4">
+                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Informe Final</MudText>
+                    <MudCard Elevation="1" Class="pa-3">
+                        <MudText><strong>Fecha de Generación:</strong> @informesGenerados[solicitudDetalle.Id].FechaInforme.ToString("dd/MM/yyyy HH:mm")</MudText>
+                        <MudText><strong>Enviado a Consejo:</strong> @(informesGenerados[solicitudDetalle.Id].EnviadoConsejoUniversitario ? "Sí" : "No")</MudText>
+                        @if (!string.IsNullOrEmpty(informesGenerados[solicitudDetalle.Id].ResumenProceso))
+                        {
+                            <MudText Class="mt-2"><strong>Resumen:</strong></MudText>
+                            <MudText>@informesGenerados[solicitudDetalle.Id].ResumenProceso</MudText>
+                        }
+                    </MudCard>
+                </div>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CerrarDetalleSolicitud">Cerrar</MudButton>
+        @if (solicitudDetalle != null && !informesGenerados.ContainsKey(solicitudDetalle.Id))
+        {
+            <MudButton StartIcon="@Icons.Material.Filled.Article"
+                       Color="Color.Success"
+                       OnClick="@(() => GenerarInformeFinal(solicitudDetalle.Id))">
+                Generar Informe Final
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
 @code {
-    // Implementación pendiente
+    private bool isLoading = true;
+    private bool mostrarDetalleSolicitud = false;
+    private List<SolicitudComisionDto> solicitudesFinalizadas = new();
+    private SolicitudDetalleDto? solicitudDetalle = null;
+    private Dictionary<int, InformeFinalDto> informesGenerados = new();
+    
+    private DialogOptions dialogOptionsLarge = new() 
+    { 
+        MaxWidth = MaxWidth.Large, 
+        FullWidth = true 
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarSolicitudesFinalizadas();
+    }
+
+    private async Task CargarSolicitudesFinalizadas()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            var response = await Http.GetAsync("http://localhost:5015/api/comision-academica/solicitudes-pendientes");
+            if (response.IsSuccessStatusCode)
+            {
+                var todasSolicitudes = await response.Content.ReadFromJsonAsync<List<SolicitudComisionDto>>() ?? new();
+                // Filtramos las solicitudes que ya tienen decisión final (incluyendo apelaciones resueltas)
+                solicitudesFinalizadas = todasSolicitudes
+                    .Where(s => s.Estado == "APROBADO" || s.Estado == "RECHAZADO" || s.Estado == "FINALIZADO")
+                    .ToList();
+            }
+            else
+            {
+                Snackbar.Add("Error al cargar las solicitudes finalizadas", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task VerDetalleSolicitud(SolicitudComisionDto solicitud)
+    {
+        try
+        {
+            var response = await Http.GetAsync($"http://localhost:5015/api/comision-academica/solicitud/{solicitud.Id}/detalle");
+            if (response.IsSuccessStatusCode)
+            {
+                solicitudDetalle = await response.Content.ReadFromJsonAsync<SolicitudDetalleDto>();
+                mostrarDetalleSolicitud = true;
+            }
+            else
+            {
+                Snackbar.Add("Error al cargar el detalle de la solicitud", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task GenerarInformeFinal(int solicitudId)
+    {
+        try
+        {
+            var response = await Http.PostAsync($"http://localhost:5015/api/comision-academica/solicitud/{solicitudId}/generar-informe-final", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var informe = await response.Content.ReadFromJsonAsync<InformeFinalDto>();
+                if (informe != null)
+                {
+                    informesGenerados[solicitudId] = informe;
+                    Snackbar.Add("Informe final generado correctamente", Severity.Success);
+                    StateHasChanged();
+                }
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error al generar el informe final: {errorMessage}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task EnviarInforme(int solicitudId)
+    {
+        try
+        {
+            var response = await Http.PostAsync($"http://localhost:5015/api/comision-academica/solicitud/{solicitudId}/enviar-informe", null);
+            if (response.IsSuccessStatusCode)
+            {
+                if (informesGenerados.ContainsKey(solicitudId))
+                {
+                    informesGenerados[solicitudId].EnviadoConsejoUniversitario = true;
+                }
+                Snackbar.Add("Informe enviado al Consejo Universitario correctamente", Severity.Success);
+                StateHasChanged();
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error al enviar el informe: {errorMessage}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void CerrarDetalleSolicitud()
+    {
+        mostrarDetalleSolicitud = false;
+        solicitudDetalle = null;
+    }
+
+    private Color GetDecisionColor(string estado)
+    {
+        return estado switch
+        {
+            "APROBADO" => Color.Success,
+            "RECHAZADO" => Color.Error,
+            "FINALIZADO" => Color.Info,
+            _ => Color.Default
+        };
+    }
+
+    private Color GetTimelineColor(string estado)
+    {
+        return estado switch
+        {
+            "APROBADO" => Color.Success,
+            "RECHAZADO" => Color.Error,
+            _ => Color.Primary
+        };
+    }
+
+    private string GetDecisionText(string estado)
+    {
+        return estado switch
+        {
+            "APROBADO" => "Promoción Aprobada",
+            "RECHAZADO" => "Promoción Rechazada",
+            "FINALIZADO" => "Proceso Finalizado",
+            _ => estado
+        };
+    }
 }

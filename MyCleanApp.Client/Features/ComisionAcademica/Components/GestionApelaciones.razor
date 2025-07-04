@@ -1,10 +1,340 @@
-@using MudBlazor
+@using MyCleanApp.Client.DTOs
+@inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudPaper Elevation="1" Class="pa-4">
-    <MudText Typo="Typo.h6" Class="mb-4">Gestión de Apelaciones</MudText>
-    <MudText>Este componente permitirá gestionar las apelaciones.</MudText>
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h6">Gestión de Apelaciones</MudText>
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" 
+                   Color="Color.Primary" 
+                   OnClick="CargarApelaciones">
+            Actualizar
+        </MudButton>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center pa-4">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else if (apelaciones.Any())
+    {
+        <MudTable Items="@apelaciones" Dense="true" Hover="true" Striped="true">
+            <HeaderContent>
+                <MudTh>Docente</MudTh>
+                <MudTh>Fecha Apelación</MudTh>
+                <MudTh>Motivo</MudTh>
+                <MudTh>Estado</MudTh>
+                <MudTh>Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Docente">
+                    <MudText Typo="Typo.body2" Class="font-weight-bold">
+                        @context.DocenteNombre
+                    </MudText>
+                    <MudText Typo="Typo.caption">
+                        Nivel solicitado: @context.NivelSolicitado
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Fecha Apelación">
+                    @context.FechaApelacion.ToString("dd/MM/yyyy")
+                </MudTd>
+                <MudTd DataLabel="Motivo">
+                    <MudText Typo="Typo.body2" Style="max-width: 300px;">
+                        @(context.MotivoApelacion.Length > 100 
+                            ? context.MotivoApelacion.Substring(0, 100) + "..." 
+                            : context.MotivoApelacion)
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Estado">
+                    <MudChip T="string" Color="@GetEstadoApelacionColor(context.Estado)" Size="Size.Small">
+                        @context.Estado
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Acciones">
+                    <MudButtonGroup Size="Size.Small">
+                        <MudButton StartIcon="@Icons.Material.Filled.Visibility"
+                                   Color="Color.Info"
+                                   Size="Size.Small"
+                                   OnClick="@(() => VerDetalleApelacion(context))">
+                            Ver
+                        </MudButton>
+                        @if (context.Estado == "PENDIENTE")
+                        {
+                            <MudButton StartIcon="@Icons.Material.Filled.Gavel"
+                                       Color="Color.Success"
+                                       Size="Size.Small"
+                                       OnClick="@(() => AbrirDialogResolucion(context))">
+                                Resolver
+                            </MudButton>
+                        }
+                    </MudButtonGroup>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">
+            No hay apelaciones pendientes en este momento.
+        </MudAlert>
+    }
 </MudPaper>
 
+<!-- Dialog para ver detalle de apelación -->
+<MudDialog @bind-IsVisible="mostrarDetalleApelacion" Options="dialogOptionsLarge">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Article" Class="mr-3"/>
+            Detalle de Apelación
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (apelacionSeleccionada != null)
+        {
+            <div class="mb-4">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Información del Docente</MudText>
+                <MudCard Elevation="1" Class="pa-3">
+                    <MudText><strong>Docente:</strong> @apelacionSeleccionada.DocenteNombre</MudText>
+                    <MudText><strong>Nivel Solicitado:</strong> @apelacionSeleccionada.NivelSolicitado</MudText>
+                    <MudText><strong>Fecha de Apelación:</strong> @apelacionSeleccionada.FechaApelacion.ToString("dd/MM/yyyy HH:mm")</MudText>
+                </MudCard>
+            </div>
+
+            <div class="mb-4">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Motivo de la Apelación</MudText>
+                <MudCard Elevation="1" Class="pa-3">
+                    <MudText>@apelacionSeleccionada.MotivoApelacion</MudText>
+                </MudCard>
+            </div>
+
+            @if (!string.IsNullOrEmpty(apelacionSeleccionada.DocumentosRespaldo))
+            {
+                <div class="mb-4">
+                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Documentos de Respaldo</MudText>
+                    <MudCard Elevation="1" Class="pa-3">
+                        <MudText>@apelacionSeleccionada.DocumentosRespaldo</MudText>
+                    </MudCard>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(apelacionSeleccionada.RespuestaComision))
+            {
+                <div class="mb-4">
+                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-2">Respuesta de la Comisión</MudText>
+                    <MudCard Elevation="1" Class="pa-3">
+                        <MudText>@apelacionSeleccionada.RespuestaComision</MudText>
+                        @if (apelacionSeleccionada.FechaRespuesta.HasValue)
+                        {
+                            <MudText Typo="Typo.caption" Class="mt-2">
+                                Respuesta emitida el: @apelacionSeleccionada.FechaRespuesta.Value.ToString("dd/MM/yyyy HH:mm")
+                            </MudText>
+                        }
+                    </MudCard>
+                </div>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CerrarDetalleApelacion">Cerrar</MudButton>
+        @if (apelacionSeleccionada?.Estado == "PENDIENTE")
+        {
+            <MudButton StartIcon="@Icons.Material.Filled.Gavel"
+                       Color="Color.Success"
+                       OnClick="@(() => AbrirDialogResolucion(apelacionSeleccionada))">
+                Resolver Apelación
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+<!-- Dialog para resolver apelación -->
+<MudDialog @bind-IsVisible="mostrarDialogResolucion" Options="dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-3"/>
+            Resolver Apelación
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (apelacionParaResolver != null)
+        {
+            <div class="mb-4">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">
+                    Apelación de @apelacionParaResolver.DocenteNombre
+                </MudText>
+                <MudText>Promoción a: @apelacionParaResolver.NivelSolicitado</MudText>
+            </div>
+
+            <MudForm @ref="formResolucion" @bind-IsValid="@isFormResolucionValid">
+                <MudSelect @bind-Value="resolucionApelacion.Decision" 
+                           Label="Decisión sobre la Apelación" 
+                           Required="true"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense">
+                    <MudSelectItem Value="@("ACEPTA_APELACION")">Aceptar Apelación (Promoción Aprobada)</MudSelectItem>
+                    <MudSelectItem Value="@("RECHAZA_APELACION")">Rechazar Apelación (Mantener Decisión Original)</MudSelectItem>
+                </MudSelect>
+
+                <MudTextField @bind-Value="resolucionApelacion.Justificacion"
+                              Label="Justificación de la Decisión"
+                              Lines="4"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Class="mt-3"
+                              Required="true" />
+            </MudForm>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CerrarDialogResolucion">Cancelar</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Send"
+                   Color="Color.Success"
+                   Disabled="@(!isFormResolucionValid || resolviendoApelacion)"
+                   OnClick="ResolverApelacion">
+            @if (resolviendoApelacion)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                <span class="ml-2">Resolviendo...</span>
+            }
+            else
+            {
+                <span>Resolver Apelación</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
-    // Implementación pendiente
+    private bool isLoading = true;
+    private bool mostrarDetalleApelacion = false;
+    private bool mostrarDialogResolucion = false;
+    private bool isFormResolucionValid = false;
+    private bool resolviendoApelacion = false;
+    private List<ApelacionPromocionDto> apelaciones = new();
+    private ApelacionPromocionDto? apelacionSeleccionada = null;
+    private ApelacionPromocionDto? apelacionParaResolver = null;
+    private ResolucionApelacionDto resolucionApelacion = new();
+    private MudForm? formResolucion;
+    
+    private DialogOptions dialogOptions = new() 
+    { 
+        MaxWidth = MaxWidth.Medium, 
+        FullWidth = true 
+    };
+
+    private DialogOptions dialogOptionsLarge = new() 
+    { 
+        MaxWidth = MaxWidth.Large, 
+        FullWidth = true 
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarApelaciones();
+    }
+
+    private async Task CargarApelaciones()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            // Llamamos a un endpoint específico para apelaciones (necesitamos crearlo en el API)
+            var response = await Http.GetAsync("http://localhost:5015/api/apelaciones");
+            if (response.IsSuccessStatusCode)
+            {
+                apelaciones = await response.Content.ReadFromJsonAsync<List<ApelacionPromocionDto>>() ?? new();
+            }
+            else
+            {
+                Snackbar.Add("Error al cargar las apelaciones", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void VerDetalleApelacion(ApelacionPromocionDto apelacion)
+    {
+        apelacionSeleccionada = apelacion;
+        mostrarDetalleApelacion = true;
+    }
+
+    private void AbrirDialogResolucion(ApelacionPromocionDto apelacion)
+    {
+        apelacionParaResolver = apelacion;
+        resolucionApelacion = new ResolucionApelacionDto { ApelacionId = apelacion.Id };
+        mostrarDialogResolucion = true;
+        CerrarDetalleApelacion(); // Cierra el detalle si está abierto
+    }
+
+    private async Task ResolverApelacion()
+    {
+        if (!isFormResolucionValid || resolviendoApelacion) return;
+
+        try
+        {
+            resolviendoApelacion = true;
+            StateHasChanged();
+
+            var response = await Http.PostAsJsonAsync(
+                $"http://localhost:5015/api/comision-academica/apelacion/{resolucionApelacion.ApelacionId}/resolver", 
+                resolucionApelacion);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Apelación resuelta correctamente", Severity.Success);
+                await CargarApelaciones();
+                CerrarDialogResolucion();
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error al resolver la apelación: {errorMessage}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            resolviendoApelacion = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CerrarDetalleApelacion()
+    {
+        mostrarDetalleApelacion = false;
+        apelacionSeleccionada = null;
+    }
+
+    private void CerrarDialogResolucion()
+    {
+        mostrarDialogResolucion = false;
+        apelacionParaResolver = null;
+        resolucionApelacion = new();
+    }
+
+    private Color GetEstadoApelacionColor(string estado)
+    {
+        return estado switch
+        {
+            "PENDIENTE" => Color.Warning,
+            "RESUELTA" => Color.Success,
+            "RECHAZADA" => Color.Error,
+            _ => Color.Default
+        };
+    }
 }
