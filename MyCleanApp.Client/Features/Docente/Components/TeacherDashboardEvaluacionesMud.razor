@@ -64,7 +64,7 @@
                            StartIcon="@Icons.Material.Filled.Add">Añadir Nueva</MudButton>
                  <MudButton Variant="Variant.Outlined" 
                            Style="border-color: #1976d2; color: #1976d2;"
-                           OnClick="ImportarEvaluacionesExternas" 
+                           OnClick="@ImportarEvaluacionesExternas" 
                            StartIcon="@Icons.Material.Filled.CloudDownload">Importar Datos</MudButton>
             </MudStack>
         </CardHeaderActions>
@@ -466,7 +466,7 @@
             <MudCardContent Class="pa-0" Style="height: calc(90vh - 150px); overflow: hidden;">
                 @if (pdfUrl != null)
                 {
-                    <div style="position: relative; width: 100%; height: 100%;">
+                    <div style="position: relative, width: 100%, height: 100%">
                         <iframe 
                             src="@pdfUrl" 
                             style="width: 100%; height: 100%; border: none;"
@@ -736,10 +736,59 @@
     }
 
     // Métodos de lógica de negocio (CRUD)
-    private void ImportarEvaluacionesExternas()
+    private async Task ImportarEvaluacionesExternas()
     {
-        modalMessageImportar = "⚠️ Función de importación externa no implementada aún.";
-        showModalImportar = true;
+        isLoading = true;
+        StateHasChanged();
+        try
+        {
+            var http = new HttpClient();
+            var evaluacionesExternas = await http.GetFromJsonAsync<List<EvaluacionClienteType>>("http://localhost:3000/EvaluacionDocente");
+            var soloExternas = evaluacionesExternas?.Where(e => e.Externo).ToList() ?? new List<EvaluacionClienteType>();
+
+            // Clave para evitar duplicados: periodo, puntaje, tipo, fecha
+            var evaluacionesActuales = EvaluacionesDocentes
+                .Select(e => (e.Periodo?.Trim().ToLower() ?? "", e.Puntaje, e.TipoEvaluacion?.Trim().ToLower() ?? "", e.FechaEvaluacion.Date))
+                .ToHashSet();
+
+            int importadas = 0;
+            foreach (var eval in soloExternas)
+            {
+                var key = (eval.Periodo?.Trim().ToLower() ?? "", eval.Puntaje, eval.TipoEvaluacion?.Trim().ToLower() ?? "", eval.FechaEvaluacion.Date);
+                if (!evaluacionesActuales.Contains(key))
+                {
+                    var response = await DocenteService.ImportarEvaluacionExternaAsync(eval);
+                    if (response) importadas++;
+                }
+            }
+
+            // Recargar evaluaciones tras importar
+            await CargarEvaluaciones();
+
+            if (OnImportarCompletado.HasDelegate)
+                await OnImportarCompletado.InvokeAsync();
+
+            if (importadas > 0)
+            {
+                modalMessageImportar = $"✅ Se importaron {importadas} evaluación(es) nueva(s).";
+            }
+            else
+            {
+                modalMessageImportar = "ℹ️ No se importaron evaluaciones nuevas porque ya existen en el sistema.";
+            }
+            showModalImportar = true;
+            StateHasChanged(); // Forzar refresco de la UI tras mostrar el modal
+        }
+        catch (Exception ex)
+        {
+            modalMessageImportar = $"❌ Error al importar evaluaciones externas: {ex.Message}";
+            showModalImportar = true;
+            StateHasChanged();
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private async void VerCertificado(int evaluacionId)
