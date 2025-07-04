@@ -29,7 +29,7 @@ namespace MyCleanApp.API.ComisionAcademica
                     .Include(s => s.Docente)
                         .ThenInclude(d => d.NivelAcademico)
                     .Include(s => s.NuevoNivelAcademico)
-                    .Where(s => s.Estado == "VERIFICADA" || s.Estado == "EN_COMISION" || s.Estado == "EN_EVALUACION" || s.Estado == "DECIDIDA")
+                    .Where(s => s.Estado == "VERIFICADA" || s.Estado == "EN_COMISION" || s.Estado == "EN_EVALUACION" || s.Estado == "DECIDIDO_APROBADA" || s.Estado == "DECIDIDO_RECHAZADA")
                     .Select(s => new
                     {
                         s.Id,
@@ -199,8 +199,20 @@ namespace MyCleanApp.API.ComisionAcademica
                     return BadRequest("La solicitud no se encuentra en estado de evaluación");
                 }
 
-                // Actualizar el estado y datos de la decisión
-                solicitud.Estado = "DECIDIDA";
+                // Establecer el estado específico basado en la decisión
+                if (decisionRequest.Decision.ToUpper() == "APROBADO")
+                {
+                    solicitud.Estado = "DECIDIDO_APROBADA";
+                }
+                else if (decisionRequest.Decision.ToUpper() == "RECHAZADO")
+                {
+                    solicitud.Estado = "DECIDIDO_RECHAZADA";
+                }
+                else
+                {
+                    return BadRequest("Decisión inválida. Debe ser 'APROBADO' o 'RECHAZADO'");
+                }
+
                 solicitud.FechaRespuesta = DateTime.Now;
                 
                 // Combinar la decisión con las observaciones
@@ -216,6 +228,7 @@ namespace MyCleanApp.API.ComisionAcademica
                 return Ok(new { 
                     mensaje = "Decisión emitida correctamente",
                     decision = decisionRequest.Decision,
+                    estadoFinal = solicitud.Estado,
                     fechaDecision = DateTime.Now 
                 });
             }

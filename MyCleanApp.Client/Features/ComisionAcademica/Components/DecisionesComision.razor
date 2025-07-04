@@ -41,7 +41,7 @@
                 </MudTd>
                 <MudTd DataLabel="Estado">
                     <MudChip T="string" Color="@GetEstadoColor(context.Estado)" Size="Size.Small">
-                        @context.Estado
+                        @GetEstadoTexto(context.Estado)
                     </MudChip>
                 </MudTd>
                 <MudTd DataLabel="Acciones">
@@ -54,10 +54,10 @@
                             Emitir Decisión
                         </MudButton>
                     }
-                    else if (context.Estado == "DECIDIDA" || context.Estado == "DECISION_EMITIDA")
+                    else if (context.Estado == "DECIDIDO_APROBADA" || context.Estado == "DECIDIDO_RECHAZADA")
                     {
-                        <MudChip T="string" Color="Color.Success" Size="Size.Small">
-                            Decisión Emitida
+                        <MudChip T="string" Color="@GetEstadoColor(context.Estado)" Size="Size.Small">
+                            @GetEstadoTexto(context.Estado)
                         </MudChip>
                     }
                 </MudTd>
@@ -103,9 +103,8 @@
                     <label style="display: block; margin-bottom: 8px; font-weight: bold;">Decisión:</label>
                     <select @bind="decisionSeleccionada" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
                         <option value="">Seleccione una decisión...</option>
-                        <option value="APROBADA">Aprobar Promoción</option>
-                        <option value="RECHAZADA">Rechazar Promoción</option>
-                        <option value="OBSERVACIONES">Solicitar Observaciones</option>
+                        <option value="APROBADO">Aprobar Promoción</option>
+                        <option value="RECHAZADO">Rechazar Promoción</option>
                     </select>
                 </div>
 
@@ -163,7 +162,7 @@
                 var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 var todasSolicitudes = System.Text.Json.JsonSerializer.Deserialize<List<SolicitudComisionDto>>(json, options) ?? new();
                 solicitudesAnalisis = todasSolicitudes
-                    .Where(s => s.Estado == "EN_EVALUACION" || s.Estado == "DECIDIDA" || s.Estado == "DECISION_EMITIDA")
+                    .Where(s => s.Estado == "EN_EVALUACION" || s.Estado == "DECIDIDO_APROBADA" || s.Estado == "DECIDIDO_RECHAZADA")
                     .ToList();
             }
             else
@@ -251,9 +250,20 @@
         return estado switch
         {
             "EN_EVALUACION" => Color.Warning,
-            "DECIDIDA" => Color.Success,
-            "DECISION_EMITIDA" => Color.Success,
+            "DECIDIDO_APROBADA" => Color.Success,
+            "DECIDIDO_RECHAZADA" => Color.Error,
             _ => Color.Default
+        };
+    }
+
+    private string GetEstadoTexto(string estado)
+    {
+        return estado switch
+        {
+            "EN_EVALUACION" => "En Evaluación",
+            "DECIDIDO_APROBADA" => "Aprobada",
+            "DECIDIDO_RECHAZADA" => "Rechazada",
+            _ => estado
         };
     }
 }
