@@ -80,6 +80,15 @@
                                 Iniciar Informes
                             </MudButton>
                         }
+                        else if (context.Estado == "APROBADO_COMISION")
+                        {
+                            <MudButton StartIcon="@Icons.Material.Filled.Send"
+                                       Color="Color.Success"
+                                       Size="Size.Small"
+                                       OnClick="@(() => EnviarInforme(context.Id))">
+                                Enviar Informes
+                            </MudButton>
+                        }
                         else if (context.Estado == "INFORMES_FINALES")
                         {
                             <MudButton StartIcon="@Icons.Material.Filled.Article"
@@ -256,7 +265,8 @@
                 
                 // Filtramos las solicitudes que requieren generación de informes finales
                 solicitudesFinalizadas = todasSolicitudes
-                    .Where(s => s.Estado == "APROBADA_DOCENTE" || s.Estado == "INFORMES_FINALES" || 
+                    .Where(s => s.Estado == "APROBADA_DOCENTE" || s.Estado == "APROBADO_COMISION" || 
+                               s.Estado == "INFORMES_FINALES" || 
                                s.Estado == "APROBADO" || s.Estado == "RECHAZADO" || s.Estado == "FINALIZADO")
                     .ToList();
                     
@@ -333,11 +343,14 @@
             var response = await Http.PostAsync($"http://localhost:5015/api/comision-academica/solicitud/{solicitudId}/enviar-informe", null);
             if (response.IsSuccessStatusCode)
             {
-                if (informesGenerados.ContainsKey(solicitudId))
+                // Actualizar el estado local inmediatamente
+                var solicitud = solicitudesFinalizadas.FirstOrDefault(s => s.Id == solicitudId);
+                if (solicitud != null)
                 {
-                    informesGenerados[solicitudId].EnviadoConsejoUniversitario = true;
+                    solicitud.Estado = "INFORMES_FINALES";
                 }
-                Snackbar.Add("Informe enviado al Consejo Universitario correctamente", Severity.Success);
+                
+                Snackbar.Add("Estado cambiado a 'Informes Finales' correctamente", Severity.Success);
                 StateHasChanged();
             }
             else
@@ -359,14 +372,20 @@
             var response = await Http.PostAsync($"http://localhost:5015/api/comision-academica/solicitud/{solicitudId}/iniciar-informes", null);
             if (response.IsSuccessStatusCode)
             {
-                Snackbar.Add("Proceso de generación de informes iniciado correctamente", Severity.Success);
-                await CargarSolicitudesFinalizadas(); // Recargar la lista
+                // Actualizar el estado local inmediatamente
+                var solicitud = solicitudesFinalizadas.FirstOrDefault(s => s.Id == solicitudId);
+                if (solicitud != null)
+                {
+                    solicitud.Estado = "APROBADO_COMISION";
+                }
+                
+                Snackbar.Add("Estado cambiado a 'Preparando Informes'. Ahora puede enviar los informes.", Severity.Success);
                 StateHasChanged();
             }
             else
             {
                 var errorMessage = await response.Content.ReadAsStringAsync();
-                Snackbar.Add($"Error al iniciar la generación de informes: {errorMessage}", Severity.Error);
+                Snackbar.Add($"Error al cambiar el estado: {errorMessage}", Severity.Error);
             }
         }
         catch (Exception ex)
@@ -386,7 +405,8 @@
         return estado switch
         {
             "APROBADA_DOCENTE" => Color.Primary,
-            "INFORMES_FINALES" => Color.Info,
+            "APROBADO_COMISION" => Color.Info,
+            "INFORMES_FINALES" => Color.Warning,
             "APROBADO" => Color.Success,
             "RECHAZADO" => Color.Error,
             "FINALIZADO" => Color.Info,
@@ -409,6 +429,7 @@
         return estado switch
         {
             "APROBADA_DOCENTE" => "Aceptada por Docente",
+            "APROBADO_COMISION" => "Preparando Informes",
             "INFORMES_FINALES" => "Generando Informes",
             "APROBADO" => "Promoción Aprobada",
             "RECHAZADO" => "Promoción Rechazada",

@@ -216,13 +216,13 @@ namespace MyCleanApp.Infrastructure.Services
             if (solicitud.Estado != "APROBADA_DOCENTE")
                 return WorkflowResult.CreateError("La solicitud debe estar aceptada por el docente");
 
-            solicitud.Estado = "INFORMES_FINALES";
-            solicitud.Observaciones = $"{solicitud.Observaciones} | Iniciando generación de informes finales - Fecha: {DateTime.Now:dd/MM/yyyy HH:mm}";
+            solicitud.Estado = "APROBADO_COMISION";
+            solicitud.Observaciones = $"{solicitud.Observaciones} | Comisión preparando informes finales - Fecha: {DateTime.Now:dd/MM/yyyy HH:mm}";
 
             await _context.SaveChangesAsync();
 
-            return WorkflowResult.CreateSuccess("Informes finales iniciados", 
-                "Se ha iniciado el proceso de generación de informes finales de promoción académica");
+            return WorkflowResult.CreateSuccess("Estado actualizado", 
+                "La solicitud está lista para el envío de informes finales");
         }
 
         public async Task<WorkflowResult> PresentarApelacionAsync(int solicitudId, string motivo, string fundamentos)

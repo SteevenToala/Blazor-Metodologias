@@ -34,7 +34,7 @@ namespace MyCleanApp.API.ComisionAcademica
                     .Include(s => s.NuevoNivelAcademico)
                     .Where(s => s.Estado == "VERIFICADA" || s.Estado == "EN_COMISION" || s.Estado == "EN_EVALUACION" || 
                                s.Estado == "DECIDIDO_APROBADA" || s.Estado == "DECIDIDO_RECHAZADA" || 
-                               s.Estado == "APROBADA_DOCENTE" || s.Estado == "INFORMES_FINALES" || 
+                               s.Estado == "APROBADA_DOCENTE" || s.Estado == "APROBADO_COMISION" || s.Estado == "INFORMES_FINALES" || 
                                s.Estado == "ENVIADA_CONSEJO" || s.Estado == "EN_ANALISIS_COMISION")
                     .Select(s => new
                     {
@@ -346,26 +346,52 @@ namespace MyCleanApp.API.ComisionAcademica
             }
         }
 
+        [HttpPost("solicitud/{id}/iniciar-informes")]
+        public async Task<ActionResult> IniciarInformes(int id)
+        {
+            try
+            {
+                var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
+                if (solicitud == null)
+                {
+                    return NotFound("Solicitud no encontrada");
+                }
+
+                if (solicitud.Estado != "APROBADA_DOCENTE")
+                {
+                    return BadRequest("La solicitud debe estar aceptada por el docente para iniciar informes");
+                }
+
+                // Cambiar el estado a APROBADO_COMISION
+                solicitud.Estado = "APROBADO_COMISION";
+                solicitud.Observaciones = $"{solicitud.Observaciones} | Comisión preparando informes finales - Fecha: {DateTime.Now:dd/MM/yyyy HH:mm}";
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { mensaje = "Estado actualizado a 'Preparando Informes'" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+            }
+        }
+
         [HttpPost("solicitud/{id}/enviar-informe")]
         public async Task<ActionResult> EnviarInforme(int id)
         {
             try
             {
-                var informe = await _context.InformeFinalPromocion
-                    .Where(i => i.SolicitudId == id)
-                    .FirstOrDefaultAsync();
-
-                if (informe == null)
+                var solicitud = await _context.SolicitudAvanceRango.FindAsync(id);
+                if (solicitud == null)
                 {
-                    return NotFound("Informe no encontrado");
+                    return NotFound("Solicitud no encontrada");
                 }
 
-                informe.Estado = "ENVIADO_CONSEJO";
-                informe.FechaEnvioConsejo = DateTime.Now;
-
+                // Solo cambiar el estado de la solicitud
+                solicitud.Estado = "INFORMES_FINALES";
                 await _context.SaveChangesAsync();
 
-                return Ok(new { mensaje = "Informe enviado al Consejo Universitario correctamente" });
+                return Ok(new { mensaje = "Estado cambiado a 'Informes Finales' correctamente" });
             }
             catch (Exception ex)
             {
