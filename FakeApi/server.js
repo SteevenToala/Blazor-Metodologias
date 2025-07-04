@@ -114,6 +114,113 @@ app.get('/persona/:cedula', (req, res) => {
 })
 
 
+// Endpoints para entidades específicas
+app.get('/PublicacionAcademica/:id', (req, res) => {
+  const db = readData()
+  const { id } = req.params
+  const publicacion = db.PublicacionAcademica.find(p => p.id == id)
+  if (!publicacion) return res.status(404).json({ error: 'Publicación no encontrada' })
+  res.json(publicacion)
+})
+
+app.get('/PublicacionAcademica', (req, res) => {
+  const db = readData()
+  res.json(db.PublicacionAcademica || [])
+})
+
+app.get('/EvaluacionDocente/:id', (req, res) => {
+  const db = readData()
+  const { id } = req.params
+  const evaluacion = db.EvaluacionDocente.find(e => e.id == id)
+  if (!evaluacion) return res.status(404).json({ error: 'Evaluación no encontrada' })
+  res.json(evaluacion)
+})
+
+app.get('/EvaluacionDocente', (req, res) => {
+  const db = readData()
+  res.json(db.EvaluacionDocente || [])
+})
+
+app.get('/CursoCapacitacion/:id', (req, res) => {
+  const db = readData()
+  const { id } = req.params
+  const curso = db.CursoCapacitacion.find(c => c.id == id)
+  if (!curso) return res.status(404).json({ error: 'Curso no encontrado' })
+  res.json(curso)
+})
+
+app.get('/CursoCapacitacion', (req, res) => {
+  const db = readData()
+  res.json(db.CursoCapacitacion || [])
+})
+
+app.get('/ProyectoInvestigacion/:id', (req, res) => {
+  const db = readData()
+  const { id } = req.params
+  const proyecto = db.ProyectoInvestigacion.find(p => p.id == id)
+  if (!proyecto) return res.status(404).json({ error: 'Proyecto no encontrado' })
+  res.json(proyecto)
+})
+
+app.get('/ProyectoInvestigacion', (req, res) => {
+  const db = readData()
+  res.json(db.ProyectoInvestigacion || [])
+})
+
+app.get('/Docente/:id', (req, res) => {
+  const db = readData()
+  const { id } = req.params
+  const docente = db.Docente.find(d => d.id == id)
+  if (!docente) return res.status(404).json({ error: 'Docente no encontrado' })
+  
+  // Incluir datos relacionados
+  const usuario = db.Usuario.find(u => u.id === docente.usuarioId)
+  const persona = usuario ? db.Persona.find(p => p.id === usuario.personaId) : null
+  const nivel = db.NivelAcademico.find(n => n.id === docente.nivelAcademicoId)
+  
+  res.json({
+    ...docente,
+    usuario,
+    persona,
+    nivel
+  })
+})
+
+app.get('/Docente', (req, res) => {
+  const db = readData()
+  res.json(db.Docente || [])
+})
+
+// Endpoint para obtener todos los datos de un docente por su ID
+app.get('/docente/:id/completo', (req, res) => {
+  const db = readData()
+  const { id } = req.params
+  const docente = db.Docente.find(d => d.id == id)
+  
+  if (!docente) return res.status(404).json({ error: 'Docente no encontrado' })
+
+  const usuario = db.Usuario.find(u => u.id === docente.usuarioId)
+  const persona = usuario ? db.Persona.find(p => p.id === usuario.personaId) : null
+  const nivel = db.NivelAcademico.find(n => n.id === docente.nivelAcademicoId)
+  
+  const publicaciones = db.PublicacionAcademica.filter(p => p.docenteId === docente.id)
+  const evaluaciones = db.EvaluacionDocente.filter(e => e.docenteId === docente.id)
+  const cursos = db.CursoCapacitacion.filter(c => c.docenteId === docente.id)
+  const proyectos = db.ProyectoInvestigacion.filter(p => p.docenteId === docente.id)
+
+  res.json({
+    docente,
+    usuario,
+    persona,
+    nivel,
+    publicaciones,
+    evaluaciones,
+    cursos,
+    proyectos
+  })
+})
+
+
 // Levantar servidor
 app.listen(PORT, () => {
   console.log(`API corriendo en http://localhost:${PORT}`)
