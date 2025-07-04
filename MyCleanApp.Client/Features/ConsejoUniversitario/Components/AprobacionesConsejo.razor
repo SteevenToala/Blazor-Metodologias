@@ -46,61 +46,36 @@
         await CargarAprobaciones();
     }
 
-    private async Task CargarAprobaciones()
+private async Task CargarAprobaciones()
+{
+    try
     {
-        try
-        {
-            loading = true;
-            await Task.Delay(1000);
-            
-            aprobaciones = GenerarDatosSimulados();
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            loading = false;
-        }
-    }
+        loading = true;
 
-    private List<AprobacionConsejo> GenerarDatosSimulados()
-    {
-        return new List<AprobacionConsejo>
+        var solicitudes = await Http.GetFromJsonAsync<List<SolicitudAprobadaComisionDto>>(
+            "http://localhost:5015/api/SolicitudAvanceRango/SolicitudesAprobadasComision");
+
+        aprobaciones = solicitudes.Select(s => new AprobacionConsejo
         {
-            new AprobacionConsejo
-            {
-                Id = 1,
-                DocenteNombre = "Dr. Juan Pérez",
-                Promocion = "Auxiliar → Agregado",
-                FechaDecision = DateTime.Now.AddDays(-1),
-                Estado = "PendienteFirma",
-                TipoDecision = "Aprobación",
-                Observaciones = "Cumple todos los requisitos establecidos"
-            },
-            new AprobacionConsejo
-            {
-                Id = 2,
-                DocenteNombre = "Dra. María González",
-                Promocion = "Agregado → Principal",
-                FechaDecision = DateTime.Now.AddDays(-3),
-                Estado = "EnTramite",
-                TipoDecision = "Aprobación",
-                Observaciones = "Aprobación condicionada a presentar documentación adicional"
-            },
-            new AprobacionConsejo
-            {
-                Id = 3,
-                DocenteNombre = "Dr. Carlos López",
-                Promocion = "Principal → Principal Investigador",
-                FechaDecision = DateTime.Now.AddDays(-7),
-                Estado = "Finalizada",
-                TipoDecision = "Aprobación",
-                Observaciones = "Promoción efectiva a partir del 1 de enero"
-            }
-        };
+            Id = s.Id,
+            DocenteNombre = s.DocenteNombre,
+            Promocion = $"{s.NivelActual} → {s.NuevoNivel}",
+            FechaDecision = s.FechaRespuesta ?? DateTime.Now, // Asume que se usa fechaRespuesta si está
+            Estado = "PendienteFirma", // Puedes ajustar esta lógica si tienes un campo más exacto
+            TipoDecision = "Aprobación", // Podrías condicionar si viene de otro campo
+            Observaciones = s.Observaciones ?? ""
+        }).ToList();
     }
+    catch (Exception ex)
+    {
+        Snackbar.Add($"Error al cargar solicitudes: {ex.Message}", Severity.Error);
+    }
+    finally
+    {
+        loading = false;
+    }
+}
+
 
     private RenderFragment RenderAprobacionesPendientes()
     {

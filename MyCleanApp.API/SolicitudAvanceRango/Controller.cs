@@ -96,6 +96,59 @@ public async Task<ActionResult<IEnumerable<object>>> GetSolicitudesPendientesPor
         return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
     }
 }
+[HttpGet("SolicitudesAprobadasComision")]
+public async Task<ActionResult<IEnumerable<object>>> GetSolicitudesAprobadasComision()
+{
+    try
+    {
+        string connectionString = _context.Database.GetConnectionString();
+
+        using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+
+        string query = @"
+            SELECT s.id, s.docenteId, s.fechaSolicitud, ISNULL(s.estado, 'PENDIENTE') AS estado, 
+                   s.fechaRespuesta, ISNULL(s.observaciones, '') AS observaciones,
+                   s.nuevoNivelAcademicoId,
+                   p.nombres + ' ' + p.apellidos AS docenteNombre,
+                   naActual.nombre AS nivelActual,
+                   naNuevo.nombre AS nuevoNivel
+            FROM SolicitudAvanceRango s
+            INNER JOIN Docente d ON s.docenteId = d.id
+            INNER JOIN Usuario uDocente ON d.usuarioId = uDocente.id
+            INNER JOIN Persona p ON uDocente.personaId = p.id
+            LEFT JOIN NivelAcademico naActual ON d.nivelAcademicoId = naActual.id
+            LEFT JOIN NivelAcademico naNuevo ON s.nuevoNivelAcademicoId = naNuevo.id
+            WHERE s.estado = 'APROBADA_COMICION'";
+
+        using var command = new SqlCommand(query, connection);
+        var solicitudes = new List<object>();
+
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            solicitudes.Add(new
+            {
+                Id = reader.GetInt32(0),
+                DocenteId = reader.GetInt32(1),
+                FechaSolicitud = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                Estado = reader.GetString(3),
+                FechaRespuesta = reader.IsDBNull(4) ? (DateTime?)null : reader.GetDateTime(4),
+                Observaciones = reader.GetString(5),
+                NuevoNivelAcademicoId = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6),
+                DocenteNombre = reader.GetString(7),
+                NivelActual = reader.IsDBNull(8) ? null : reader.GetString(8),
+                NuevoNivel = reader.IsDBNull(9) ? null : reader.GetString(9)
+            });
+        }
+
+        return Ok(solicitudes);
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+    }
+}
 
 [HttpGet("SolicitudesAprobadasTotalConsejo")]
 public async Task<ActionResult<IEnumerable<object>>> GetSolicitudesTotalmenteAprobadasPorConsejo()
