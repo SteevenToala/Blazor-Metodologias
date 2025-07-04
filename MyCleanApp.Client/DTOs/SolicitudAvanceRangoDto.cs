@@ -7,4 +7,8 @@ public class SolicitudAvanceRangoDto
     public DateTime? FechaRespuesta { get; set; }
     public string Observaciones { get; set; } = string.Empty;
     public int NuevoNivelAcademicoId { get; set; }
+
+    public string DocenteNombre { get; set; } = string.Empty;
+    public string NivelActual { get; set; } = string.Empty;
+    public string NuevoNivel { get; set; } = string.Empty;
 }

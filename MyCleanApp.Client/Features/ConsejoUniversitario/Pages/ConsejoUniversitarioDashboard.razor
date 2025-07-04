@@ -67,6 +67,11 @@ else
                             <InformesParaAprobacion />
                         </MudPaper>
                         break;
+                    case "expedientes":
+                        <MudPaper Elevation="1" Class="pa-4 mb-4">
+                            <ExpedientesUniversitaros />
+                        </MudPaper>
+                        break;
                     case "aprobaciones":
                         <MudPaper Elevation="1" Class="pa-4 mb-4">
                             <AprobacionesConsejo />
@@ -93,7 +98,8 @@ else
         new MenuItem { id = "overview", label = "Resumen", icon = Icons.Material.Filled.Dashboard },
         new MenuItem { id = "informes", label = "Informes Recibidos", icon = Icons.Material.Filled.Description },
         new MenuItem { id = "aprobaciones", label = "Aprobaciones", icon = Icons.Material.Filled.CheckCircle },
-        new MenuItem { id = "historico", label = "Histórico", icon = Icons.Material.Filled.History }
+        new MenuItem { id = "historico", label = "Histórico", icon = Icons.Material.Filled.History },
+    new MenuItem { id = "expedientes", label = "Expedientes para Análisis", icon = Icons.Material.Filled.FolderOpen }
     };
 
     public class MenuItem
