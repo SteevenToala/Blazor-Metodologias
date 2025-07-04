@@ -219,21 +219,60 @@
                     }
                 </MudTd>
                 <MudTd DataLabel="Acciones">
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 flex-wrap">
                         <MudButton StartIcon="@Icons.Material.Filled.Visibility" 
                                  Size="Size.Small" 
                                  Color="Color.Primary"
                                  OnClick="@(() => VerDetalle(context))">
                             Detalle
                         </MudButton>
+                        
+                        @* Acciones para solicitudes decididas por la comisión *@
+                        @if ((context.Estado == "DECIDIDO_APROBADA" || context.Estado == "DECIDIDO_RECHAZADA") && PuedeResponderDecision(context))
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="ma-1" Style="font-size: 0.7rem;">
+                                ⏰ @ObtenerDiasRestantesParaResponder(context) días para responder
+                            </MudAlert>
+                            
+                            @if (context.Estado == "DECIDIDO_APROBADA")
+                            {
+                                <MudButton StartIcon="@Icons.Material.Filled.CheckCircle" 
+                                         Size="Size.Small" 
+                                         Color="Color.Success"
+                                         OnClick="@(() => AceptarDecision(context))">
+                                    Aceptar
+                                </MudButton>
+                            }
+                            
+                            @* Solo permitir apelación si fue rechazada *@
+                            @if (context.Estado == "DECIDIDO_RECHAZADA")
+                            {
+                                <MudButton StartIcon="@Icons.Material.Filled.Gavel" 
+                                         Size="Size.Small" 
+                                         Color="Color.Warning"
+                                         OnClick="@(() => AbrirModalApelacion(context))">
+                                    Apelar
+                                </MudButton>
+                            }
+                        }
+                        
+                        @* Apelación para solicitudes ya rechazadas definitivamente *@
                         @if (context.Estado == "RECHAZADA" && PuedeApelar(context))
                         {
                             <MudButton StartIcon="@Icons.Material.Filled.Gavel" 
                                      Size="Size.Small" 
                                      Color="Color.Warning"
-                                     OnClick="@(() => IniciarApelacion(context))">
+                                     OnClick="@(() => AbrirModalApelacion(context))">
                                 Apelar
                             </MudButton>
+                        }
+                        
+                        @* Mostrar si la solicitud quedó sin efecto *@
+                        @if (context.Estado == "SIN_EFECTO")
+                        {
+                            <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Icon="@Icons.Material.Filled.Warning">
+                                Sin Efecto
+                            </MudChip>
                         }
                     </div>
                 </MudTd>
@@ -333,14 +372,103 @@
         </DialogContent>
         <DialogActions>
             <MudButton OnClick="CerrarModalDetalle">Cerrar</MudButton>
+            @if ((solicitudSeleccionada.Estado == "DECIDIDO_APROBADA" || solicitudSeleccionada.Estado == "DECIDIDO_RECHAZADA") && PuedeResponderDecision(solicitudSeleccionada))
+            {
+                @if (solicitudSeleccionada.Estado == "DECIDIDO_APROBADA")
+                {
+                    <MudButton StartIcon="@Icons.Material.Filled.CheckCircle" 
+                             Color="Color.Success"
+                             OnClick="@(() => AceptarDecision(solicitudSeleccionada))">
+                        Aceptar Decisión
+                    </MudButton>
+                }
+                @if (solicitudSeleccionada.Estado == "DECIDIDO_RECHAZADA")
+                {
+                    <MudButton StartIcon="@Icons.Material.Filled.Gavel" 
+                             Color="Color.Warning"
+                             OnClick="@(() => AbrirModalApelacion(solicitudSeleccionada))">
+                        Presentar Apelación
+                    </MudButton>
+                }
+            }
             @if (solicitudSeleccionada.Estado == "RECHAZADA" && PuedeApelar(solicitudSeleccionada))
             {
                 <MudButton StartIcon="@Icons.Material.Filled.Gavel" 
                          Color="Color.Warning"
-                         OnClick="@(() => IniciarApelacion(solicitudSeleccionada))">
+                         OnClick="@(() => AbrirModalApelacion(solicitudSeleccionada))">
                     Presentar Apelación
                 </MudButton>
             }
+        </DialogActions>
+    </MudDialog>
+}
+
+<!-- Modal de Apelación -->
+@if (mostrarModalApelacion && solicitudParaApelar != null)
+{
+    <MudDialog IsVisible="@mostrarModalApelacion" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true })">
+        <TitleContent>
+            <MudText Typo="Typo.h6">
+                <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-2" />
+                Presentar Apelación - Solicitud #@solicitudParaApelar.Id
+            </MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudGrid Spacing="3">
+                <MudItem xs="12">
+                    <MudAlert Severity="Severity.Info" Class="mb-4">
+                        <MudText Typo="Typo.body2">
+                            <strong>Tienes @ObtenerDiasRestantesParaResponder(solicitudParaApelar) días restantes</strong> para presentar tu apelación.
+                            Una vez presentada, la Comisión tendrá 3 días para resolver y notificar el resultado.
+                        </MudText>
+                    </MudAlert>
+                </MudItem>
+                
+                <MudItem xs="12">
+                    <MudCard Elevation="1" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">📋 Información de la Solicitud</MudText>
+                        <div class="d-flex flex-column gap-2">
+                            <div><strong>Estado Actual:</strong> 
+                                <MudChip T="string" Color="@GetEstadoColor(solicitudParaApelar.Estado)" Size="Size.Small">
+                                    @GetEstadoTexto(solicitudParaApelar.Estado)
+                                </MudChip>
+                            </div>
+                            <div><strong>Promoción Solicitada:</strong> @ObtenerNombreNivelAcademico(solicitudParaApelar.NuevoNivelAcademicoId)</div>
+                            <div><strong>Fecha de Decisión:</strong> @(solicitudParaApelar.FechaRespuesta?.ToString("dd/MM/yyyy HH:mm") ?? "No disponible")</div>
+                            @if (!string.IsNullOrEmpty(solicitudParaApelar.Observaciones))
+                            {
+                                <div><strong>Observaciones de la Comisión:</strong></div>
+                                <MudPaper Elevation="0" Class="pa-3" Style="background-color: #f5f5f5;">
+                                    <MudText Typo="Typo.body2">@solicitudParaApelar.Observaciones</MudText>
+                                </MudPaper>
+                            }
+                        </div>
+                    </MudCard>
+                </MudItem>
+                
+                <MudItem xs="12">
+                    <MudCard Elevation="1" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">📝 Motivos de la Apelación</MudText>
+                        <MudTextField @bind-Value="motivosApelacion"
+                                    Label="Describe los motivos de tu apelación"
+                                    Variant="Variant.Outlined"
+                                    Lines="5"
+                                    MaxLength="1000"
+                                    Counter="1000"
+                                    HelperText="Explica claramente por qué consideras que la decisión debe ser reconsiderada"
+                                    Required="true" />
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="CerrarModalApelacion">Cancelar</MudButton>
+            <MudButton StartIcon="@Icons.Material.Filled.Send" 
+                     Color="Color.Warning"
+                     Disabled="@(string.IsNullOrWhiteSpace(motivosApelacion))"
+                     OnClick="ConfirmarApelacion">
+                Presentar Apelación
+            </MudButton>
         </DialogActions>
     </MudDialog>
 }
@@ -349,17 +477,22 @@
     private List<SolicitudAvanceRangoDto> solicitudes = new();
     private List<NivelAcademicoDto> nivelesAcademicos = new();
     private SolicitudAvanceRangoDto? solicitudSeleccionada = null;
+    private SolicitudAvanceRangoDto? solicitudParaApelar = null;
     private bool isLoading = true;
     private bool mostrarModalDetalle = false;
+    private bool mostrarModalApelacion = false;
+    private string motivosApelacion = "";
 
     // Estadísticas
     private int solicitudesPendientes => solicitudes.Count(s => 
         s.Estado == "PENDIENTE" || s.Estado == "EN_VERIFICACION" || s.Estado == "EN_EVALUACION" || 
-        s.Estado == "VERIFICADA" || s.Estado == "ENVIADA_COMISION" || s.Estado == "EN_ANALISIS_COMISION");
+        s.Estado == "VERIFICADA" || s.Estado == "ENVIADA_COMISION" || s.Estado == "EN_ANALISIS_COMISION" ||
+        s.Estado == "DECIDIDO_APROBADA" || s.Estado == "DECIDIDO_RECHAZADA" || s.Estado == "INFORMES_FINALES" || 
+        s.Estado == "ENVIADA_CONSEJO");
     private int solicitudesAprobadas => solicitudes.Count(s => 
-        s.Estado == "APROBADA" || s.Estado == "DECIDIDO_APROBADA" || s.Estado == "EFECTIVA");
+        s.Estado == "APROBADA_DOCENTE" || s.Estado == "APROBADA" || s.Estado == "EFECTIVA");
     private int solicitudesRechazadas => solicitudes.Count(s => 
-        s.Estado == "RECHAZADA" || s.Estado == "DECIDIDO_RECHAZADA");
+        s.Estado == "RECHAZADA" || s.Estado == "APELACION_RECHAZADA");
 
     protected override async Task OnInitializedAsync()
     {
@@ -383,6 +516,9 @@
                 if (docenteId.HasValue)
                 {
                     solicitudes = await DocenteService.ObtenerSolicitudesAvancePorDocenteIdAsync(docenteId.Value) ?? new();
+                    
+                    // Verificar solicitudes que pueden haber quedado sin efecto
+                    VerificarSolicitudesSinEfecto();
                 }
             }
         }
@@ -443,10 +579,17 @@
             "EN_EVALUACION" => Color.Primary,
             "EN_ANALISIS_COMISION" => Color.Primary,
             "DECIDIDO_APROBADA" => Color.Success,
+            "DECIDIDO_RECHAZADA" => Color.Error,
+            "APROBADA_DOCENTE" => Color.Success,
+            "INFORMES_FINALES" => Color.Primary,
+            "ENVIADA_CONSEJO" => Color.Info,
             "APROBADA" => Color.Success,
             "EFECTIVA" => Color.Success,
-            "DECIDIDO_RECHAZADA" => Color.Error,
             "RECHAZADA" => Color.Error,
+            "EN_APELACION" => Color.Warning,
+            "APELACION_APROBADA" => Color.Success,
+            "APELACION_RECHAZADA" => Color.Error,
+            "SIN_EFECTO" => Color.Secondary,
             "DOCUMENTOS_INCOMPLETOS" => Color.Warning,
             _ => Color.Default
         };
@@ -463,10 +606,17 @@
             "EN_EVALUACION" => "En Evaluación",
             "EN_ANALISIS_COMISION" => "En Análisis",
             "DECIDIDO_APROBADA" => "Aprobada por Comisión",
+            "DECIDIDO_RECHAZADA" => "Rechazada por Comisión",
+            "APROBADA_DOCENTE" => "Aceptada por Docente",
+            "INFORMES_FINALES" => "Elaborando Informes Finales",
+            "ENVIADA_CONSEJO" => "Enviada al Consejo",
             "APROBADA" => "Aprobada",
             "EFECTIVA" => "Promoción Efectiva",
-            "DECIDIDO_RECHAZADA" => "Rechazada por Comisión",
             "RECHAZADA" => "Rechazada",
+            "EN_APELACION" => "En Apelación",
+            "APELACION_APROBADA" => "Apelación Aprobada",
+            "APELACION_RECHAZADA" => "Apelación Rechazada",
+            "SIN_EFECTO" => "Sin Efecto",
             "DOCUMENTOS_INCOMPLETOS" => "Documentos Incompletos",
             _ => estado
         };
@@ -482,8 +632,11 @@
             "ENVIADA_COMISION" => 55,
             "EN_EVALUACION" => 70,
             "EN_ANALISIS_COMISION" => 70,
-            "DECIDIDO_APROBADA" => 85,
-            "APROBADA" => 90,
+            "DECIDIDO_APROBADA" => 80,
+            "APROBADA_DOCENTE" => 85,
+            "INFORMES_FINALES" => 90,
+            "ENVIADA_CONSEJO" => 95,
+            "APROBADA" => 98,
             "EFECTIVA" => 100,
             "DECIDIDO_RECHAZADA" => 100,
             "RECHAZADA" => 100,
@@ -503,7 +656,10 @@
             "EN_EVALUACION" => "En evaluación",
             "EN_ANALISIS_COMISION" => "Análisis de comisión",
             "DECIDIDO_APROBADA" => "Aprobada por comisión",
-            "APROBADA" => "Proceso completado",
+            "APROBADA_DOCENTE" => "Aceptada por docente",
+            "INFORMES_FINALES" => "Elaborando informes finales",
+            "ENVIADA_CONSEJO" => "Enviada al consejo universitario",
+            "APROBADA" => "Aprobada por consejo",
             "EFECTIVA" => "Promoción efectiva",
             "DECIDIDO_RECHAZADA" => "Rechazada por comisión",
             "RECHAZADA" => "Proceso finalizado",
@@ -574,16 +730,123 @@
         return false;
     }
 
-    private void IniciarApelacion(SolicitudAvanceRangoDto solicitud)
+    // Métodos para manejar apelaciones y decisiones
+    private bool PuedeResponderDecision(SolicitudAvanceRangoDto solicitud)
     {
-        // Aquí se implementaría la lógica para iniciar una apelación
-        Snackbar.Add("Función de apelación en desarrollo", Severity.Info);
+        // El docente puede responder a decisiones de la comisión por 3 días
+        if ((solicitud.Estado == "DECIDIDO_APROBADA" || solicitud.Estado == "DECIDIDO_RECHAZADA") && 
+            solicitud.FechaRespuesta.HasValue)
+        {
+            var diasTranscurridos = (DateTime.Now - solicitud.FechaRespuesta.Value).Days;
+            return diasTranscurridos <= 3;
+        }
+        return false;
+    }
+
+    private int ObtenerDiasRestantesParaResponder(SolicitudAvanceRangoDto solicitud)
+    {
+        if (solicitud.FechaRespuesta.HasValue)
+        {
+            var diasTranscurridos = (DateTime.Now - solicitud.FechaRespuesta.Value).Days;
+            return Math.Max(0, 3 - diasTranscurridos);
+        }
+        return 0;
+    }
+
+    private async Task AceptarDecision(SolicitudAvanceRangoDto solicitud)
+    {
+        try
+        {
+            var exito = await DocenteService.AceptarDecisionPromocionAsync(solicitud.Id);
+            
+            if (exito)
+            {
+                Snackbar.Add("Decisión aceptada correctamente. Tu solicitud regresa a la Comisión para elaborar los informes finales de promoción académica.", Severity.Success);
+                
+                // Recargar las solicitudes para obtener el estado actualizado desde la base de datos
+                await CargarSolicitudes();
+                CerrarModalDetalle();
+            }
+            else
+            {
+                Snackbar.Add("Error al aceptar la decisión. Por favor, intenta nuevamente.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al aceptar la decisión: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void AbrirModalApelacion(SolicitudAvanceRangoDto solicitud)
+    {
+        solicitudParaApelar = solicitud;
+        motivosApelacion = "";
+        mostrarModalApelacion = true;
+        CerrarModalDetalle();
+    }
+
+    private void CerrarModalApelacion()
+    {
+        mostrarModalApelacion = false;
+        solicitudParaApelar = null;
+        motivosApelacion = "";
+    }
+
+    private async Task ConfirmarApelacion()
+    {
+        if (solicitudParaApelar == null || string.IsNullOrWhiteSpace(motivosApelacion))
+        {
+            Snackbar.Add("Por favor, ingresa los motivos de la apelación", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var exito = await DocenteService.PresentarApelacionAsync(solicitudParaApelar.Id, motivosApelacion);
+            
+            if (exito)
+            {
+                Snackbar.Add("Apelación presentada correctamente. La Comisión resolverá en 3 días.", Severity.Success);
+                
+                // Recargar las solicitudes para obtener el estado actualizado desde la base de datos
+                await CargarSolicitudes();
+                CerrarModalApelacion();
+            }
+            else
+            {
+                Snackbar.Add("Error al presentar la apelación. Por favor, intenta nuevamente.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al presentar la apelación: {ex.Message}", Severity.Error);
+        }
     }
 
     private void CrearNuevaSolicitud()
     {
         // Aquí se implementaría la navegación para crear una nueva solicitud
         Snackbar.Add("Redireccionar a página de nueva solicitud", Severity.Info);
+    }
+
+    // Método para verificar y marcar solicitudes sin efecto por tiempo vencido
+    private void VerificarSolicitudesSinEfecto()
+    {
+        foreach (var solicitud in solicitudes)
+        {
+            if ((solicitud.Estado == "DECIDIDO_APROBADA" || solicitud.Estado == "DECIDIDO_RECHAZADA") &&
+                solicitud.FechaRespuesta.HasValue)
+            {
+                var diasTranscurridos = (DateTime.Now - solicitud.FechaRespuesta.Value).Days;
+                if (diasTranscurridos > 3 && solicitud.Estado != "SIN_EFECTO")
+                {
+                    // En una implementación real, esto se haría en el backend
+                    solicitud.Estado = "SIN_EFECTO";
+                    solicitud.Observaciones = $"Solicitud quedó sin efecto por no responder en el plazo de 3 días. Vencimiento: {solicitud.FechaRespuesta.Value.AddDays(3):dd/MM/yyyy}";
+                }
+            }
+        }
     }
 
     public class EtapaProceso
@@ -611,26 +874,27 @@
     {
         var steps = new List<TimelineStep>();
         
-        // Definir todas las etapas posibles
-        var allSteps = new[]
+        // Definir todas las etapas básicas del proceso
+        var basicSteps = new[]
         {
             ("Solicitud Recibida", "PENDIENTE", "Secretaría Académica"),
             ("Verificación de Documentos", "EN_VERIFICACION", "Oficina de Verificación"),
             ("Documentos Verificados", "VERIFICADA", "Secretaría Académica"),
             ("Enviada a Comisión", "ENVIADA_COMISION", "Secretaría Académica"),
             ("Análisis de Comisión", "EN_ANALISIS_COMISION", "Comisión Académica"),
-            ("Decisión Final", "DECIDIDO_APROBADA,DECIDIDO_RECHAZADA", "Comisión Académica")
+            ("Decisión de Comisión", "DECIDIDO_APROBADA,DECIDIDO_RECHAZADA", "Comisión Académica")
         };
 
         var currentStateOrder = GetStateOrder(estado);
         
-        foreach (var (title, stateCode, responsible) in allSteps)
+        // Agregar etapas básicas
+        foreach (var (title, stateCode, responsible) in basicSteps)
         {
             var stepStates = stateCode.Split(',');
             var stepOrder = stepStates.Select(GetStateOrder).Max();
             
             var isCompleted = currentStateOrder > stepOrder;
-            var isCurrent = currentStateOrder == stepOrder;
+            var isCurrent = stepStates.Contains(estado);
             
             var step = new TimelineStep
             {
@@ -644,15 +908,85 @@
             steps.Add(step);
         }
 
-        // Si está efectiva, agregar paso final
-        if (estado == "EFECTIVA")
+        // Agregar etapas específicas según el estado
+        if (estado == "DECIDIDO_APROBADA" || estado == "DECIDIDO_RECHAZADA" || 
+            GetStateOrder(estado) > GetStateOrder("DECIDIDO_APROBADA"))
+        {
+            var responseRequired = estado == "DECIDIDO_APROBADA" || estado == "DECIDIDO_RECHAZADA";
+            steps.Add(new TimelineStep
+            {
+                Title = "Respuesta del Docente",
+                IsCompleted = GetStateOrder(estado) > GetStateOrder("DECIDIDO_APROBADA"),
+                IsCurrent = responseRequired,
+                ResponsibleEntity = responseRequired ? "Docente (3 días para responder)" : "",
+                CompletedDate = GetStateOrder(estado) > GetStateOrder("DECIDIDO_APROBADA") ? "Completado" : ""
+            });
+        }
+
+        // Agregar etapa de apelación si corresponde
+        if (estado == "EN_APELACION" || estado == "APELACION_APROBADA" || estado == "APELACION_RECHAZADA")
         {
             steps.Add(new TimelineStep
             {
-                Title = "Promoción Efectiva",
+                Title = "Proceso de Apelación",
+                IsCompleted = estado == "APELACION_APROBADA" || estado == "APELACION_RECHAZADA",
+                IsCurrent = estado == "EN_APELACION",
+                ResponsibleEntity = estado == "EN_APELACION" ? "Comisión Académica (3 días)" : "",
+                CompletedDate = (estado == "APELACION_APROBADA" || estado == "APELACION_RECHAZADA") ? "Completado" : ""
+            });
+        }
+
+        // Agregar etapa de aprobación del docente y proceso posterior
+        if (estado == "APROBADA_DOCENTE" || estado == "INFORMES_FINALES" || estado == "ENVIADA_CONSEJO" || estado == "EFECTIVA")
+        {
+            steps.Add(new TimelineStep
+            {
+                Title = "Elaboración de Informes Finales",
+                IsCompleted = GetStateOrder(estado) > GetStateOrder("APROBADA_DOCENTE"),
+                IsCurrent = estado == "INFORMES_FINALES",
+                ResponsibleEntity = estado == "INFORMES_FINALES" ? "Comisión Académica" : "",
+                CompletedDate = GetStateOrder(estado) > GetStateOrder("INFORMES_FINALES") ? "Completado" : ""
+            });
+            
+            steps.Add(new TimelineStep
+            {
+                Title = "Enviada al Consejo Universitario",
+                IsCompleted = GetStateOrder(estado) > GetStateOrder("ENVIADA_CONSEJO"),
+                IsCurrent = estado == "ENVIADA_CONSEJO",
+                ResponsibleEntity = estado == "ENVIADA_CONSEJO" ? "Consejo Universitario" : "",
+                CompletedDate = GetStateOrder(estado) > GetStateOrder("ENVIADA_CONSEJO") ? "Completado" : ""
+            });
+        }
+
+        // Agregar resultado final
+        if (estado == "EFECTIVA" || estado == "APROBADA")
+        {
+            steps.Add(new TimelineStep
+            {
+                Title = estado == "EFECTIVA" ? "Promoción Efectiva" : "Promoción Aprobada",
                 IsCompleted = true,
                 IsCurrent = false,
                 CompletedDate = "Completado"
+            });
+        }
+        else if (estado == "RECHAZADA" || estado == "APELACION_RECHAZADA")
+        {
+            steps.Add(new TimelineStep
+            {
+                Title = estado == "APELACION_RECHAZADA" ? "Apelación Rechazada" : "Solicitud Rechazada",
+                IsCompleted = true,
+                IsCurrent = false,
+                CompletedDate = "Completado"
+            });
+        }
+        else if (estado == "SIN_EFECTO")
+        {
+            steps.Add(new TimelineStep
+            {
+                Title = "Solicitud Sin Efecto",
+                IsCompleted = true,
+                IsCurrent = false,
+                CompletedDate = "Sin respuesta en tiempo"
             });
         }
 
@@ -670,9 +1004,17 @@
             "EN_ANALISIS_COMISION" => 5,
             "DECIDIDO_APROBADA" => 6,
             "DECIDIDO_RECHAZADA" => 6,
-            "APROBADA" => 7,
+            "APROBADA_DOCENTE" => 7,
+            "INFORMES_FINALES" => 8,
+            "ENVIADA_CONSEJO" => 9,
+            "APROBADA" => 10,
             "RECHAZADA" => 7,
-            "EFECTIVA" => 8,
+            "EN_APELACION" => 7,
+            "APELACION_APROBADA" => 8,
+            "APELACION_RECHAZADA" => 8,
+            "EFECTIVA" => 11,
+            "SIN_EFECTO" => 0,
+            "DOCUMENTOS_INCOMPLETOS" => 1,
             _ => 0
         };
     }

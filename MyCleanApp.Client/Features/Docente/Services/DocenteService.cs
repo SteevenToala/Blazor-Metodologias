@@ -331,6 +331,37 @@ public class DocenteService
         return solicitudes?.Where(s => s.DocenteId == docenteId).ToList();
     }
 
+    // Métodos para respuesta del docente a decisiones de promoción
+    public async Task<bool> AceptarDecisionPromocionAsync(int solicitudId)
+    {
+        try
+        {
+            var request = new { Acepta = true };
+            var response = await _http.PostAsJsonAsync($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}/respuesta-docente", request);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al aceptar decisión: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<bool> PresentarApelacionAsync(int solicitudId, string motivo)
+    {
+        try
+        {
+            var request = new { Motivo = motivo, Fundamentos = motivo };
+            var response = await _http.PostAsJsonAsync($"http://localhost:5015/api/SolicitudAvanceRango/{solicitudId}/presentar-apelacion", request);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al presentar apelación: {ex.Message}");
+            return false;
+        }
+    }
+
     // Métodos para Lista de Verificación
     public async Task<List<ListaVerificacionDto>> GetListaVerificacionPorNivel(int nivelAcademicoId)
     {
