@@ -571,7 +571,12 @@
         await CargarEvaluaciones();
         await base.OnInitializedAsync();
     }
-
+    
+    private void IrASubirEvaluacion()
+    {
+        Navigation.NavigateTo("/subir-evaluacion");
+    }
+    
     private async Task CargarEvaluaciones()
     {
         try
@@ -621,12 +626,6 @@
         }
     }
     
-    // Métodos de navegación y acciones de la UI
-    private void IrASubirEvaluacion()
-    {
-        Navigation.NavigateTo("/subir-evaluacion");
-    }
-
     private void LimpiarFiltros()
     {
         searchTerm = string.Empty;
