@@ -21,7 +21,7 @@
                               Color="Color.Primary" 
                               StartIcon="@Icons.Material.Filled.ArrowBack"
                               OnClick="VolverAlDashboard">
-                        Volver al Dashboard
+                Volver al Dashboard
                     </MudButton>
                 </MudStack>
             </MudItem>
@@ -276,9 +276,9 @@
         try
         {
             using var stream = file.OpenReadStream(maxSizeInBytes);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            capacitacion.Certificado = Convert.ToBase64String(ms.ToArray());
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        capacitacion.Certificado = Convert.ToBase64String(ms.ToArray());
             
             Snackbar.Add("✅ Archivo PDF cargado correctamente.", Severity.Success);
         }
@@ -341,19 +341,19 @@
                 return;
             }
             
-            // Mapear a tu DTO original si es necesario
-            var dto = new CursoCapacitacionCreateReques
-            {
-                Nombre = capacitacion.Nombre,
-                FechaInicio = capacitacion.FechaInicio,
-                FechaFin = capacitacion.FechaFin,
-                Certificado = capacitacion.Certificado,
+        // Mapear a tu DTO original si es necesario
+        var dto = new CursoCapacitacionCreateReques
+        {
+            Nombre = capacitacion.Nombre,
+            FechaInicio = capacitacion.FechaInicio,
+            FechaFin = capacitacion.FechaFin,
+            Certificado = capacitacion.Certificado,
                 Horas = (int)capacitacion.Horas,
-                Externo = false // Siempre local
-            };
+            Externo = false // Siempre local
+        };
 
-            var ok = await DocenteService.SubirCapacigtaciones(dto);
-            if (ok)
+        var ok = await DocenteService.SubirCapacigtaciones(dto);
+        if (ok)
             {
                 Snackbar.Add("✅ Capacitación subida con éxito.", Severity.Success);
                 await Task.Delay(1500); // Pequeña pausa para mostrar el mensaje

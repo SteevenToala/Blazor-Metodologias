@@ -84,7 +84,7 @@
                               HelperText="Selecciona el tipo de publicación"
                               Dense="true"
                               Clearable="true">
-                        <MudSelectItem Value="">Selecciona un tipo...</MudSelectItem>
+                        <MudSelectItem Value="@("ninguno")">Selecciona un tipo...</MudSelectItem>
                         @foreach (var tipo in tiposPublicacion)
                         {
                             <MudSelectItem Value="@tipo">@tipo</MudSelectItem>
@@ -151,7 +151,7 @@
     PublicacionAcademicaRequest publicacion = new() { DocenteId = 1 };
     private IBrowserFile? archivoSeleccionado;
     private bool isSubmitting = false;
-    private string tipoSeleccionado = "";
+    private string tipoSeleccionado = "ninguno";
     private readonly string[] tiposPublicacion = new[]
     {
         "Artículo Científico",
@@ -239,7 +239,7 @@
                 Snackbar.Add("❌ Error: El año debe estar entre 1900 y 2100.", Severity.Error);
                 return;
             }
-            if (string.IsNullOrWhiteSpace(tipoSeleccionado))
+            if (string.IsNullOrWhiteSpace(tipoSeleccionado) || tipoSeleccionado == "ninguno")
             {
                 Snackbar.Add("❌ Error: El tipo de publicación es requerido.", Severity.Error);
                 return;
