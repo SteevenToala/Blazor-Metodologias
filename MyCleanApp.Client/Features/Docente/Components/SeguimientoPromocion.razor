@@ -1,0 +1,544 @@
+@using MyCleanApp.Client.DTOs
+@using MyCleanApp.Client.Features.Docente.Services
+@using MudBlazor
+@inject DocenteService DocenteService
+@inject ISnackbar Snackbar
+
+<MudPaper Elevation="1" Class="pa-4">
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h6" Color="Color.Primary">
+            <MudIcon Icon="@Icons.Material.Filled.Timeline" Class="mr-2" />
+            Seguimiento de Promociones
+        </MudText>
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" 
+                   Color="Color.Primary" 
+                   OnClick="CargarSolicitudes">
+            Actualizar
+        </MudButton>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center pa-4">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            <MudText Class="ml-3">Cargando solicitudes...</MudText>
+        </div>
+    }
+    else if (solicitudes.Any())
+    {
+        <!-- Estadísticas rápidas -->
+        <MudGrid Class="mb-4">
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="2" Class="pa-4">
+                    <MudCardContent Class="pb-2">
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty" Color="Color.Warning" Size="Size.Large" />
+                            <div class="ml-3">
+                                <MudText Typo="Typo.h6">@solicitudesPendientes</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Pendientes</MudText>
+                            </div>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="2" Class="pa-4">
+                    <MudCardContent Class="pb-2">
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+                            <div class="ml-3">
+                                <MudText Typo="Typo.h6">@solicitudesAprobadas</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Aprobadas</MudText>
+                            </div>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="2" Class="pa-4">
+                    <MudCardContent Class="pb-2">
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Large" />
+                            <div class="ml-3">
+                                <MudText Typo="Typo.h6">@solicitudesRechazadas</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Rechazadas</MudText>
+                            </div>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="2" Class="pa-4">
+                    <MudCardContent Class="pb-2">
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Assignment" Color="Color.Info" Size="Size.Large" />
+                            <div class="ml-3">
+                                <MudText Typo="Typo.h6">@solicitudes.Count</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Total</MudText>
+                            </div>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Tabla de solicitudes -->
+        <MudTable Items="@solicitudes" Dense="true" Hover="true" Striped="true" Loading="@isLoading">
+            <HeaderContent>
+                <MudTh>
+                    <MudTableSortLabel T="SolicitudAvanceRangoDto" SortBy="@(x => x.FechaSolicitud)">
+                        Fecha Solicitud
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>Promoción Solicitada</MudTh>
+                <MudTh>
+                    <MudTableSortLabel T="SolicitudAvanceRangoDto" SortBy="@(x => x.Estado)">
+                        Estado
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>Progreso</MudTh>
+                <MudTh>Fecha Respuesta</MudTh>
+                <MudTh>Observaciones</MudTh>
+                <MudTh>Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Fecha Solicitud">
+                    <div class="d-flex flex-column">
+                        <MudText Typo="Typo.body2">@context.FechaSolicitud.ToString("dd/MM/yyyy")</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@context.FechaSolicitud.ToString("HH:mm")</MudText>
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Promoción Solicitada">
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Color="Color.Primary" Size="Size.Small" Class="mr-2" />
+                        <div>
+                            <MudText Typo="Typo.body2">Promoción a @ObtenerNombreNivelAcademico(context.NuevoNivelAcademicoId)</MudText>
+                        </div>
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Estado">
+                    <MudChip T="string" Color="@GetEstadoColor(context.Estado)" Size="Size.Small" Variant="Variant.Filled">
+                        @GetEstadoTexto(context.Estado)
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Progreso">
+                    <div class="d-flex flex-column" style="min-width: 150px;">
+                        <MudProgressLinear Color="@GetEstadoColor(context.Estado)" 
+                                         Value="@GetProgresoValue(context.Estado)" 
+                                         Size="Size.Small" 
+                                         Class="mb-1" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @GetProgresoTexto(context.Estado)
+                        </MudText>
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Fecha Respuesta">
+                    @if (context.FechaRespuesta.HasValue)
+                    {
+                        <div class="d-flex flex-column">
+                            <MudText Typo="Typo.body2">@context.FechaRespuesta.Value.ToString("dd/MM/yyyy")</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@context.FechaRespuesta.Value.ToString("HH:mm")</MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Pendiente</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Observaciones">
+                    @if (!string.IsNullOrEmpty(context.Observaciones))
+                    {
+                        <MudTooltip Text="@context.Observaciones">
+                            <MudButton StartIcon="@Icons.Material.Filled.Comment" 
+                                     Size="Size.Small" 
+                                     Variant="Variant.Text"
+                                     Color="Color.Info">
+                                Ver
+                            </MudButton>
+                        </MudTooltip>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Sin observaciones</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Acciones">
+                    <div class="d-flex gap-2">
+                        <MudButton StartIcon="@Icons.Material.Filled.Visibility" 
+                                 Size="Size.Small" 
+                                 Color="Color.Primary"
+                                 OnClick="@(() => VerDetalle(context))">
+                            Detalle
+                        </MudButton>
+                        @if (context.Estado == "RECHAZADA" && PuedeApelar(context))
+                        {
+                            <MudButton StartIcon="@Icons.Material.Filled.Gavel" 
+                                     Size="Size.Small" 
+                                     Color="Color.Warning"
+                                     OnClick="@(() => IniciarApelacion(context))">
+                                Apelar
+                            </MudButton>
+                        }
+                    </div>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else
+    {
+        <MudCard Elevation="0" Class="pa-6 text-center">
+            <MudCardContent>
+                <MudIcon Icon="@Icons.Material.Filled.Assignment" Color="Color.Secondary" Size="Size.Large" Class="mb-4" />
+                <MudText Typo="Typo.h6" Color="Color.Secondary">No hay solicitudes de promoción</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Aún no has realizado ninguna solicitud de promoción.
+                </MudText>
+                <MudButton Variant="Variant.Filled" 
+                          Color="Color.Primary" 
+                          StartIcon="@Icons.Material.Filled.Add"
+                          OnClick="CrearNuevaSolicitud">
+                    Nueva Solicitud
+                </MudButton>
+            </MudCardContent>
+        </MudCard>
+    }
+</MudPaper>
+
+<!-- Modal de Detalle -->
+@if (mostrarModalDetalle && solicitudSeleccionada != null)
+{
+    <MudDialog IsVisible="@mostrarModalDetalle" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true })">
+        <TitleContent>
+            <MudText Typo="Typo.h6">
+                <MudIcon Icon="@Icons.Material.Filled.Assignment" Class="mr-2" />
+                Detalle de Solicitud #@solicitudSeleccionada.Id
+            </MudText>
+        </TitleContent>
+        <DialogContent>
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="6">
+                    <MudCard Elevation="1" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">📋 Información General</MudText>
+                        <div class="d-flex flex-column gap-2">
+                            <div><strong>Fecha Solicitud:</strong> @solicitudSeleccionada.FechaSolicitud.ToString("dd/MM/yyyy HH:mm")</div>
+                            <div><strong>Estado:</strong> 
+                                <MudChip T="string" Color="@GetEstadoColor(solicitudSeleccionada.Estado)" Size="Size.Small">
+                                    @GetEstadoTexto(solicitudSeleccionada.Estado)
+                                </MudChip>
+                            </div>
+                            <div><strong>Promoción:</strong> Promoción a @ObtenerNombreNivelAcademico(solicitudSeleccionada.NuevoNivelAcademicoId)</div>
+                            @if (solicitudSeleccionada.FechaRespuesta.HasValue)
+                            {
+                                <div><strong>Fecha Respuesta:</strong> @solicitudSeleccionada.FechaRespuesta.Value.ToString("dd/MM/yyyy HH:mm")</div>
+                            }
+                        </div>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudCard Elevation="1" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">📈 Estado del Proceso</MudText>
+                        <div class="d-flex flex-column gap-3">
+                            <div class="d-flex flex-column">
+                                <MudProgressLinear Color="@GetEstadoColor(solicitudSeleccionada.Estado)" 
+                                                 Value="@GetProgresoValue(solicitudSeleccionada.Estado)" 
+                                                 Size="Size.Medium" />
+                                <MudText Typo="Typo.caption" Class="mt-1" Color="Color.Secondary">
+                                    @GetProgresoTexto(solicitudSeleccionada.Estado)
+                                </MudText>
+                            </div>
+                            @{
+                                var etapas = GetEtapasProceso(solicitudSeleccionada.Estado);
+                            }
+                            @foreach (var etapa in etapas)
+                            {
+                                <div class="d-flex align-center">
+                                    <MudIcon Icon="@(etapa.Completada ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.RadioButtonUnchecked)" 
+                                           Color="@(etapa.Completada ? Color.Success : Color.Secondary)" 
+                                           Size="Size.Small" 
+                                           Class="mr-2" />
+                                    <MudText Typo="Typo.body2" Color="@(etapa.Completada ? Color.Success : Color.Secondary)">
+                                        @etapa.Nombre
+                                    </MudText>
+                                </div>
+                            }
+                        </div>
+                    </MudCard>
+                </MudItem>
+                @if (!string.IsNullOrEmpty(solicitudSeleccionada.Observaciones))
+                {
+                    <MudItem xs="12">
+                        <MudCard Elevation="1" Class="pa-4">
+                            <MudText Typo="Typo.subtitle1" Class="mb-3">💬 Observaciones</MudText>
+                            <MudText Typo="Typo.body2">@solicitudSeleccionada.Observaciones</MudText>
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="CerrarModalDetalle">Cerrar</MudButton>
+            @if (solicitudSeleccionada.Estado == "RECHAZADA" && PuedeApelar(solicitudSeleccionada))
+            {
+                <MudButton StartIcon="@Icons.Material.Filled.Gavel" 
+                         Color="Color.Warning"
+                         OnClick="@(() => IniciarApelacion(solicitudSeleccionada))">
+                    Presentar Apelación
+                </MudButton>
+            }
+        </DialogActions>
+    </MudDialog>
+}
+
+@code {
+    private List<SolicitudAvanceRangoDto> solicitudes = new();
+    private List<NivelAcademicoDto> nivelesAcademicos = new();
+    private SolicitudAvanceRangoDto? solicitudSeleccionada = null;
+    private bool isLoading = true;
+    private bool mostrarModalDetalle = false;
+
+    // Estadísticas
+    private int solicitudesPendientes => solicitudes.Count(s => 
+        s.Estado == "PENDIENTE" || s.Estado == "EN_VERIFICACION" || s.Estado == "EN_EVALUACION" || 
+        s.Estado == "VERIFICADA" || s.Estado == "ENVIADA_COMISION" || s.Estado == "EN_ANALISIS_COMISION");
+    private int solicitudesAprobadas => solicitudes.Count(s => 
+        s.Estado == "APROBADA" || s.Estado == "DECIDIDO_APROBADA" || s.Estado == "EFECTIVA");
+    private int solicitudesRechazadas => solicitudes.Count(s => 
+        s.Estado == "RECHAZADA" || s.Estado == "DECIDIDO_RECHAZADA");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarSolicitudes();
+    }
+
+    private async Task CargarSolicitudes()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            // Cargar niveles académicos primero
+            nivelesAcademicos = await DocenteService.ObtenerTodosLosNivelesAcademicosAsync() ?? new();
+
+            var loginResponse = await DocenteService.GetLoginResponseAsync();
+            if (loginResponse?.usuario != null)
+            {
+                var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                if (docenteId.HasValue)
+                {
+                    solicitudes = await DocenteService.ObtenerSolicitudesAvancePorDocenteIdAsync(docenteId.Value) ?? new();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar solicitudes: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string ObtenerNombreNivelAcademico(int? nivelId)
+    {
+        if (!nivelId.HasValue)
+            return "No especificado";
+        
+        var nivel = nivelesAcademicos.FirstOrDefault(n => n.Id == nivelId.Value);
+        return nivel?.Nombre ?? $"Nivel ID: {nivelId}";
+    }
+
+    private async Task<string> ObtenerNivelActualDocente()
+    {
+        try
+        {
+            var loginResponse = await DocenteService.GetLoginResponseAsync();
+            if (loginResponse?.usuario != null)
+            {
+                var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                if (docenteId.HasValue)
+                {
+                    var dashboardData = await DocenteService.getDataDashBoard();
+                    if (dashboardData != null)
+                    {
+                        // dashboardData.NivelAcademico ya es un string con el nombre del nivel
+                        return dashboardData.NivelAcademico;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener nivel actual del docente: {ex.Message}");
+        }
+        return "No disponible";
+    }
+
+    private Color GetEstadoColor(string estado)
+    {
+        return estado switch
+        {
+            "PENDIENTE" => Color.Warning,
+            "EN_VERIFICACION" => Color.Info,
+            "VERIFICADA" => Color.Info,
+            "ENVIADA_COMISION" => Color.Info,
+            "EN_EVALUACION" => Color.Primary,
+            "EN_ANALISIS_COMISION" => Color.Primary,
+            "DECIDIDO_APROBADA" => Color.Success,
+            "APROBADA" => Color.Success,
+            "EFECTIVA" => Color.Success,
+            "DECIDIDO_RECHAZADA" => Color.Error,
+            "RECHAZADA" => Color.Error,
+            "DOCUMENTOS_INCOMPLETOS" => Color.Warning,
+            _ => Color.Default
+        };
+    }
+
+    private string GetEstadoTexto(string estado)
+    {
+        return estado switch
+        {
+            "PENDIENTE" => "Pendiente",
+            "EN_VERIFICACION" => "En Verificación",
+            "VERIFICADA" => "Verificada",
+            "ENVIADA_COMISION" => "Enviada a Comisión",
+            "EN_EVALUACION" => "En Evaluación",
+            "EN_ANALISIS_COMISION" => "En Análisis",
+            "DECIDIDO_APROBADA" => "Aprobada por Comisión",
+            "APROBADA" => "Aprobada",
+            "EFECTIVA" => "Promoción Efectiva",
+            "DECIDIDO_RECHAZADA" => "Rechazada por Comisión",
+            "RECHAZADA" => "Rechazada",
+            "DOCUMENTOS_INCOMPLETOS" => "Documentos Incompletos",
+            _ => estado
+        };
+    }
+
+    private double GetProgresoValue(string estado)
+    {
+        return estado switch
+        {
+            "PENDIENTE" => 10,
+            "EN_VERIFICACION" => 25,
+            "VERIFICADA" => 40,
+            "ENVIADA_COMISION" => 55,
+            "EN_EVALUACION" => 70,
+            "EN_ANALISIS_COMISION" => 70,
+            "DECIDIDO_APROBADA" => 85,
+            "APROBADA" => 90,
+            "EFECTIVA" => 100,
+            "DECIDIDO_RECHAZADA" => 100,
+            "RECHAZADA" => 100,
+            "DOCUMENTOS_INCOMPLETOS" => 15,
+            _ => 0
+        };
+    }
+
+    private string GetProgresoTexto(string estado)
+    {
+        return estado switch
+        {
+            "PENDIENTE" => "Solicitud recibida",
+            "EN_VERIFICACION" => "Verificando documentos",
+            "VERIFICADA" => "Documentos verificados",
+            "ENVIADA_COMISION" => "Enviada a comisión",
+            "EN_EVALUACION" => "En evaluación",
+            "EN_ANALISIS_COMISION" => "Análisis de comisión",
+            "DECIDIDO_APROBADA" => "Aprobada por comisión",
+            "APROBADA" => "Proceso completado",
+            "EFECTIVA" => "Promoción efectiva",
+            "DECIDIDO_RECHAZADA" => "Rechazada por comisión",
+            "RECHAZADA" => "Proceso finalizado",
+            "DOCUMENTOS_INCOMPLETOS" => "Documentos por completar",
+            _ => "Estado desconocido"
+        };
+    }
+
+    private List<EtapaProceso> GetEtapasProceso(string estadoActual)
+    {
+        var etapas = new List<EtapaProceso>
+        {
+            new("Solicitud Presentada", true),
+            new("Verificación de Documentos", EstadoCompletado(estadoActual, "EN_VERIFICACION")),
+            new("Documentos Verificados", EstadoCompletado(estadoActual, "VERIFICADA")),
+            new("Enviada a Comisión", EstadoCompletado(estadoActual, "ENVIADA_COMISION")),
+            new("Análisis de Comisión", EstadoCompletado(estadoActual, "EN_ANALISIS_COMISION")),
+            new("Decisión Final", EstadoCompletado(estadoActual, "DECIDIDO_APROBADA") || EstadoCompletado(estadoActual, "DECIDIDO_RECHAZADA"))
+        };
+
+        if (estadoActual == "EFECTIVA")
+        {
+            etapas.Add(new("Promoción Efectiva", true));
+        }
+
+        return etapas;
+    }
+
+    private bool EstadoCompletado(string estadoActual, string estadoComparar)
+    {
+        var ordenEstados = new Dictionary<string, int>
+        {
+            ["PENDIENTE"] = 1,
+            ["EN_VERIFICACION"] = 2,
+            ["VERIFICADA"] = 3,
+            ["ENVIADA_COMISION"] = 4,
+            ["EN_ANALISIS_COMISION"] = 5,
+            ["DECIDIDO_APROBADA"] = 6,
+            ["DECIDIDO_RECHAZADA"] = 6,
+            ["APROBADA"] = 7,
+            ["RECHAZADA"] = 7,
+            ["EFECTIVA"] = 8
+        };
+
+        return ordenEstados.GetValueOrDefault(estadoActual, 0) >= ordenEstados.GetValueOrDefault(estadoComparar, 0);
+    }
+
+    private void VerDetalle(SolicitudAvanceRangoDto solicitud)
+    {
+        solicitudSeleccionada = solicitud;
+        mostrarModalDetalle = true;
+    }
+
+    private void CerrarModalDetalle()
+    {
+        mostrarModalDetalle = false;
+        solicitudSeleccionada = null;
+    }
+
+    private bool PuedeApelar(SolicitudAvanceRangoDto solicitud)
+    {
+        // Verificar si han pasado menos de 30 días desde la respuesta
+        if (solicitud.FechaRespuesta.HasValue)
+        {
+            var diasTranscurridos = (DateTime.Now - solicitud.FechaRespuesta.Value).Days;
+            return diasTranscurridos <= 30;
+        }
+        return false;
+    }
+
+    private void IniciarApelacion(SolicitudAvanceRangoDto solicitud)
+    {
+        // Aquí se implementaría la lógica para iniciar una apelación
+        Snackbar.Add("Función de apelación en desarrollo", Severity.Info);
+    }
+
+    private void CrearNuevaSolicitud()
+    {
+        // Aquí se implementaría la navegación para crear una nueva solicitud
+        Snackbar.Add("Redireccionar a página de nueva solicitud", Severity.Info);
+    }
+
+    public class EtapaProceso
+    {
+        public string Nombre { get; set; }
+        public bool Completada { get; set; }
+
+        public EtapaProceso(string nombre, bool completada)
+        {
+            Nombre = nombre;
+            Completada = completada;
+        }
+    }
+}

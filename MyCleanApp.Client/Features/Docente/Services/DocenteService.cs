@@ -1149,6 +1149,27 @@ public class DocenteService
             return new List<MyCleanApp.Client.DTOs.ProyectoInvestigacionDto>();
         }
     }
+
+    public async Task<List<NivelAcademicoDto>?> ObtenerTodosLosNivelesAcademicosAsync()
+    {
+        try
+        {
+            var response = await _http.GetAsync("http://localhost:5015/api/NivelAcademico");
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"[DEBUG] Error en API NivelAcademico: {response.StatusCode}");
+                return null;
+            }
+            var niveles = await response.Content.ReadFromJsonAsync<List<NivelAcademicoDto>>();
+            Console.WriteLine($"[DEBUG] Niveles académicos obtenidos: {niveles?.Count ?? 0}");
+            return niveles;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Error al obtener niveles académicos: {ex.Message}");
+            return null;
+        }
+    }
 }
 
 // DTOs para promociones
