@@ -4,6 +4,7 @@ using MyCleanApp.Domain.Entities;
 using MyCleanApp.Infrastructure.Persistence;
 using MyCleanApp.Infrastructure.Services;
 using MyCleanApp.API.DTOs;
+using System.Data.SqlClient;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -11,6 +12,91 @@ public class SolicitudAvanceRangoController : ControllerBase
 {
     private readonly AppDbContext _context;
     public SolicitudAvanceRangoController(AppDbContext context) => _context = context;
+
+[HttpGet("PendientesPorUsuario")]
+public async Task<ActionResult<IEnumerable<object>>> GetSolicitudesPendientesPorUsuario([FromQuery] string correo)
+{
+    try
+    {
+        string connectionString = _context.Database.GetConnectionString();
+
+        using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync();
+
+        // 1. Obtener el usuarioId por el correo
+        int? usuarioId = null;
+        string getUserIdQuery = @"
+            SELECT id 
+            FROM Usuario 
+            WHERE LTRIM(RTRIM(LOWER(correo))) = LTRIM(RTRIM(LOWER(@correo)))";
+
+        using (var getUserIdCommand = new SqlCommand(getUserIdQuery, connection))
+        {
+            getUserIdCommand.Parameters.AddWithValue("@correo", correo);
+            var result = await getUserIdCommand.ExecuteScalarAsync();
+            if (result != null && int.TryParse(result.ToString(), out int parsedId))
+            {
+                usuarioId = parsedId;
+            }
+        }
+
+        if (usuarioId == null)
+        {
+            return NotFound(new { error = "Usuario no encontrado con ese correo" });
+        }
+
+        // 2. Consulta de solicitudes que NO han sido aprobadas por ese usuario
+        string query = @"
+            SELECT s.id, s.docenteId, s.fechaSolicitud, ISNULL(s.estado, 'PENDIENTE') AS estado, 
+                   s.fechaRespuesta, ISNULL(s.observaciones, '') AS observaciones,
+                   s.nuevoNivelAcademicoId,
+                   p.nombres + ' ' + p.apellidos AS docenteNombre,
+                   naActual.nombre AS nivelActual,
+                   naNuevo.nombre AS nuevoNivel
+            FROM SolicitudAvanceRango s
+            INNER JOIN Docente d ON s.docenteId = d.id
+            INNER JOIN Usuario uDocente ON d.usuarioId = uDocente.id
+            INNER JOIN Persona p ON uDocente.personaId = p.id
+            LEFT JOIN NivelAcademico naActual ON d.nivelAcademicoId = naActual.id
+            LEFT JOIN NivelAcademico naNuevo ON s.nuevoNivelAcademicoId = naNuevo.id
+            WHERE NOT EXISTS (
+                SELECT 1 
+                FROM AprobacionSolicitudRango apr 
+                WHERE apr.solicitudId = s.id 
+                  AND apr.usuarioId = @usuarioId
+            )";
+
+        using var command = new SqlCommand(query, connection);
+        command.Parameters.AddWithValue("@usuarioId", usuarioId);
+
+        var solicitudes = new List<object>();
+
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            solicitudes.Add(new
+            {
+                Id = reader.GetInt32(0),
+                DocenteId = reader.GetInt32(1),
+                FechaSolicitud = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                Estado = reader.GetString(3),
+                FechaRespuesta = reader.IsDBNull(4) ? (DateTime?)null : reader.GetDateTime(4),
+                Observaciones = reader.GetString(5),
+                NuevoNivelAcademicoId = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6),
+                DocenteNombre = reader.GetString(7),
+                NivelActual = reader.IsDBNull(8) ? null : reader.GetString(8),
+                NuevoNivel = reader.IsDBNull(9) ? null : reader.GetString(9)
+            });
+        }
+
+        return Ok(solicitudes);
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+    }
+}
+
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> Get()
@@ -421,6 +507,130 @@ public class SolicitudAvanceRangoController : ControllerBase
         var solicitudes = await workflowService.GetSolicitudesVencidasAsync();
         return Ok(solicitudes);
     }
+
+
+[HttpPut("ActualizarEstado")]
+public async Task<IActionResult> ActualizarEstado([FromBody] ActualizarEstadoRequest request)
+{
+    try
+    {
+        string connectionString = _context.Database.GetConnectionString();
+        string? email = null;
+        string? nombreCompleto = null;
+        string? nivelSolicitado = null;
+        DateTime fechaDecision = DateTime.Now;
+
+        using (var connection = new SqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+
+            // 1. Validar que UsuarioId existe
+            using (var validarUsuarioCmd = new SqlCommand("SELECT COUNT(1) FROM Usuario WHERE id = @UsuarioId", connection))
+            {
+                validarUsuarioCmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
+                var existe = (int)await validarUsuarioCmd.ExecuteScalarAsync();
+                if (existe == 0)
+                {
+                    return BadRequest(new { error = $"UsuarioId {request.UsuarioId} no existe." });
+                }
+            }
+
+            // 2. Obtener correo, nombre completo y nivel solicitado
+            using (var getDatosCommand = new SqlCommand(@"
+                SELECT 
+                    u.correo,
+                    p.nombres + ' ' + p.apellidos AS nombreCompleto,
+                    na.nombre AS nivelSolicitado
+                FROM SolicitudAvanceRango s
+                INNER JOIN Docente d ON s.docenteId = d.id
+                INNER JOIN Usuario u ON d.usuarioId = u.id
+                INNER JOIN Persona p ON u.personaId = p.id
+                LEFT JOIN NivelAcademico na ON s.nuevoNivelAcademicoId = na.id
+                WHERE s.id = @SolicitudId", connection))
+            {
+                getDatosCommand.Parameters.AddWithValue("@SolicitudId", request.Id);
+                using var reader = await getDatosCommand.ExecuteReaderAsync();
+                if (!await reader.ReadAsync())
+                    return NotFound(new { error = "Solicitud no encontrada" });
+
+                email = reader["correo"]?.ToString();
+                nombreCompleto = reader["nombreCompleto"]?.ToString();
+                nivelSolicitado = reader["nivelSolicitado"]?.ToString();
+            }
+
+            // 3. Insertar nuevo registro de aprobación/rechazo
+            using (var insertCmd = new SqlCommand(@"
+                INSERT INTO AprobacionSolicitudRango (solicitudId, usuarioId, estado, fechaDecision)
+                VALUES (@SolicitudId, @UsuarioId, @Estado, @FechaDecision)", connection))
+            {
+                insertCmd.Parameters.AddWithValue("@SolicitudId", request.Id);
+                insertCmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
+                insertCmd.Parameters.AddWithValue("@Estado", request.Estado);
+                insertCmd.Parameters.AddWithValue("@FechaDecision", fechaDecision);
+
+                await insertCmd.ExecuteNonQueryAsync();
+            }
+
+            // 4. Enviar correo solo si está RECHAZADO
+            if (request.Estado == "RECHAZADO" && !string.IsNullOrEmpty(email))
+            {
+                var html = $@"
+UNIVERSIDAD - SISTEMA DE PROMOCIÓN ACADÉMICA<br/>
+============================================<br/><br/>
+
+<b>DECISIÓN DEL CONSEJO UNIVERSITARIO</b><br/><br/>
+
+Estimado/a <b>{nombreCompleto}</b>,<br/><br/>
+
+El Consejo Universitario ha emitido una decisión sobre su solicitud de promoción al nivel académico <b>{nivelSolicitado}</b>.<br/><br/>
+
+<h3 style='color:red;'>*** SOLICITUD RECHAZADA ***</h3><br/>
+
+<b>DETALLES DE LA DECISIÓN:</b><br/>
+• Resultado: RECHAZADO<br/>
+• Nivel Solicitado: {nivelSolicitado}<br/>
+• Fecha de Decisión: {fechaDecision:dd/MM/yyyy HH:mm}<br/>
+• Observaciones: Su solicitud ha sido rechazada por la el consejo Universitario.<br/><br/>
+
+Para más información o consultas, puede comunicarse con la Secretaría Académica.<br/><br/>
+
+Cordialmente,<br/>
+Consejo Universitario<br/>
+Universidad<br/><br/>
+
+<hr/>
+<small>Este es un correo electrónico automático del Sistema de Promoción Académica.<br/>
+Por favor, no responda a este mensaje.<br/>
+Fecha de envío: {fechaDecision:dd/MM/yyyy HH:mm:ss}</small>";
+
+                using var httpClient = new HttpClient();
+                var correoPayload = new
+                {
+                    to = email,
+                    subject = "Decisión del Consejo Universitario",
+                    html = html
+                };
+                var content = new StringContent(
+                    System.Text.Json.JsonSerializer.Serialize(correoPayload),
+                    System.Text.Encoding.UTF8,
+                    "application/json");
+
+                await httpClient.PostAsync("https://api-b7rtqstgmq-uc.a.run.app/enviarCorreoHtml", content);
+            }
+
+            connection.Close();
+        }
+
+        return NoContent();
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { error = "Error interno del servidor", details = ex.Message });
+    }
+}
+
+
+
 
     [HttpPost("procesar-vencidas")]
     public async Task<IActionResult> ProcesarSolicitudesVencidas()

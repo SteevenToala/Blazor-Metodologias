@@ -1,10 +1,236 @@
 @using MudBlazor
+@using MyCleanApp.Client.DTOs
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@using System.Text.Json
+@using System.Text.Json.Serialization
 
 <MudPaper Elevation="1" Class="pa-4">
-    <MudText Typo="Typo.h6" Class="mb-4">Votaciones de Comisión</MudText>
-    <MudText>Este componente permitirá gestionar las votaciones de la comisión.</MudText>
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h6">Expedientes para Análisis</MudText>
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" 
+                   Color="Color.Primary" 
+                   OnClick="CargarSolicitudes">
+            Actualizar
+        </MudButton>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center pa-4">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else if (solicitudes != null && solicitudes.Any(s => s.Estado == "APROBADA_COMICION"))
+    {
+        <MudTable Items="solicitudes" Dense="true" Hover="true" Striped="true">
+            <HeaderContent>
+                <MudTh>Id</MudTh>
+                <MudTh>Docente</MudTh>
+                <MudTh>Nivel Actual</MudTh>
+                <MudTh>Nivel Solicitado</MudTh>
+                <MudTh>Fecha Solicitud</MudTh>
+                <MudTh>Estado</MudTh>
+                <MudTh>Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Id">@context.Id</MudTd>
+                <MudTd DataLabel="Docente">@context.DocenteNombre</MudTd>
+                <MudTd DataLabel="Nivel Actual">@context.NivelActual</MudTd>
+                <MudTd DataLabel="Nivel Solicitado">@context.NuevoNivel</MudTd>
+                <MudTd DataLabel="Fecha Solicitud">@context.FechaSolicitud.ToString("dd/MM/yyyy")</MudTd>
+                <MudTd DataLabel="Estado">
+                    <MudChip T="string" Color="Color.Info" Size="Size.Small">
+                        @context.Estado
+                    </MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudButton Color="Color.Success" Variant="Variant.Filled" Disabled="@isLoading"
+                               OnClick="@(() => AprobarSolicitud(context.Id))">
+                        A Favor
+                    </MudButton>
+                    <MudButton Color="Color.Error" Variant="Variant.Filled" Disabled="@isLoading"
+                               OnClick="@(() => RechazarSolicitud(context.Id))" Style="margin-left: 8px;">
+                        En contra
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">
+            No hay expedientes pendientes de análisis en este momento.
+        </MudAlert>
+    }
 </MudPaper>
 
 @code {
-    // Implementación pendiente
+
+    private async Task<UsuarioLoginDto?> ObtenerUsuarioDesdeLocalStorage()
+{
+    var loginResponseJson = await JS.InvokeAsync<string>("localStorage.getItem", "loginResponse");
+
+    if (string.IsNullOrWhiteSpace(loginResponseJson))
+        return null;
+
+    try
+    {
+        var loginResponse = JsonSerializer.Deserialize<LoginResponse>(loginResponseJson, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        return loginResponse?.usuario;
+    }
+    catch
+    {
+        return null;
+    }
 }
+
+
+
+    private bool isLoading = true;
+    private List<SolicitudAvanceRangoDto> solicitudes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarSolicitudes();
+    }
+private async Task CargarSolicitudes()
+{
+    isLoading = true;
+    try
+    {
+        var usuario = await ObtenerUsuarioDesdeLocalStorage();
+
+        if (usuario == null || string.IsNullOrWhiteSpace(usuario.Correo))
+        {
+            Snackbar.Add("No se pudo obtener el correo del usuario desde localStorage", Severity.Error);
+            isLoading = false;
+            return;
+        }
+
+        var correo = usuario.Correo;
+        var url = $"http://localhost:5015/api/SolicitudAvanceRango/PendientesPorUsuario?correo={Uri.EscapeDataString(correo)}";
+        var response = await Http.GetAsync(url);
+
+        if (response.IsSuccessStatusCode)
+        {
+            solicitudes = await response.Content.ReadFromJsonAsync<List<SolicitudAvanceRangoDto>>() ?? new();
+        }
+        else
+        {
+            Snackbar.Add("Error al cargar solicitudes desde el servidor.", Severity.Error);
+        }
+    }
+    catch (Exception ex)
+    {
+        Snackbar.Add($"Error al cargar solicitudes: {ex.Message}", Severity.Error);
+    }
+
+    isLoading = false;
+    StateHasChanged();
+}
+
+
+
+    private async Task AprobarSolicitud(int solicitudId)
+{
+    isLoading = true;
+    try
+    {
+        var usuario = await ObtenerUsuarioDesdeLocalStorage();
+
+        if (usuario == null)
+        {
+            Snackbar.Add("Usuario no autenticado", Severity.Error);
+            isLoading = false;
+            return;
+        }
+
+        var request = new 
+        { 
+            id = solicitudId, 
+            estado = "APROBADO",
+            usuarioId = usuario.Id  // Enviamos el Id del usuario
+        };
+
+        var response = await Http.PutAsJsonAsync("http://localhost:5015/api/SolicitudAvanceRango/ActualizarEstado", request);
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Solicitud aprobada y notificada al docente.", Severity.Success);
+            await CargarSolicitudes();
+        }
+        else
+        {
+            Snackbar.Add("No se pudo aprobar la solicitud.", Severity.Error);
+        }
+    }
+    catch (Exception ex)
+    {
+        Snackbar.Add($"Error al aprobar: {ex.Message}", Severity.Error);
+    }
+    isLoading = false;
+    StateHasChanged();
+}
+
+private async Task RechazarSolicitud(int solicitudId)
+{
+    isLoading = true;
+    try
+    {
+        var usuario = await ObtenerUsuarioDesdeLocalStorage();
+
+        if (usuario == null)
+        {
+            Snackbar.Add("Usuario no autenticado", Severity.Error);
+            isLoading = false;
+            return;
+        }
+
+        var request = new 
+        { 
+            id = solicitudId, 
+            estado = "RECHAZADO",
+            usuarioId = usuario.Id  // Enviamos el Id del usuario
+        };
+
+        var response = await Http.PutAsJsonAsync("http://localhost:5015/api/SolicitudAvanceRango/ActualizarEstado", request);
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Solicitud rechazada y notificada al docente.", Severity.Info);
+            await CargarSolicitudes();
+        }
+        else
+        {
+            Snackbar.Add("No se pudo rechazar la solicitud.", Severity.Error);
+        }
+    }
+    catch (Exception ex)
+    {
+        Snackbar.Add($"Error al rechazar: {ex.Message}", Severity.Error);
+    }
+    isLoading = false;
+    StateHasChanged();
+}
+
+
+public class LoginResponse
+{
+    public string Token { get; set; }    
+    [JsonPropertyName("usuario")]
+    public UsuarioLoginDto usuario { get; set; }
+}
+
+
+public class UsuarioLoginDto
+{
+    public int Id { get; set; }  // <-- Agrega este campo
+    public string Correo { get; set; }
+}
+
+}
+
