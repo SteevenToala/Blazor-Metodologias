@@ -183,13 +183,45 @@ public class DocenteService
 
     public async Task<bool> ImportarCursoExternoAsync(CursoCapacitacionDto curso)
     {
-        var response = await _http.PostAsJsonAsync("http://localhost:5015/api/CursoCapacitacion/importar", curso);
+        // Obtener el docenteId del usuario actual
+        var loginResponse = await GetLoginResponseAsync();
+        if (loginResponse?.usuario == null) return false;
+        var docenteId = await ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+        if (docenteId == null) return false;
+        var cursoImportar = new CursoCapacitacionDto
+        {
+            Id = 0,
+            Nombre = curso.Nombre,
+            Horas = curso.Horas,
+            FechaInicio = curso.FechaInicio,
+            FechaFin = curso.FechaFin,
+            DocenteId = docenteId.Value,
+            Externo = true,
+            Certificado = curso.Certificado
+        };
+        var response = await _http.PostAsJsonAsync("http://localhost:5015/api/CursoCapacitacion/importar", cursoImportar);
         return response.IsSuccessStatusCode;
     }
 
     public async Task<bool> ImportarProyectoExternoAsync(ProyectoInvestigacionDto proyecto)
     {
-        var response = await _http.PostAsJsonAsync("http://localhost:5015/api/ProyectoInvestigacion/importar", proyecto);
+        // Obtener el docenteId del usuario actual
+        var loginResponse = await GetLoginResponseAsync();
+        if (loginResponse?.usuario == null) return false;
+        var docenteId = await ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+        if (docenteId == null) return false;
+        var proyectoImportar = new ProyectoInvestigacionDto
+        {
+            Id = 0,
+            Titulo = proyecto.Titulo,
+            FechaInicio = proyecto.FechaInicio,
+            FechaFin = proyecto.FechaFin,
+            RolEnProyecto = proyecto.RolEnProyecto,
+            DocenteId = docenteId.Value,
+            Documento = proyecto.Documento,
+            Externo = true
+        };
+        var response = await _http.PostAsJsonAsync("http://localhost:5015/api/ProyectoInvestigacion/importar", proyectoImportar);
         return response.IsSuccessStatusCode;
     }
 
@@ -231,7 +263,7 @@ public class DocenteService
                 Anio = publicacion.Anio,
                 Tipo = publicacion.Tipo,
                 DocenteId = docenteId.Value, // Usar el docenteId del usuario actual
-                Archivo = null, // No importamos el archivo
+               Archivo = publicacion.Archivo,
                 Externo = true
             };
             
@@ -1073,8 +1105,26 @@ public class DocenteService
     {
         try
         {
-            var httpClient = new HttpClient();
-            var response = await httpClient.PostAsJsonAsync("http://localhost:5015/api/EvaluacionDocente/importar", evaluacion);
+            var loginResponse = await GetLoginResponseAsync();
+            if (loginResponse?.usuario == null) return false;
+            var docenteId = await ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+            if (docenteId == null) return false;
+            var evaluacionImportar = new EvaluacionDocenteDto
+            {
+                Id = 0,
+                DocenteId = docenteId.Value,
+                DocenteNombre = evaluacion.DocenteNombre,
+                DocenteCedula = evaluacion.DocenteCedula,
+                Periodo = evaluacion.Periodo,
+                Puntaje = evaluacion.Puntaje,
+                NivelAcademico = evaluacion.NivelAcademico,
+                FechaEvaluacion = evaluacion.FechaEvaluacion,
+                TipoEvaluacion = evaluacion.TipoEvaluacion,
+                Observaciones = evaluacion.Observaciones,
+                Certificado = evaluacion.Certificado,
+                Externo = true
+            };
+            var response = await _http.PostAsJsonAsync("http://localhost:5015/api/EvaluacionDocente/importar", evaluacionImportar);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
