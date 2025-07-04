@@ -12,6 +12,7 @@
     [Parameter]
     public List<ProyectoInvestigacionDto> ProyectosInvestigacion { get; set; } = new();
     private bool isLoading = false;
+    private DateTime? fechaInicioNivelActual;
     private double progressPercentage => Requirements.Count == 0 ? 0 : (Requirements.Count(r => r.Completed) * 100.0 / Requirements.Count);
     private int completedRequirements => Requirements.Count(r => r.Completed);
     private int totalRequirements => Requirements.Count;
@@ -23,25 +24,127 @@
         return string.Empty;
     }
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        var reqMeses = Requirements.FirstOrDefault(r => r.Name.Contains("Meses") || r.Name.Contains("Investigación"));
-        if (reqMeses != null)
+        // Obtener la fecha de inicio del nivel académico actual
+        await CargarFechaInicioNivelActual();
+        
+        // Validar requisitos solo desde la fecha de inicio del nivel actual
+        await ValidarRequisitosDesdeNivelActual();
+    }
+
+    private async Task CargarFechaInicioNivelActual()
+    {
+        try
         {
-            int mesesInvestigacion = 0;
-            if (ProyectosInvestigacion != null && ProyectosInvestigacion.Count > 0)
+            var loginResponse = await DocenteService.GetLoginResponseAsync();
+            if (loginResponse?.usuario != null)
             {
-                foreach (var proyecto in ProyectosInvestigacion)
+                var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                if (docenteId.HasValue)
                 {
-                    var inicio = proyecto.FechaInicio;
-                    var fin = proyecto.FechaFin;
-                    int meses = (fin.Year - inicio.Year) * 12 + (fin.Month - inicio.Month);
-                    if (meses < 0) meses = 0;
-                    mesesInvestigacion += meses;
+                    fechaInicioNivelActual = await DocenteService.ObtenerFechaInicioNivelActualAsync(docenteId.Value);
+                    Console.WriteLine($"Fecha inicio nivel actual obtenida: {fechaInicioNivelActual}");
                 }
             }
-            reqMeses.Current = mesesInvestigacion;
-            reqMeses.Completed = mesesInvestigacion >= reqMeses.Required;
+        }
+        catch (Exception ex)
+        {
+            // Log error si es necesario
+            Console.WriteLine($"Error al cargar fecha inicio nivel actual: {ex.Message}");
+        }
+    }
+
+    private async Task ValidarRequisitosDesdeNivelActual()
+    {
+        if (!fechaInicioNivelActual.HasValue)
+        {
+            Console.WriteLine("[DEBUG] No hay fecha de inicio del nivel actual disponible");
+            return;
+        }
+
+        var fechaInicio = fechaInicioNivelActual.Value;
+        Console.WriteLine($"[DEBUG] Validando requisitos desde fecha de inicio del nivel: {fechaInicio:yyyy-MM-dd}");
+        
+        try
+        {
+            var loginResponse = await DocenteService.GetLoginResponseAsync();
+            if (loginResponse?.usuario == null) return;
+
+            var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+            if (!docenteId.HasValue) return;
+
+            Console.WriteLine($"[DEBUG] DocenteId: {docenteId.Value}");
+
+            // Validar cada tipo de requisito solo desde la fecha de inicio del nivel actual
+            foreach (var req in Requirements)
+            {
+                Console.WriteLine($"[DEBUG] Procesando requisito: '{req.Name}', Requerido: {req.Required}");
+                if (req.Name.Contains("Meses") || req.Name.Contains("Investigación"))
+                {
+                    // Proyectos de investigación solo desde la fecha de inicio del nivel
+                    int mesesInvestigacion = 0;
+                    var proyectosFiltrados = await DocenteService.ObtenerProyectosDesdeAsync(docenteId.Value, fechaInicio);
+                    Console.WriteLine($"[DEBUG] Proyectos filtrados desde {fechaInicio}: {proyectosFiltrados.Count}");
+                    
+                    foreach (var proyecto in proyectosFiltrados)
+                    {
+                        // Considerar solo el período que se superpone con el nivel actual
+                        var inicioProyecto = proyecto.FechaInicio > fechaInicio ? proyecto.FechaInicio : fechaInicio;
+                        var finProyecto = proyecto.FechaFin;
+                        
+                        Console.WriteLine($"[DEBUG] Proyecto: {proyecto.Titulo}, Inicio: {inicioProyecto}, Fin: {finProyecto}");
+                        
+                        // Solo contar si el proyecto se ejecutó después del inicio del nivel actual
+                        if (finProyecto >= fechaInicio && inicioProyecto <= finProyecto)
+                        {
+                            int meses = (finProyecto.Year - inicioProyecto.Year) * 12 + (finProyecto.Month - inicioProyecto.Month);
+                            if (meses < 0) meses = 0;
+                            mesesInvestigacion += meses;
+                            Console.WriteLine($"[DEBUG] Meses añadidos: {meses}, Total: {mesesInvestigacion}");
+                        }
+                    }
+                    req.Current = mesesInvestigacion;
+                    req.Completed = mesesInvestigacion >= req.Required;
+                    Console.WriteLine($"[DEBUG] Final - Meses investigación: {mesesInvestigacion} de {req.Required}");
+                }
+                else if (req.Name.Contains("Publicaciones") || req.Name.Contains("Papers"))
+                {
+                    // Publicaciones solo desde el año de inicio del nivel
+                    var publicacionesFiltradas = await DocenteService.ObtenerPublicacionesDesdeAsync(docenteId.Value, fechaInicio);
+                    req.Current = publicacionesFiltradas.Count;
+                    req.Completed = req.Current >= req.Required;
+                    Console.WriteLine($"[DEBUG] Publicaciones filtradas desde {fechaInicio}: {req.Current} de {req.Required}");
+                }
+                else if (req.Name.Contains("Capacitación") || req.Name.Contains("Horas"))
+                {
+                    // Capacitaciones solo desde la fecha de inicio del nivel
+                    var capacitacionesFiltradas = await DocenteService.ObtenerCapacitacionesDesdeAsync(docenteId.Value, fechaInicio);
+                    req.Current = capacitacionesFiltradas.Sum(c => c.Horas);
+                    req.Completed = req.Current >= req.Required;
+                    Console.WriteLine($"[DEBUG] Horas capacitación filtradas desde {fechaInicio}: {req.Current} de {req.Required}");
+                }
+                else if (req.Name.Contains("Puntaje") || req.Name.Contains("Evaluación"))
+                {
+                    // Evaluaciones solo desde la fecha de inicio del nivel
+                    var puntajePromedio = await DocenteService.ObtenerPuntajeEvaluacionDesdeAsync(docenteId.Value, fechaInicio);
+                    req.Current = (int)puntajePromedio;
+                    req.Completed = req.Current >= req.Required;
+                    Console.WriteLine($"[DEBUG] Puntaje evaluación filtrado desde {fechaInicio}: {req.Current} de {req.Required}");
+                }
+                else if (req.Name.Contains("Años"))
+                {
+                    // Años en el nivel actual (desde la fecha de inicio)
+                    var aniosEnNivel = (DateTime.Now - fechaInicio).TotalDays / 365.25;
+                    req.Current = (int)Math.Floor(aniosEnNivel);
+                    req.Completed = req.Current >= req.Required;
+                    Console.WriteLine($"[DEBUG] Años en nivel desde {fechaInicio}: {req.Current} de {req.Required}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al validar requisitos desde nivel actual: {ex.Message}");
         }
     }
 

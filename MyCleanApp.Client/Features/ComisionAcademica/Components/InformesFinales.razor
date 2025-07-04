@@ -27,8 +27,7 @@
                 <MudTh>Docente</MudTh>
                 <MudTh>Nivel Solicitado</MudTh>
                 <MudTh>Decisión Final</MudTh>
-                <MudTh>Fecha Decisión</MudTh>
-                <MudTh>Informe</MudTh>
+                
                 <MudTh>Acciones</MudTh>
             </HeaderContent>
             <RowTemplate>
@@ -43,33 +42,8 @@
                         @GetDecisionText(context.Estado)
                     </MudChip>
                 </MudTd>
-                <MudTd DataLabel="Fecha Decisión">
-                    @(context.FechaDecision?.ToString("dd/MM/yyyy") ?? "N/A")
-                </MudTd>
-                <MudTd DataLabel="Informe">
-                    @if (informesGenerados.ContainsKey(context.Id))
-                    {
-                        <MudChip T="string" Color="Color.Success" Size="Size.Small">
-                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" />
-                            Generado
-                        </MudChip>
-                    }
-                    else
-                    {
-                        <MudChip T="string" Color="Color.Warning" Size="Size.Small">
-                            <MudIcon Icon="@Icons.Material.Filled.Pending" Size="Size.Small" />
-                            Pendiente
-                        </MudChip>
-                    }
-                </MudTd>
                 <MudTd DataLabel="Acciones">
                     <MudButtonGroup Size="Size.Small">
-                        <MudButton StartIcon="@Icons.Material.Filled.Visibility"
-                                   Color="Color.Info"
-                                   Size="Size.Small"
-                                   OnClick="@(() => VerDetalleSolicitud(context))">
-                            Ver
-                        </MudButton>
                         
                         @if (context.Estado == "APROBADA_DOCENTE")
                         {

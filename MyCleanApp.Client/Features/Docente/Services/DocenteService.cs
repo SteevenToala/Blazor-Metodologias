@@ -1201,6 +1201,176 @@ public class DocenteService
             return null;
         }
     }
+
+    public async Task<DateTime?> ObtenerFechaInicioNivelActualAsync(int docenteId)
+    {
+        try
+        {
+            Console.WriteLine($"[DEBUG] Solicitando datos del docente ID: {docenteId}");
+            var response = await _http.GetAsync($"http://localhost:5015/api/Docente/{docenteId}");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[DEBUG] JSON Response: {json}");
+                
+                // Buscar directamente en el JSON la propiedad fechaInicioNivel
+                using var document = JsonDocument.Parse(json);
+                var root = document.RootElement;
+                
+                // Intentar diferentes variaciones de la propiedad
+                string[] propiedades = { "fechaInicioNivel", "FechaInicioNivel", "fecha_inicio_nivel" };
+                
+                foreach (var propiedad in propiedades)
+                {
+                    if (root.TryGetProperty(propiedad, out var fechaProperty))
+                    {
+                        var fechaString = fechaProperty.GetString();
+                        Console.WriteLine($"[DEBUG] Encontrada propiedad '{propiedad}' con valor: {fechaString}");
+                        
+                        if (DateTime.TryParse(fechaString, out var fecha))
+                        {
+                            Console.WriteLine($"[DEBUG] Fecha inicio nivel parseada exitosamente: {fecha:yyyy-MM-dd}");
+                            return fecha;
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[DEBUG] No se pudo parsear la fecha: {fechaString}");
+                        }
+                    }
+                }
+                
+                Console.WriteLine("[DEBUG] No se encontró ninguna propiedad de fecha válida en el JSON");
+                return null;
+            }
+            else
+            {
+                Console.WriteLine($"Error al obtener fecha de inicio del nivel: {response.StatusCode}");
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[DEBUG] Error content: {errorContent}");
+                return null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener fecha de inicio del nivel: {ex.Message}");
+            Console.WriteLine($"[DEBUG] StackTrace: {ex.StackTrace}");
+            return null;
+        }
+    }
+
+    public async Task<List<CursoCapacitacionDto>> ObtenerCapacitacionesDesdeAsync(int docenteId, DateTime fechaInicio)
+    {
+        try
+        {
+            var todasLasCapacitaciones = await ObtenerCapacitacionesPorDocenteAsync(docenteId);
+            var filtradas = todasLasCapacitaciones.Where(c => c.FechaInicio >= fechaInicio).ToList();
+            Console.WriteLine($"[DEBUG] Capacitaciones totales: {todasLasCapacitaciones.Count}, Filtradas desde {fechaInicio:yyyy-MM-dd}: {filtradas.Count}");
+            foreach (var cap in todasLasCapacitaciones)
+            {
+                var incluida = cap.FechaInicio >= fechaInicio ? "SÍ" : "NO";
+                Console.WriteLine($"[DEBUG] Capacitación: {cap.Nombre}, Fecha: {cap.FechaInicio:yyyy-MM-dd}, Incluida: {incluida}");
+            }
+            return filtradas;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener capacitaciones filtradas: {ex.Message}");
+            return new List<CursoCapacitacionDto>();
+        }
+    }
+
+    public async Task<List<PublicacionAcademicaDto>> ObtenerPublicacionesDesdeAsync(int docenteId, DateTime fechaInicio)
+    {
+        try
+        {
+            var todasLasPublicaciones = await ObtenerPublicacionesPorDocenteAsync(docenteId);
+            // Para publicaciones, solo contar las del año actual o posteriores al inicio del nivel
+            var filtradas = todasLasPublicaciones.Where(p => 
+            {
+                // Si la publicación es del mismo año que el inicio del nivel, verificar que sea posterior
+                if (p.Anio == fechaInicio.Year)
+                {
+                    // Para simplificar, si es del mismo año, incluir solo si es del mes actual o posterior
+                    // En un escenario real, necesitarías una fecha más específica de publicación
+                    return DateTime.Now >= fechaInicio;
+                }
+                // Si es de un año posterior, incluir
+                return p.Anio > fechaInicio.Year;
+            }).ToList();
+            
+            Console.WriteLine($"[DEBUG] Publicaciones totales: {todasLasPublicaciones.Count}, Filtradas desde {fechaInicio:yyyy-MM-dd}: {filtradas.Count}");
+            foreach (var pub in todasLasPublicaciones)
+            {
+                bool incluida;
+                if (pub.Anio == fechaInicio.Year)
+                {
+                    incluida = DateTime.Now >= fechaInicio;
+                }
+                else
+                {
+                    incluida = pub.Anio > fechaInicio.Year;
+                }
+                Console.WriteLine($"[DEBUG] Publicación: {pub.Titulo}, Año: {pub.Anio}, Incluida: {(incluida ? "SÍ" : "NO")}");
+            }
+            return filtradas;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener publicaciones filtradas: {ex.Message}");
+            return new List<PublicacionAcademicaDto>();
+        }
+    }
+
+    public async Task<List<ProyectoInvestigacionDto>> ObtenerProyectosDesdeAsync(int docenteId, DateTime fechaInicio)
+    {
+        try
+        {
+            var todosLosProyectos = await ObtenerProyectosPorDocenteAsync(docenteId);
+            var filtrados = todosLosProyectos.Where(p => p.FechaInicio >= fechaInicio || p.FechaFin >= fechaInicio).ToList();
+            Console.WriteLine($"[DEBUG] Proyectos totales: {todosLosProyectos.Count}, Filtrados desde {fechaInicio:yyyy-MM-dd}: {filtrados.Count}");
+            foreach (var proj in todosLosProyectos)
+            {
+                var incluido = (proj.FechaInicio >= fechaInicio || proj.FechaFin >= fechaInicio) ? "SÍ" : "NO";
+                Console.WriteLine($"[DEBUG] Proyecto: {proj.Titulo}, Inicio: {proj.FechaInicio:yyyy-MM-dd}, Fin: {proj.FechaFin:yyyy-MM-dd}, Incluido: {incluido}");
+            }
+            return filtrados;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener proyectos filtrados: {ex.Message}");
+            return new List<ProyectoInvestigacionDto>();
+        }
+    }
+
+    public async Task<double> ObtenerPuntajeEvaluacionDesdeAsync(int docenteId, DateTime fechaInicio)
+    {
+        try
+        {
+            var todasLasEvaluaciones = await ObtenerEvaluacionesPorDocenteAsync(docenteId);
+            var evaluacionesFiltradas = todasLasEvaluaciones.Where(e => e.FechaEvaluacion >= fechaInicio).ToList();
+            
+            Console.WriteLine($"[DEBUG] Evaluaciones totales: {todasLasEvaluaciones.Count}, Filtradas desde {fechaInicio:yyyy-MM-dd}: {evaluacionesFiltradas.Count}");
+            foreach (var eval in todasLasEvaluaciones)
+            {
+                var incluida = eval.FechaEvaluacion >= fechaInicio ? "SÍ" : "NO";
+                Console.WriteLine($"[DEBUG] Evaluación: {eval.Periodo}, Fecha: {eval.FechaEvaluacion:yyyy-MM-dd}, Puntaje: {eval.Puntaje}, Incluida: {incluida}");
+            }
+            
+            if (evaluacionesFiltradas.Any())
+            {
+                var promedio = evaluacionesFiltradas.Average(e => e.Puntaje);
+                Console.WriteLine($"[DEBUG] Promedio calculado: {promedio}");
+                return promedio;
+            }
+            Console.WriteLine("[DEBUG] No hay evaluaciones válidas, retornando 0");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener puntaje de evaluación filtrado: {ex.Message}");
+            return 0;
+        }
+    }
 }
 
 // DTOs para promociones

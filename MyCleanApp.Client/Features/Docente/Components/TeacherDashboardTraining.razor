@@ -24,6 +24,7 @@
     private string searchTerm = string.Empty;
     private string selectedHoras = "";
     private string selectedAnio = "";
+    private DateTime? fechaInicioNivelActual;
     private IEnumerable<string> HorasDisponibles => cursos
         .Select(c => c.Horas.ToString())
         .Distinct()
@@ -49,23 +50,85 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var dashboard = await DocenteService.getCursosCapacitaciones();
-        if (dashboard != null)
-        {
-            cursos = dashboard?.Select(r => new CursoCapacitacionDto
-            {
-                Id = r.Id, // <-- Asegura que el Id se asigne correctamente
-                Nombre = r.Nombre,
-                Certificado = r.Certificado,
-                FechaFin = r.FechaFin,
-                Horas = r.Horas,
-                FechaInicio = r.FechaInicio,
-                DocenteId = r.DocenteId,
-                Externo = r.Externo // <-- AGREGADO
-            }).ToList() ?? new List<CursoCapacitacionDto>();
-
-        }
+        await CargarFechaInicioNivelActual();
+        await CargarCapacitaciones();
         isLoading = false;
+    }
+
+    private async Task CargarFechaInicioNivelActual()
+    {
+        try
+        {
+            var loginResponse = await DocenteService.GetLoginResponseAsync();
+            if (loginResponse?.usuario != null)
+            {
+                var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                if (docenteId.HasValue)
+                {
+                    fechaInicioNivelActual = await DocenteService.ObtenerFechaInicioNivelActualAsync(docenteId.Value);
+                    Console.WriteLine($"[CAPACITACIONES] Fecha inicio nivel actual: {fechaInicioNivelActual}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar fecha inicio nivel actual: {ex.Message}");
+        }
+    }
+
+    private async Task CargarCapacitaciones()
+    {
+        try
+        {
+            // Si tenemos fecha de inicio del nivel, filtrar las capacitaciones
+            if (fechaInicioNivelActual.HasValue)
+            {
+                var loginResponse = await DocenteService.GetLoginResponseAsync();
+                if (loginResponse?.usuario != null)
+                {
+                    var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                    if (docenteId.HasValue)
+                    {
+                        Console.WriteLine($"[CAPACITACIONES] Filtrando capacitaciones desde: {fechaInicioNivelActual.Value:yyyy-MM-dd}");
+                        
+                        var capacitacionesFiltradas = await DocenteService.ObtenerCapacitacionesDesdeAsync(docenteId.Value, fechaInicioNivelActual.Value);
+                        cursos = capacitacionesFiltradas;
+                        Console.WriteLine($"[CAPACITACIONES] Capacitaciones filtradas: {cursos.Count}");
+                        
+                        // Mostrar detalles de filtrado para debug
+                        foreach (var curso in cursos)
+                        {
+                            Console.WriteLine($"[CAPACITACIONES] Curso válido: {curso.Nombre}, Fin: {curso.FechaFin:yyyy-MM-dd}");
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Si no tenemos fecha de inicio, usar el método original
+                Console.WriteLine("[CAPACITACIONES] No hay fecha de inicio del nivel, cargando todas las capacitaciones");
+                var dashboard = await DocenteService.getCursosCapacitaciones();
+                if (dashboard != null)
+                {
+                    cursos = dashboard?.Select(r => new CursoCapacitacionDto
+                    {
+                        Id = r.Id,
+                        Nombre = r.Nombre,
+                        Certificado = r.Certificado,
+                        FechaFin = r.FechaFin,
+                        Horas = r.Horas,
+                        FechaInicio = r.FechaInicio,
+                        DocenteId = r.DocenteId,
+                        Externo = r.Externo
+                    }).ToList() ?? new List<CursoCapacitacionDto>();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar capacitaciones: {ex.Message}");
+            cursos = new List<CursoCapacitacionDto>();
+        }
     }
 
     private async Task ImportarCursosExternos()

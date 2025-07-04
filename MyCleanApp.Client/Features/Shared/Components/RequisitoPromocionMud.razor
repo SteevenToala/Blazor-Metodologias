@@ -107,10 +107,33 @@
     private RequisitoPromocionResponse? requisitosPromocion;
     private bool isLoading = true;
     private bool isSoliciting = false;
+    private DateTime? fechaInicioNivelActual;
 
     protected override async Task OnInitializedAsync()
     {
+        await CargarFechaInicioNivelActual();
         await CargarRequisitos();
+    }
+
+    private async Task CargarFechaInicioNivelActual()
+    {
+        try
+        {
+            var loginResponse = await DocenteService.GetLoginResponseAsync();
+            if (loginResponse?.usuario != null)
+            {
+                var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                if (docenteId.HasValue)
+                {
+                    fechaInicioNivelActual = await DocenteService.ObtenerFechaInicioNivelActualAsync(docenteId.Value);
+                    Console.WriteLine($"[REQUISITOS] Fecha inicio nivel actual: {fechaInicioNivelActual}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar fecha inicio nivel actual: {ex.Message}");
+        }
     }
 
     private async Task CargarRequisitos()
@@ -118,7 +141,150 @@
         isLoading = true;
         try
         {
-            requisitosPromocion = await DocenteService.ObtenerRequisitosPromocionAsync();
+            // Si tenemos fecha de inicio del nivel, calcular requisitos con datos filtrados
+            if (fechaInicioNivelActual.HasValue)
+            {
+                Console.WriteLine($"[REQUISITOS] Calculando requisitos desde fecha: {fechaInicioNivelActual.Value:yyyy-MM-dd}");
+                
+                var loginResponse = await DocenteService.GetLoginResponseAsync();
+                if (loginResponse?.usuario != null)
+                {
+                    var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                    if (docenteId.HasValue)
+                    {
+                        Console.WriteLine($"[REQUISITOS] Usuario ID: {loginResponse.usuario.Id}, Docente ID: {docenteId.Value}");
+                        // Obtener el nivel actual del docente para calcular requisitos del siguiente nivel
+                        var dashboardData = await DocenteService.getDataDashBoard();
+                        if (dashboardData != null)
+                        {
+                            var nivelActual = dashboardData.NivelAcademico;
+                            var nivelActualId = await DocenteService.ObtenerNivelAcademicoIdPorNombreAsync(nivelActual);
+                            
+                            if (nivelActualId.HasValue)
+                            {
+                                Console.WriteLine($"[REQUISITOS] Nivel actual: {nivelActual} (ID: {nivelActualId.Value})");
+                                
+                                // Calcular el próximo nivel
+                                var prefijo = nivelActual.Substring(0, nivelActual.Length - 1);
+                                var numero = int.TryParse(nivelActual.Substring(nivelActual.Length - 1), out var n) ? n : 1;
+                                var proximoNivel = numero < 5 ? $"{prefijo}{numero + 1}" : nivelActual;
+                                var proximoNivelId = await DocenteService.ObtenerNivelAcademicoIdPorNombreAsync(proximoNivel);
+                                
+                                Console.WriteLine($"[REQUISITOS] Próximo nivel: {proximoNivel} (ID: {proximoNivelId})");
+                                // Obtener requisitos del próximo nivel
+                                var requisitosNivel = await DocenteService.GetRequisitosPorNivelAsync(proximoNivelId.Value);
+                                var requirements = new List<RequisitoEvaluacion>();
+
+                                if (requisitosNivel != null && requisitosNivel.Any())
+                                {
+                                    Console.WriteLine($"[REQUISITOS] Calculando {requisitosNivel.Count} requisitos con datos filtrados desde {fechaInicioNivelActual.Value:yyyy-MM-dd}");
+
+                                    foreach (var requisito in requisitosNivel)
+                                    {
+                                        float valorActual = 0;
+
+                                        switch (requisito.TipoRequisitoNombre.ToLower())
+                                        {
+                                            case "investigaciones":
+                                            case "meses de investigación":
+                                            case "meses investigación":
+                                                var proyectosFiltrados = await DocenteService.ObtenerProyectosDesdeAsync(docenteId.Value, fechaInicioNivelActual.Value);
+                                                foreach (var proyecto in proyectosFiltrados)
+                                                {
+                                                    var meses = (proyecto.FechaFin.Year - proyecto.FechaInicio.Year) * 12 + (proyecto.FechaFin.Month - proyecto.FechaInicio.Month);
+                                                    valorActual += Math.Max(0, meses);
+                                                }
+                                                Console.WriteLine($"[REQUISITOS] Meses de investigación filtrados: {valorActual}");
+                                                break;
+
+                                            case "papers":
+                                            case "publicaciones":
+                                            case "publicaciones académicas":
+                                                var publicacionesFiltradas = await DocenteService.ObtenerPublicacionesDesdeAsync(docenteId.Value, fechaInicioNivelActual.Value);
+                                                valorActual = publicacionesFiltradas.Count;
+                                                Console.WriteLine($"[REQUISITOS] Publicaciones filtradas: {valorActual}");
+                                                break;
+
+                                            case "horas capacitación":
+                                            case "cursos capacitación":
+                                            case "cursos de capacitación":
+                                                var capacitacionesFiltradas = await DocenteService.ObtenerCapacitacionesDesdeAsync(docenteId.Value, fechaInicioNivelActual.Value);
+                                                valorActual = capacitacionesFiltradas.Sum(c => c.Horas);
+                                                Console.WriteLine($"[REQUISITOS] Horas de capacitación filtradas: {valorActual}");
+                                                break;
+
+                                            case "años en el rango":
+                                                var añosEnRango = (DateTime.Now - fechaInicioNivelActual.Value).TotalDays / 365.25;
+                                                valorActual = (float)Math.Max(0, añosEnRango);
+                                                Console.WriteLine($"[REQUISITOS] Años en el rango desde {fechaInicioNivelActual.Value:yyyy-MM-dd}: {valorActual}");
+                                                break;
+
+                                            case "puntaje evaluación":
+                                            case "puntaje docencia":
+                                                var puntajeEvaluacion = await DocenteService.ObtenerPuntajeEvaluacionDesdeAsync(docenteId.Value, fechaInicioNivelActual.Value);
+                                                valorActual = (float)puntajeEvaluacion;
+                                                Console.WriteLine($"[REQUISITOS] Puntaje evaluación filtrado: {valorActual}");
+                                                break;
+
+                                            default:
+                                                Console.WriteLine($"[REQUISITOS] Tipo de requisito no reconocido: {requisito.TipoRequisitoNombre}");
+                                                break;
+                                        }
+
+                                        var requirement = new RequisitoEvaluacion
+                                        {
+                                            TipoRequisito = requisito.TipoRequisitoNombre,
+                                            ValorRequerido = (float)requisito.ValorRequerido,
+                                            ValorActual = valorActual,
+                                            Cumple = valorActual >= (float)requisito.ValorRequerido,
+                                            Porcentaje = (float)requisito.ValorRequerido > 0 ? (valorActual * 100.0f / (float)requisito.ValorRequerido) : 0
+                                        };
+
+                                        requirements.Add(requirement);
+                                    }
+                                }
+                                
+                                // Crear la respuesta con los datos filtrados
+                                requisitosPromocion = new RequisitoPromocionResponse
+                                {
+                                    NivelActual = nivelActual,
+                                    ProximoNivel = proximoNivel,
+                                    Requisitos = requirements,
+                                    PuedePromoverse = requirements.All(r => r.Cumple),
+                                    ResumenCumplimiento = new ResumenCumplimiento
+                                    {
+                                        RequisitosCumplidos = requirements.Count(r => r.Cumple),
+                                        TotalRequisitos = requirements.Count,
+                                        PorcentajeGeneral = requirements.Count > 0 ? 
+                                            (requirements.Count(r => r.Cumple) * 100.0f / requirements.Count) : 0
+                                    }
+                                };
+                                
+                                Console.WriteLine($"[REQUISITOS] Requisitos calculados con datos filtrados: {requirements.Count}");
+                                Console.WriteLine($"[REQUISITOS] Puede promocionarse: {requisitosPromocion.PuedePromoverse}");
+                            }
+                            else
+                            {
+                                // Ya está en el nivel máximo
+                                requisitosPromocion = new RequisitoPromocionResponse
+                                {
+                                    NivelActual = nivelActual,
+                                    ProximoNivel = "N/A",
+                                    PuedePromoverse = false,
+                                    Requisitos = new List<RequisitoEvaluacion>(),
+                                    ResumenCumplimiento = new ResumenCumplimiento()
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Fallback al método original si no hay fecha de inicio
+                Console.WriteLine("[REQUISITOS] No hay fecha de inicio del nivel, usando método original");
+                requisitosPromocion = await DocenteService.ObtenerRequisitosPromocionAsync();
+            }
         }
         catch (Exception ex)
         {

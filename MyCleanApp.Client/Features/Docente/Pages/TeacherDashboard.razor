@@ -183,6 +183,7 @@ else
     private List<Requirement> requirements = new();
     private string nextLevel = string.Empty;
     private string selectedSection = "overview";
+    private DateTime? fechaInicioNivelActual;
 
     private List<(string id, string label, string icon)> SideMenu = new()
     {
@@ -196,23 +197,77 @@ else
     };
     private async Task RecargarPublicacionesAcademicas()
     {
-        var publicaciones = await DocenteService.getPublicacionesAcademicas();
-        if (publicaciones != null)
+        try
         {
-            publicacionesAcademicas = publicaciones.ToList();
-            StateHasChanged();
+            // Si tenemos fecha de inicio del nivel, usar publicaciones filtradas
+            if (fechaInicioNivelActual.HasValue && dashBoardDocente != null)
+            {
+                var loginResponse = await DocenteService.GetLoginResponseAsync();
+                if (loginResponse?.usuario != null)
+                {
+                    var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                    if (docenteId.HasValue)
+                    {
+                        Console.WriteLine($"[DASHBOARD] Cargando publicaciones filtradas desde: {fechaInicioNivelActual.Value:yyyy-MM-dd}");
+                        var publicacionesFiltradas = await DocenteService.ObtenerPublicacionesDesdeAsync(docenteId.Value, fechaInicioNivelActual.Value);
+                        publicacionesAcademicas = publicacionesFiltradas;
+                        Console.WriteLine($"[DASHBOARD] Publicaciones filtradas cargadas: {publicacionesAcademicas.Count}");
+                        StateHasChanged();
+                        return;
+                    }
+                }
+            }
+            
+            // Fallback al método original
+            var publicaciones = await DocenteService.getPublicacionesAcademicas();
+            if (publicaciones != null)
+            {
+                publicacionesAcademicas = publicaciones.ToList();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al recargar publicaciones: {ex.Message}");
         }
     }
 
     private async Task RecargarProyectosInvestigacion()
     {
-        var proyectos = await DocenteService.GetProyectosInvestigacionAsync();
-        if (proyectos != null)
+        try
         {
-            proyectosInvestigacion = proyectos;
-            // Recargar requisitos desde el backend para obtener el cálculo correcto
-            await CargarRequisitos();
-            StateHasChanged();
+            // Si tenemos fecha de inicio del nivel, usar proyectos filtrados
+            if (fechaInicioNivelActual.HasValue && dashBoardDocente != null)
+            {
+                var loginResponse = await DocenteService.GetLoginResponseAsync();
+                if (loginResponse?.usuario != null)
+                {
+                    var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                    if (docenteId.HasValue)
+                    {
+                        Console.WriteLine($"[DASHBOARD] Cargando proyectos filtrados desde: {fechaInicioNivelActual.Value:yyyy-MM-dd}");
+                        var proyectosFiltrados = await DocenteService.ObtenerProyectosDesdeAsync(docenteId.Value, fechaInicioNivelActual.Value);
+                        proyectosInvestigacion = proyectosFiltrados;
+                        Console.WriteLine($"[DASHBOARD] Proyectos filtrados cargados: {proyectosInvestigacion.Count}");
+                        await CargarRequisitos();
+                        StateHasChanged();
+                        return;
+                    }
+                }
+            }
+            
+            // Fallback al método original
+            var proyectos = await DocenteService.GetProyectosInvestigacionAsync();
+            if (proyectos != null)
+            {
+                proyectosInvestigacion = proyectos;
+                await CargarRequisitos();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al recargar proyectos: {ex.Message}");
         }
     }
 
@@ -292,23 +347,21 @@ else
         if (loginResponse != null && loginResponse.usuario != null)
         {
             var dashboard = await DocenteService.getDataDashBoard();
-            var publicaciones = await DocenteService.getPublicacionesAcademicas();
-            var proyectos = await DocenteService.GetProyectosInvestigacionAsync();
-            
-            // Cargar evaluaciones docentes
-            await RecargarEvaluacionesDocentes();
             
             if (dashboard != null)
             {
                 dashBoardDocente = dashboard;
-                if (publicaciones != null)
-                {
-                    publicacionesAcademicas = publicaciones.ToList();
-                }
-                if (proyectos != null)
-                {
-                    proyectosInvestigacion = proyectos;
-                }
+                
+                // Cargar la fecha de inicio del nivel actual PRIMERO
+                await CargarFechaInicioNivelActual();
+                
+                // Ahora cargar los datos filtrados por fecha
+                await RecargarPublicacionesAcademicas();
+                await RecargarProyectosInvestigacion();
+                
+                // Cargar evaluaciones docentes (ya filtradas por sus propios componentes)
+                await RecargarEvaluacionesDocentes();
+                
                 // Calcular el siguiente nivel para mostrar en la UI
                 var nivelActual = dashBoardDocente.NivelAcademico;
                 var prefijo = nivelActual.Substring(0, nivelActual.Length - 1);
@@ -373,6 +426,25 @@ else
     {
         selectedSection = id;
         StateHasChanged();
+    }
+    private async Task CargarFechaInicioNivelActual()
+    {
+        try
+        {
+            if (loginResponse?.usuario != null)
+            {
+                var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                if (docenteId.HasValue)
+                {
+                    fechaInicioNivelActual = await DocenteService.ObtenerFechaInicioNivelActualAsync(docenteId.Value);
+                    Console.WriteLine($"[DASHBOARD] Fecha inicio nivel actual cargada: {fechaInicioNivelActual}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar fecha inicio nivel actual: {ex.Message}");
+        }
     }
 
     private async void LogoutHandler()

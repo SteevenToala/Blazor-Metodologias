@@ -512,6 +512,7 @@
     private List<EvaluacionClienteType> EvaluacionesDocentes = new();
     private double PromedioEvaluaciones = 0;
     private bool isInitialized = false;
+    private DateTime? fechaInicioNivelActual;
     
     [Parameter]
     public EventCallback OnImportarCompletado { get; set; }
@@ -568,8 +569,30 @@
     
     protected override async Task OnInitializedAsync()
     {
+        await CargarFechaInicioNivelActual();
         await CargarEvaluaciones();
         await base.OnInitializedAsync();
+    }
+
+    private async Task CargarFechaInicioNivelActual()
+    {
+        try
+        {
+            var loginResponse = await DocenteService.GetLoginResponseAsync();
+            if (loginResponse?.usuario != null)
+            {
+                var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                if (docenteId.HasValue)
+                {
+                    fechaInicioNivelActual = await DocenteService.ObtenerFechaInicioNivelActualAsync(docenteId.Value);
+                    Console.WriteLine($"[EVALUACIONES] Fecha inicio nivel actual: {fechaInicioNivelActual}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar fecha inicio nivel actual: {ex.Message}");
+        }
     }
 
     private async Task CargarEvaluaciones()
@@ -579,31 +602,68 @@
             isLoading = true;
             StateHasChanged();
 
-            Console.WriteLine("Cargando evaluaciones docentes...");
+            Console.WriteLine("[EVALUACIONES] Cargando evaluaciones docentes...");
             
-            var evaluaciones = await DocenteService.getEvaluacionesDocentes();
-            if (evaluaciones != null && evaluaciones.Any())
+            // Si tenemos fecha de inicio del nivel, filtrar las evaluaciones
+            if (fechaInicioNivelActual.HasValue)
             {
-                // Convertir directamente desde el array del servicio
-                EvaluacionesDocentes = evaluaciones.ToList();
-                
-                Console.WriteLine($"Se cargaron {EvaluacionesDocentes.Count} evaluaciones");
-                // Debug: mostrar la primera fecha para verificar
-                if (EvaluacionesDocentes.Any())
+                var loginResponse = await DocenteService.GetLoginResponseAsync();
+                if (loginResponse?.usuario != null)
                 {
-                    var primerEval = EvaluacionesDocentes.First();
-                    Console.WriteLine($"Primera evaluación - Fecha: {primerEval.FechaEvaluacion:yyyy-MM-dd}, Tipo: {primerEval.TipoEvaluacion}");
+                    var docenteId = await DocenteService.ObtenerDocenteIdPorUsuarioId(loginResponse.usuario.Id);
+                    if (docenteId.HasValue)
+                    {
+                        Console.WriteLine($"[EVALUACIONES] Filtrando evaluaciones desde: {fechaInicioNivelActual.Value:yyyy-MM-dd}");
+                        
+                        // Obtener todas las evaluaciones
+                        var todasLasEvaluaciones = await DocenteService.getEvaluacionesDocentes();
+                        if (todasLasEvaluaciones != null)
+                        {
+                            // Filtrar solo las evaluaciones posteriores a la fecha de inicio del nivel
+                            var evaluacionesFiltradas = todasLasEvaluaciones
+                                .Where(e => e.FechaEvaluacion >= fechaInicioNivelActual.Value)
+                                .ToList();
+                            
+                            EvaluacionesDocentes = evaluacionesFiltradas;
+                            Console.WriteLine($"[EVALUACIONES] Evaluaciones totales: {todasLasEvaluaciones.Length}, Filtradas: {EvaluacionesDocentes.Count}");
+                            
+                            // Calcular promedio solo de las evaluaciones filtradas
+                            if (EvaluacionesDocentes.Any())
+                            {
+                                PromedioEvaluaciones = EvaluacionesDocentes.Average(e => e.Puntaje);
+                                Console.WriteLine($"[EVALUACIONES] Promedio calculado desde nivel actual: {PromedioEvaluaciones:F1}");
+                            }
+                            else
+                            {
+                                PromedioEvaluaciones = 0;
+                                Console.WriteLine("[EVALUACIONES] No hay evaluaciones desde el inicio del nivel actual");
+                            }
+                        }
+                        else
+                        {
+                            EvaluacionesDocentes = new List<EvaluacionClienteType>();
+                            PromedioEvaluaciones = 0;
+                        }
+                    }
                 }
             }
             else
             {
-                EvaluacionesDocentes = new List<EvaluacionClienteType>();
-                Console.WriteLine("No se encontraron evaluaciones");
+                // Si no tenemos fecha de inicio, usar el método original
+                Console.WriteLine("[EVALUACIONES] No hay fecha de inicio del nivel, cargando todas las evaluaciones");
+                var evaluaciones = await DocenteService.getEvaluacionesDocentes();
+                if (evaluaciones != null && evaluaciones.Any())
+                {
+                    EvaluacionesDocentes = evaluaciones.ToList();
+                    var promedio = await DocenteService.ObtenerPromedioEvaluacionesAsync();
+                    PromedioEvaluaciones = promedio;
+                }
+                else
+                {
+                    EvaluacionesDocentes = new List<EvaluacionClienteType>();
+                    PromedioEvaluaciones = 0;
+                }
             }
-
-            var promedio = await DocenteService.ObtenerPromedioEvaluacionesAsync();
-            PromedioEvaluaciones = promedio;
-            Console.WriteLine($"Promedio de evaluaciones: {PromedioEvaluaciones}");
 
             isInitialized = true;
         }
