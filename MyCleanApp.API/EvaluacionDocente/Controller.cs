@@ -35,7 +35,12 @@ public class EvaluacionDocenteController : ControllerBase
                     Puntaje = e.Puntaje,
                     NivelAcademico = e.Docente != null && e.Docente.NivelAcademico != null 
                         ? e.Docente.NivelAcademico.nombre ?? "Sin nivel"
-                        : "Sin nivel"
+                        : "Sin nivel",
+                    FechaEvaluacion = e.FechaEvaluacion,
+                    TipoEvaluacion = e.TipoEvaluacion,
+                    Observaciones = e.Observaciones,
+                    Certificado = e.Certificado,
+                    Externo = e.Externo
                 })
                 .ToListAsync();
 
@@ -72,7 +77,12 @@ public class EvaluacionDocenteController : ControllerBase
                     Puntaje = e.Puntaje,
                     NivelAcademico = e.Docente != null && e.Docente.NivelAcademico != null 
                         ? e.Docente.NivelAcademico.nombre ?? "Sin nivel"
-                        : "Sin nivel"
+                        : "Sin nivel",
+                    FechaEvaluacion = e.FechaEvaluacion,
+                    TipoEvaluacion = e.TipoEvaluacion,
+                    Observaciones = e.Observaciones,
+                    Certificado = e.Certificado,
+                    Externo = e.Externo
                 })
                 .ToListAsync();
 

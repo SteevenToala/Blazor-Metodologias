@@ -754,11 +754,14 @@
                                     <th style="border: 1px solid #ddd; padding: 8px;">Tipo</th>
                                     <th style="border: 1px solid #ddd; padding: 8px;">Fecha</th>
                                     <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Ver PDF</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var eval in evaluacionesDocente)
                                 {
+                                    var tieneCertificado = eval.Certificado != null && eval.Certificado.Length > 0;
+                                    var fechaValida = eval.FechaEvaluacion != DateTime.MinValue && eval.FechaEvaluacion.Year > 2000;
                                     <tr>
                                         <td style="border: 1px solid #ddd; padding: 8px;">@eval.Periodo</td>
                                         <td style="border: 1px solid #ddd; padding: 8px;">
@@ -767,11 +770,26 @@
                                             </span>
                                         </td>
                                         <td style="border: 1px solid #ddd; padding: 8px;">@eval.TipoEvaluacion</td>
-                                        <td style="border: 1px solid #ddd; padding: 8px;">@eval.FechaEvaluacion.ToString("dd/MM/yyyy")</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            @(fechaValida ? eval.FechaEvaluacion.ToString("dd/MM/yyyy") : "-")
+                                        </td>
                                         <td style="border: 1px solid #ddd; padding: 8px;">
                                             <span style="background-color: @(eval.Puntaje >= 75 ? "#4caf50" : "#f44336"); color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px;">
                                                 @(eval.Puntaje >= 75 ? "Cumple" : "No Cumple")
                                             </span>
+                                        </td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            @if (tieneCertificado)
+                                            {
+                                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                                           OnClick="@(() => VerPdf("EvaluacionDocente", eval.Id))">
+                                                    Ver PDF
+                                                </MudButton>
+                                            }
+                                            else
+                                            {
+                                                <span style="color: #aaa; font-size: 12px;">No disponible</span>
+                                            }
                                         </td>
                                     </tr>
                                 }
@@ -788,6 +806,7 @@
                                     <th style="border: 1px solid #ddd; padding: 8px;">Fecha Inicio</th>
                                     <th style="border: 1px solid #ddd; padding: 8px;">Fecha Fin</th>
                                     <th style="border: 1px solid #ddd; padding: 8px;">Externo</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Ver PDF</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -807,6 +826,15 @@
                                                 @(cap.Externo ? "Externo" : "Interno")
                                             </span>
                                         </td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            @if (cap.Certificado != null && cap.Certificado.Length > 0)
+                                            {
+                                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                                           OnClick="@(() => VerPdf("CursoCapacitacion", cap.Id))">
+                                                    Ver PDF
+                                                </MudButton>
+                                            }
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -825,6 +853,7 @@
                                     <th style="border: 1px solid #ddd; padding: 8px;">Año</th>
                                     <th style="border: 1px solid #ddd; padding: 8px;">Tipo</th>
                                     <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Ver PDF</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -844,6 +873,15 @@
                                                 Publicado
                                             </span>
                                         </td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            @if (pub.Archivo != null && pub.Archivo.Length > 0)
+                                            {
+                                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                                           OnClick="@(() => VerPdf("PublicacionAcademica", pub.Id))">
+                                                    Ver PDF
+                                                </MudButton>
+                                            }
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -858,6 +896,7 @@
                                     <th style="border: 1px solid #ddd; padding: 8px;">Período</th>
                                     <th style="border: 1px solid #ddd; padding: 8px;">Duración</th>
                                     <th style="border: 1px solid #ddd; padding: 8px;">Estado</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Ver PDF</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -879,6 +918,15 @@
                                                 @(proy.FechaFin > DateTime.Now ? "En curso" : "Completado")
                                             </span>
                                         </td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">
+                                            @if (proy.Documento != null && proy.Documento.Length > 0)
+                                            {
+                                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                                           OnClick="@(() => VerPdf("ProyectoInvestigacion", proy.Id))">
+                                                    Ver PDF
+                                                </MudButton>
+                                            }
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -899,6 +947,12 @@
                 </div>
             }
         </div>;
+    }
+
+    private void VerPdf(string tipo, int id)
+    {
+        var url = $"http://localhost:5015/api/{tipo}/archivo/{id}";
+        JS.InvokeVoidAsync("window.open", url, "_blank");
     }
 
     private async Task GuardarProgreso()
